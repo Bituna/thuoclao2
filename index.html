@@ -1,0 +1,3556 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý Thuốc Lao — BV Phổi Hải Phòng</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a2332;--accent:#2980b9;--accent2:#1a6fa0;
+  --success:#27ae60;--danger:#e74c3c;--warning:#f39c12;
+  --bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;
+  --text:#1a202c;--muted:#718096;
+}
+body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+
+/* ===== LOGIN SCREEN ===== */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1a2332 0%,#2c3e5a 100%);display:flex;align-items:center;justify-content:center;z-index:9000}
+.login-box{background:white;border-radius:16px;padding:40px 44px;width:400px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,0.35)}
+.login-logo{width:56px;height:56px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.login-logo svg{width:28px;height:28px;fill:white}
+.login-box h2{text-align:center;font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
+.login-box p{text-align:center;font-size:12px;color:var(--muted);margin-bottom:24px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.login-field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif;outline:none;transition:0.15s}
+.login-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(41,128,185,0.15)}
+.login-accounts{background:#f7fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px}
+.login-accounts p{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
+.login-acc-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:0.12s}
+.login-acc-item:hover{background:#e6f1fb}
+.login-acc-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:700;flex-shrink:0}
+.login-acc-info p{font-size:12px;font-weight:600;color:var(--text)}
+.login-acc-info span{font-size:11px;color:var(--muted)}
+.login-acc-badge{margin-left:auto;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+.btn-login{width:100%;padding:11px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Be Vietnam Pro',sans-serif;transition:0.15s;margin-top:4px}
+.btn-login:hover{background:var(--accent2)}
+#login-err{color:var(--danger);font-size:12px;text-align:center;margin-top:8px;display:none;font-weight:600}
+
+/* ===== APP ===== */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:230px;background:var(--primary);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-brand{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.sb-logo{width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.sb-logo svg{width:22px;height:22px;fill:white}
+.sb-brand h3{color:white;font-size:13px;font-weight:600;line-height:1.4}
+.sb-brand p{color:#8899aa;font-size:11px;margin-top:3px}
+.sb-sec{padding:14px 12px 4px;color:#55667a;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 12px;color:#a0b0c0;font-size:12px;cursor:pointer;border-radius:7px;margin:2px 8px;transition:all 0.15s;border:none;background:none;width:calc(100% - 16px);text-align:left}
+.sb-item:hover{background:rgba(255,255,255,0.07);color:#dde}
+.sb-item.active{background:var(--accent);color:white;font-weight:600}
+.sb-item svg{width:17px;height:17px;flex-shrink:0;opacity:0.85}
+.sb-item.active svg{opacity:1}
+.sb-footer{margin-top:auto;padding:10px 8px;border-top:1px solid rgba(255,255,255,0.08)}
+.sb-user{display:flex;align-items:center;gap:9px;padding:8px;border-radius:7px;cursor:pointer;margin-bottom:6px}
+.sb-user:hover{background:rgba(255,255,255,0.07)}
+.sb-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0}
+.sb-user-info p{color:white;font-size:12px;font-weight:600}
+.sb-user-info span{color:#8899aa;font-size:11px}
+.btn-logout{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:7px;color:#8899aa;font-size:12px;cursor:pointer;width:100%;transition:0.15s}
+.btn-logout:hover{background:rgba(255,255,255,0.1);color:white}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
+.page{display:none;flex-direction:column;flex:1;min-height:100%}
+.page.active{display:flex}
+.page-header{padding:20px 24px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.page-header h1{font-size:20px;font-weight:700;color:var(--text)}
+.page-header p{font-size:12px;color:var(--muted);margin-top:3px}
+.page-body{padding:18px 24px;flex:1}
+
+/* STAT CARDS */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;border-top:3px solid var(--border)}
+.stat-card.c-blue{border-top-color:var(--accent)}.stat-card.c-green{border-top-color:var(--success)}
+.stat-card.c-red{border-top-color:var(--danger)}.stat-card.c-amber{border-top-color:var(--warning)}
+.stat-card .lbl{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-card .val{font-size:26px;font-weight:700;color:var(--text)}
+.stat-card.c-green .val{color:var(--success)}.stat-card.c-red .val{color:var(--danger)}.stat-card.c-amber .val{color:var(--warning)}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.cards-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.card-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.card-title svg{width:16px;height:16px;flex-shrink:0}
+.list{list-style:none}
+.list li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)}
+.list li:last-child{border:none}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-g{background:var(--success)}.dot-r{background:var(--danger)}.dot-y{background:var(--warning)}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;margin-left:auto;white-space:nowrap}
+.badge-g{background:#d4edda;color:#155724}.badge-r{background:#f8d7da;color:#721c24}
+.badge-y{background:#fff3cd;color:#856404}.badge-b{background:#d1ecf1;color:#0c5460}
+.badge-p{background:#e8d5fb;color:#5b21b6}
+.dn{font-weight:600;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* FORM ELEMENTS */
+.filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:11px;color:var(--muted);font-weight:600}
+.fg select,.fg input[type=text],.fg input[type=number],.fg input[type=month],.fg input[type=date]{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:'Be Vietnam Pro',sans-serif;outline:none}
+.fg select:focus,.fg input:focus{border-color:var(--accent)}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;font-family:'Be Vietnam Pro',sans-serif;transition:0.15s}
+.btn:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:white}.btn-success{background:var(--success);color:white}
+.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-sm{padding:5px 10px;font-size:11px}.btn-xs{padding:3px 8px;font-size:11px}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#1a5276;color:white;padding:6px 8px;text-align:center;border:1px solid #244359;white-space:nowrap;font-weight:600;font-size:11px;vertical-align:middle}
+th.left{text-align:left;padding-left:10px}
+td{border:1px solid #edf2f7;padding:7px;text-align:center;color:var(--text);vertical-align:middle}
+td.left{text-align:left;font-weight:600;padding-left:10px}
+td.open-stock{background:#fffbeb;font-weight:700;color:#92400e}
+td.calc-cell{background:#eef7ff;font-weight:700;color:var(--accent2)}
+td.final-ok{font-weight:700;color:#1a6fa0;font-size:13px}
+td.final-low{font-weight:700;color:var(--danger);font-size:13px}
+tfoot td{background:#edf2f7;font-weight:700;border:1px solid #d0d8e4;color:var(--text)}
+td input[type=number]{width:54px;padding:4px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px;font-family:'Be Vietnam Pro',sans-serif;background:white}
+td input[type=number]:focus{border-color:var(--accent);outline:none;background:#f0f8ff}
+tr:hover td{background:#f4f8fe}
+tr:hover td.open-stock{background:#fef9e7}
+tr:hover td.calc-cell{background:#dceefb}
+tfoot tr:hover td{background:#edf2f7}
+
+/* TABS */
+.tabs-bar{display:flex;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab-btn{padding:11px 16px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;font-family:'Be Vietnam Pro',sans-serif;margin-bottom:-1px;transition:0.15s}
+.tab-btn:hover{color:var(--accent)}.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-pane{display:none;padding:18px 24px}.tab-pane.active{display:block}
+
+/* INPUT SECTION */
+.input-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
+.input-section-title{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.input-row-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+
+/* AUTOCOMPLETE */
+.acwrap{position:relative}
+.aclist{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--border);border-radius:6px;z-index:500;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:none}
+.aclist div{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8}
+.aclist div:hover{background:#e6f1fb;color:var(--accent2);font-weight:600}
+.aclist div:last-child{border:none}
+.freq-badge{font-size:10px;background:#e6f1fb;color:var(--accent2);padding:1px 5px;border-radius:4px;margin-left:6px}
+
+/* ADMIN ZONE */
+.admin-zone{border:2px dashed #e74c3c;border-radius:10px;padding:14px;background:#fff8f8;margin-bottom:16px}
+.admin-zone-title{font-size:12px;font-weight:700;color:#e74c3c;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+
+/* BVPH ZONE */
+.bvph-zone{border:2px solid #1a5276;border-radius:10px;padding:14px 14px 0;background:#f0f7ff;margin-bottom:18px}
+.bvph-zone-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bvph-zone-title{font-size:13px;font-weight:700;color:#1a5276;display:flex;align-items:center;gap:7px}
+.mismatch-box{border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px}
+.mismatch-box.warn{background:#fff3cd;border:1px solid #ffc107;color:#856404}
+.mismatch-box.ok{background:#d4edda;border:1px solid #27ae60;color:#155724}
+.mismatch-box svg{flex-shrink:0;margin-top:1px}
+
+/* SECTION HEADER */
+.tbl-hd-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.tbl-hd-bar h3{font-size:13px;font-weight:700;color:var(--text)}
+
+/* DELETE DROPDOWN */
+.del-dd{position:relative;display:inline-block}
+.del-dd-menu{position:absolute;top:calc(100%+4px);right:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);z-index:600;min-width:240px;display:none;overflow:hidden}
+.del-dd-menu.open{display:block}
+.del-dd-item{display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12px;cursor:pointer;color:var(--text);border-bottom:1px solid #f0f4f8;background:white;transition:0.12s}
+.del-dd-item:last-child{border:none}
+.del-dd-item:hover{background:#fff0f0}
+.del-dd-item.locked{color:#bbb;cursor:not-allowed}
+.del-dd-item.locked:hover{background:white}
+.del-dd-item svg{width:14px;height:14px;flex-shrink:0}
+
+/* STATS */
+.stat-bar-item{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px}
+.sbl{width:200px;flex-shrink:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbtrack{flex:1;background:#e8edf2;border-radius:4px;height:10px}
+.sbfill{height:10px;border-radius:4px;transition:width 0.4s ease}
+.sbval{width:50px;text-align:right;font-weight:700;color:var(--text)}
+.stats-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.ss-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.ss-card .lbl{font-size:11px;color:var(--muted);margin-bottom:4px}
+.ss-card .val{font-size:20px;font-weight:700;color:var(--text)}
+
+/* FOOTER */
+.footer-actions{display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+
+/* MODAL (for sub-modals) */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:12px;padding:24px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.modal .fg{margin-bottom:10px}
+.modal .fg input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:8px;color:white;font-size:13px;font-weight:600;z-index:9999;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.2);max-width:360px}
+
+/* ROLE LOCK */
+.role-lock{display:none}
+/* Modal role options */
+#role-options label:has(input:checked){border-color:var(--accent);background:#eef7ff;}
+#role-options label:hover{background:#f7fafc;}
+
+@media print{
+  .sidebar,.filter-bar,.footer-actions,.tabs-bar,.btn,.no-print,
+  .del-dd,.input-section,.admin-zone,.login-screen,
+  .tabs-nav,.modal-overlay{display:none!important}
+  .main{overflow:visible}
+  .app{display:block}
+  .page{display:block!important}
+  body{font-size:11px}
+
+  /* Mặc định ẩn cả 2 bảng */
+  #bvph-zone, #bc-zone, #tp-zone{display:none!important}
+
+  /* In đơn vị: chỉ hiện bảng đơn vị */
+  body.print-unit  #bc-zone{display:block!important}
+  body.print-unit  #bvph-zone{display:none!important}
+
+  /* In BVPH: chỉ hiện bảng BVPH */
+  body.print-bvph  #bvph-zone{display:block!important}
+  body.print-bvph  #bc-zone{display:none!important}
+
+  /* In toàn tỉnh: hiện cả 2 */
+  body.print-all   #bvph-zone{display:block!important}
+  body.print-all   #bc-zone{display:block!important}
+  body.print-all   #tp-zone{display:block!important}
+
+  /* Header in */
+  .print-header{display:block!important}
+}
+/* Ẩn print-header ngoài chế độ in */
+.print-header{display:none}
+em{font-style:normal!important}i{font-style:normal!important}
+/* Sticky header cho TẤT CẢ các bảng có scroll */
+  .tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:520px;position:relative}
+  .tbl-wrap thead th{position:sticky;top:0;z-index:12;background-color:inherit}
+  /* Hàng header thứ 2 (sub-header) phải sticky ở top của hàng thứ 2 */
+  .tbl-wrap thead tr:nth-child(2) th{top:28px}
+  /* Header color classes */
+  th.hdr-name,th.hdr-lot,th.hdr-exp,th.hdr-end{background:#0f3d6d!important;color:#fff!important}
+  th.hdr-open{background:#166534!important;color:#fff!important}
+  th.hdr-in{background:#1a6f3e!important;color:#fff!important;border-right:2px solid #0d4a2a!important}
+  th.hdr-in-sub{background:#d4edda!important;color:#145a32!important;border-color:#a3cfbb!important}
+  th.hdr-out{background:#7b1f1f!important;color:#fff!important;border-right:2px solid #4a0e0e!important}
+  th.hdr-out-sub{background:#f8d7da!important;color:#7b1f1f!important;border-color:#f1b0b7!important}
+  th.hdr-act{background:#0f3d6d!important;color:#fff!important;border-color:#224a73!important}
+  #bc-zone .tbl-wrap thead th:not([class*="hdr"]){background:#1a5276}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 3a1 1 0 110 2 1 1 0 010-2zm3 12H9v-1h2v-5H9v-1h4v6h2v1z"/></svg>
+    </div>
+    <h2>Hệ thống Quản lý Thuốc Lao</h2>
+    <p>BV Phổi Hải Phòng — Phòng Chỉ đạo tuyến</p>
+
+    <div class="login-field">
+      <label>Tên đăng nhập</label>
+      <input type="text" id="lu" placeholder="Nhập tên đăng nhập...">
+    </div>
+    <div class="login-field">
+      <label>Mật khẩu</label>
+      <input type="password" id="lp" placeholder="Nhập mật khẩu...">
+    </div>
+    <p id="login-err">Sai tên đăng nhập hoặc mật khẩu!</p>
+    <button class="btn-login" onclick="doLogin()">ĐĂNG NHẬP</button>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div class="app" id="app" style="display:none">
+
+<div class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 3a1 1 0 110 2 1 1 0 010-2zm3 12H9v-1h2v-5H9v-1h4v6h2v1z"/></svg></div>
+    <h3>Phòng Chỉ đạo tuyến</h3><p>BV Phổi Hải Phòng</p>
+  </div>
+  <div class="sb-sec">Chính</div>
+  <button class="sb-item active" onclick="nav('tq',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Tổng quan
+  </button>
+  <button class="sb-item" onclick="nav('thuoc',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>Danh sách thuốc
+  </button>
+  <div class="sb-sec">Báo cáo</div>
+  <button class="sb-item" onclick="nav('bc',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Báo cáo thuốc
+  </button>
+  <div class="sb-sec">Hệ thống</div>
+  <button class="sb-item" onclick="nav('tk',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Quản lý tài khoản
+  </button>
+  <button class="sb-item" onclick="nav('cd',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Cài đặt
+  </button>
+  <div class="sb-footer">
+    <div class="sb-user">
+      <div class="sb-avatar" id="sb-av" style="background:var(--accent)">QT</div>
+      <div class="sb-user-info"><p id="sb-name">—</p><span id="sb-role">—</span></div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Đăng xuất
+    </button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- TỔNG QUAN -->
+<div class="page active" id="page-tq">
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1>Tổng quan</h1>
+      <p id="tq-sub">TP. Hải Phòng</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ thống kê:</label>
+      <select id="tq-year" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
+        <option value="2025">2025</option>
+        <option value="2026" selected>2026</option>
+        <option value="2027">2027</option>
+      </select>
+      <select id="tq-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
+        <option value="__year__">Cả năm</option>
+        <option value="01">Tháng 1</option>
+        <option value="02">Tháng 2</option>
+        <option value="03">Tháng 3</option>
+        <option value="04">Tháng 4</option>
+        <option value="05" selected>Tháng 5</option>
+        <option value="06">Tháng 6</option>
+        <option value="07">Tháng 7</option>
+        <option value="08">Tháng 8</option>
+        <option value="09">Tháng 9</option>
+        <option value="10">Tháng 10</option>
+        <option value="11">Tháng 11</option>
+        <option value="12">Tháng 12</option>
+      </select>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="stat-row">
+      <div class="stat-card c-blue"><div class="lbl">Tổng đơn vị</div><div class="val">23</div><div class="sub">Đơn vị tham gia</div></div>
+      <div class="stat-card c-green"><div class="lbl">Đã nộp BC</div><div class="val" id="tq-da">—</div><div class="sub" id="tq-pct">—</div></div>
+      <div class="stat-card c-red"><div class="lbl">Chưa nộp</div><div class="val" id="tq-chua">—</div><div class="sub">Cần nhắc nhở</div></div>
+      <div class="stat-card c-amber"><div class="lbl">Cảnh báo tồn kho</div><div class="val" id="tq-low">—</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div>
+    </div>
+    <div class="stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
+      <div class="stat-card c-blue"><div class="lbl">Tổng tồn cuối kỳ (toàn TP)</div><div class="val" id="tq-tongton" style="font-size:22px">—</div><div class="sub">Đơn vị thuốc đang quản lý</div></div>
+      <div class="stat-card c-green"><div class="lbl">Tổng nhập trong kỳ</div><div class="val" id="tq-tongnhap" style="font-size:22px;color:var(--success)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
+      <div class="stat-card c-red"><div class="lbl">Tổng xuất trong kỳ</div><div class="val" id="tq-tongxuat" style="font-size:22px;color:var(--danger)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
+    </div>
+    <!-- Hàng 1: Chưa nộp (full width, nổi bật) -->
+    <div class="card" style="margin-bottom:14px;border-left:4px solid var(--danger)">
+      <div class="card-title" style="color:var(--danger);margin-bottom:10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Đơn vị chưa nộp báo cáo
+        <span id="tq-chua-count" style="margin-left:8px;background:#e74c3c;color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700"></span>
+      </div>
+      <div id="tq-chua-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+
+    <!-- Hàng 2: Đã nộp (full width) -->
+    <div class="card" style="margin-bottom:14px;border-left:4px solid var(--success)">
+      <div class="card-title" style="color:var(--success);margin-bottom:10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Đơn vị đã nộp báo cáo
+        <span id="tq-da-count" style="margin-left:8px;background:#27ae60;color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700"></span>
+      </div>
+      <div id="tq-da-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <div class="cards-row">
+      <div class="card">
+        <div class="card-title" style="color:var(--warning)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Thuốc dưới ngưỡng tồn kho
+        </div>
+        <ul class="list" id="tq-lowlist"></ul>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--danger)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Thuốc sắp hết hạn (&lt; 6 tháng)
+        </div>
+        <ul class="list" id="tq-explist"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DANH SÁCH THUỐC -->
+<div class="page" id="page-thuoc">
+  <div class="page-header"><h1>Danh sách thuốc</h1><p>Danh mục thuốc &amp; lô đang quản lý — Tổng hợp tồn kho 23 đơn vị</p></div>
+  <div class="page-body">
+    <!-- DANH MỤC THUỐC (chỉ Admin quản lý) -->
+    <div class="admin-zone" id="admin-zone" style="margin-bottom:16px">
+      <div class="admin-zone-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        Danh mục thuốc &amp; lô sản xuất — Chỉ Admin quản lý
+
+      </div>
+      <div id="catalog-form" style="margin-bottom:12px;padding:12px;background:#fff;border-radius:8px;border:1px solid #c8d5e3">
+        <div class="input-row-form" style="flex-wrap:wrap;gap:8px">
+          <div class="fg" id="cat-drug-wrap">
+            <label>Tên thuốc / Hàm lượng</label>
+            <!-- select được tạo động bởi fillCatDrugSelect() -->
+            <select id="cat-drug" style="width:230px" onchange="onCatDrugChange()">
+              <option value="">-- Chọn thuốc --</option>
+            </select>
+          </div>
+          <div class="fg" id="cat-drug-custom-wrap" style="display:none">
+            <label>Tên thuốc khác</label>
+            <input type="text" id="cat-drug-custom" placeholder="Gõ tên thuốc..." style="width:200px">
+          </div>
+          <div class="fg"><label>Số lô SX</label><input type="text" id="cat-lot" placeholder="VD: L2026-01" style="width:120px"></div>
+          <div class="fg">
+            <label>Hạn dùng (mm/yyyy)</label>
+            <input type="text" id="cat-exp" placeholder="07/2027" style="width:96px" maxlength="7">
+          </div>
+          <div class="fg"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
+          <div style="margin-top:auto"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
+        <table>
+          <thead>
+            <tr style="background:#155724">
+              <th class="left" style="min-width:190px;background:#155724;color:#fff">Tên thuốc / Hàm lượng</th>
+              <th style="background:#155724;color:#fff">Số lô SX</th>
+              <th style="background:#155724;color:#fff">Hạn dùng</th>
+              <th style="background:#155724;color:#fff">Tình trạng</th>
+              <th style="background:#155724;color:#fff">Tồn kho (toàn TP)</th>
+              <th style="background:#155724;color:#fff">Ghi chú</th>
+              <th class="no-print" style="background:#155724;color:#fff">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="catalog-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BẢNG TỔNG HỢP -->
+    <div class="tbl-hd-bar">
+      <h3>Bảng tổng hợp tồn kho — 23 đơn vị &nbsp;<span id="thuoc-month-label" style="font-size:12px;font-weight:400;color:var(--accent)"></span></h3>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="fg">
+          <label>Lọc theo tháng</label>
+          <input type="month" id="thuoc-month" value="2026-05" style="padding:6px 8px;font-size:12px"
+            oninput="renderDrugTable()" onchange="renderDrugTable()">
+        </div>
+        <div class="fg" style="margin-top:auto">
+          <button class="btn btn-outline btn-sm" title="Đồng bộ với kỳ báo cáo đang chọn"
+            onclick="syncDrugMonth()" style="font-size:11px;white-space:nowrap">⇄ Theo kỳ BC</button>
+        </div>
+        <div class="fg"><label>Tìm thuốc</label><input type="text" id="search-drug" placeholder="Gõ để lọc..." style="width:170px" oninput="filterDrugTable()"></div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr style="background:#1a5276">
+            <th class="left" style="min-width:170px;background:#1a5276;color:#fff">Tên thuốc / Hàm lượng</th>
+            <th style="background:#1a5276;color:#fff">Đơn vị</th>
+            <th style="background:#1a5276;color:#fff">Số lô</th>
+            <th style="background:#1a5276;color:#fff">Hạn dùng</th>
+            <th style="background:#1a5276;color:#fff">Tồn đầu kỳ</th>
+            <th style="background:#2ecc71;color:#fff">Tổng nhập</th>
+            <th style="background:#e74c3c;color:#fff">Tổng xuất</th>
+            <th style="background:#2980b9;color:#fff">Tồn cuối kỳ</th>
+            <th style="background:#1a5276;color:#fff">Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody id="thuoc-body"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="left" style="padding-left:10px">Tổng cộng</td>
+            <td id="dt-fo">0</td>
+            <td id="dt-tnhap" style="color:var(--success)">0</td>
+            <td id="dt-txuat" style="color:var(--danger)">0</td>
+            <td id="dt-ff" style="color:var(--accent)">0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- BÁO CÁO THUỐC -->
+<div class="page" id="page-bc">
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1>Báo cáo thuốc</h1>
+      <p>BV Phổi HP — báo cáo riêng | 22 đơn vị còn lại — tổng hợp chung</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ báo cáo:</label>
+      <select id="sel-year" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);cursor:pointer;width:90px" onchange="onYearChange()">
+        <option value="2025">2025</option>
+        <option value="2026" selected>2026</option>
+        <option value="2027">2027</option>
+      </select>
+      <select id="sel-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);cursor:pointer;width:130px" onchange="onGlobalMonthChange()">
+        <option value="__year__">Cả năm</option>
+        <option value="01">Tháng 1</option>
+        <option value="02">Tháng 2</option>
+        <option value="03">Tháng 3</option>
+        <option value="04">Tháng 4</option>
+        <option value="05" selected>Tháng 5</option>
+        <option value="06">Tháng 6</option>
+        <option value="07">Tháng 7</option>
+        <option value="08">Tháng 8</option>
+        <option value="09">Tháng 9</option>
+        <option value="10">Tháng 10</option>
+        <option value="11">Tháng 11</option>
+        <option value="12">Tháng 12</option>
+      </select>
+      <span id="bc-period-label" style="font-size:11px;color:var(--muted)">Tháng 5/2026</span>
+    </div>
+  </div>
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('nhap',this)">Nhập số liệu</button>
+    <button class="tab-btn" onclick="switchTab('thongke',this)">Thống kê</button>
+  </div>
+
+  <div class="tab-pane active" id="tab-nhap">
+    <!-- HEADER IN (chỉ hiện khi print) -->
+    <div class="print-header" style="text-align:center;margin-bottom:16px;border-bottom:2px solid #333;padding-bottom:10px">
+      <h2 style="font-size:16px;font-weight:700" id="print-main-title">BÁO CÁO THUỐC LAO HÀNG 2</h2>
+      <div id="print-sub-title" style="font-size:13px;margin-top:4px"></div>
+      <div id="print-period-label" style="font-size:12px;color:#555;margin-top:3px"></div>
+    </div>
+
+
+    <!-- BANNER TRẠNG THÁI KHÓA -->
+    <div id="report-locked-banner" style="display:none;align-items:center;gap:10px;background:#fff3cd;border:1.5px solid #ffc107;border-radius:8px;padding:10px 16px;margin:0 24px 14px;font-size:12px;font-weight:600;color:#856404">
+      <span id="report-locked-msg">🔒 Báo cáo đã được lưu.</span>
+      <button class="btn btn-xs" style="margin-left:auto;background:#e67e22;color:white;white-space:nowrap" onclick="openReport()">🔓 Mở lại để sửa</button>
+    </div>
+
+    <!-- BẢNG TỔNG TOÀN THÀNH PHỐ - ĐẶT LÊN ĐẦU -->
+    <div id="tp-zone" style="margin-bottom:18px">
+      <!-- NOTE: Bảng tổng TP tự tổng hợp, không nhập tay -->
+      <input type="hidden" id="tp-month" value="2026-05">
+
+      <!-- BẢNG TỔNG HỢP TP -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 style="font-size:14px;font-weight:700;color:#6c3483">
+          🏙 Tổng toàn thành phố — Kho chính + 22 đơn vị tuyến
+        </h3>
+        <button class="btn btn-xs no-print" style="background:#6c3483;color:white" onclick="renderTP()">⟳ Cập nhật</button>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
+        <table>
+          <thead>
+            <tr>
+              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2">Số lô</th>
+              <th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="hdr-open" rowspan="2">Tồn đầu</th>
+              <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
+              <th class="hdr-out" colspan="4">Xuất trong kỳ</th>
+              <th class="hdr-end" rowspan="2">Tồn cuối</th>
+              <th class="hdr-act no-print" rowspan="2">Thao tác</th>
+            </tr>
+            <tr>
+              <th class="hdr-in-sub" title="Nhập từ Trung ương">Nhập TW</th>
+              <th class="hdr-in-sub" title="Nhập tỉnh khác">Nhập tỉnh khác</th>
+              <th class="hdr-in-sub">Tổng nhập</th>
+              <th class="hdr-out-sub" title="Sử dụng: BVPH + 22 đơn vị (tự động)">SD (BVPH+22ĐV)</th>
+              <th class="hdr-out-sub" title="Xuất tỉnh khác — chỉ từ Kho chính BVPH (tự động)">Tỉnh khác</th>
+              <th class="hdr-out-sub" title="Hỏng/Hết hạn — chỉ từ Kho chính BVPH (tự động)">Hỏng/HH</th>
+              <th class="hdr-out-sub">Tổng xuất</th>
+            </tr>
+          </thead>
+          <tbody id="tp-body"></tbody>
+        </table>
+      </div>
+    </div><!-- /tp-zone -->
+
+    <!-- FORM NHẬP BV PHỔI HẢI PHÒNG -->
+    <div class="input-section" id="form-bvph" style="border-color:#1a5276;background:#f0f7ff;padding:12px 14px">
+      <div class="input-section-title" style="color:#1a5276;margin-bottom:10px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Thêm dòng — Kho chính BV Phổi HP
+        <span id="bvph-drug-hint" style="font-size:10px;color:var(--accent);font-weight:400;margin-left:6px">(Admin: thêm tên thuốc mới tại Danh sách thuốc)</span>
+      </div>
+      <input type="hidden" id="bvph-month" value="2026-05">
+      <!-- Hàng 1: Định danh — tất cả ngang hàng -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
+        <div class="fg">
+          <label>Tên thuốc</label>
+          <select id="bvph-drug" style="width:195px" onchange="onBVPHDrugChange()">
+            <option value="">-- Chọn thuốc --</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Số lô</label>
+          <select id="bvph-lot-sel" style="width:190px">
+            <option value="">-- Chọn lô --</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Hạn dùng (tự động)</label>
+          <input type="text" id="bvph-exp" placeholder="tự điền" style="width:88px;background:#eef7ff" readonly>
+        </div>
+        <div class="fg">
+          <label>Tồn đầu</label>
+          <input type="number" id="bvph-open" placeholder="0" min="0" style="width:68px">
+        </div>
+      </div>
+      <!-- Hàng 2: Nhập/Xuất + nút -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+        <div style="background:#e8f5e9;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:#1a5276;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nhập trong kỳ</div>
+          <div style="display:flex;gap:6px">
+            <div class="fg"><label>Tỉnh cấp</label><input type="number" id="bvph-tinh" placeholder="0" min="0" style="width:64px"></div>
+            <div class="fg"><label>Điều chuyển</label><input type="number" id="bvph-dc" placeholder="0" min="0" style="width:64px"></div>
+          </div>
+        </div>
+        <div style="background:#fff3f3;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
+          <div style="display:flex;gap:6px">
+            <div class="fg"><label>Sử dụng</label><input type="number" id="bvph-sd" placeholder="0" min="0" style="width:60px"></div>
+            <div class="fg"><label>Xuất Tổ CL</label><input type="number" id="bvph-dc2" placeholder="0" min="0" style="width:60px"></div>
+            <div class="fg"><label>Tỉnh khác</label><input type="number" id="bvph-dc3" placeholder="0" min="0" style="width:60px"></div>
+            <div class="fg"><label>Hỏng/HH</label><input type="number" id="bvph-hh" placeholder="0" min="0" style="width:60px"></div>
+          </div>
+        </div>
+        <div style="align-self:flex-end">
+          <button class="btn btn-primary" style="background:#1a5276" onclick="addBVPHRow()">+ Thêm dòng</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bvph-zone">
+    <!-- BVPH BẢNG RIÊNG -->
+    <div class="bvph-zone">
+      <div class="bvph-zone-hd">
+        <div class="bvph-zone-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Kho chính Bệnh viện Phổi Hải Phòng — Báo cáo riêng
+        </div>
+        <div class="del-dd no-print">
+          <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger);background:white" onclick="toggleDel('bvph',event)">🗑 Xóa dữ liệu ▾</button>
+          <div class="del-dd-menu" id="del-bvph">
+            <div class="del-dd-item" onclick="clearRows('bvph')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              Xóa toàn bộ thuốc trong bảng
+            </div>
+            <div class="del-dd-item" id="del-bvph-all" onclick="clearAll('bvph')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Xóa tất cả dữ liệu (Admin)</span>
+              <span id="lock-bvph" style="margin-left:auto">🔒</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CẢNH BÁO KHỚP SỐ LIỆU -->
+      <div id="bvph-mismatch"></div>
+
+      <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
+        <table>
+          <thead>
+            <tr>
+              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2">Số lô</th><th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="hdr-open" rowspan="2">Tồn đầu</th>
+              <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
+              <th class="hdr-out" colspan="5">Xuất trong kỳ</th>
+              <th class="hdr-end" rowspan="2">Tồn cuối</th>
+              <th class="hdr-act no-print" rowspan="2">Thao tác</th>
+            </tr>
+            <tr>
+              <th class="hdr-in-sub">Tỉnh cấp</th><th class="hdr-in-sub">Điều chuyển</th><th class="hdr-in-sub">Tổng nhập</th>
+              <th class="hdr-out-sub">Sử dụng</th><th class="hdr-out-sub" title="Nhập tay">Xuất Tổ CL</th><th class="hdr-out-sub">Xuất tỉnh khác</th><th class="hdr-out-sub">Hỏng/HH</th><th class="hdr-out-sub">Tổng xuất</th>
+            </tr>
+          </thead>
+          <tbody id="bvph-body"></tbody>
+
+        </table>
+      </div>
+    </div>
+
+    <!-- FORM NHẬP CÁC ĐƠN VỊ TUYẾN -->
+    <div class="input-section" id="form-donvi" style="padding:12px 14px">
+      <div class="input-section-title" style="margin-bottom:10px">+ Thêm dòng — Đơn vị tuyến</div>
+      <input type="hidden" id="bc-month" value="2026-05">
+      <!-- Hàng 1: Định danh — tất cả ngang hàng -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
+        <div class="fg">
+          <label>Đơn vị</label>
+          <select id="bc-unit" style="width:180px" onchange="onUnitChange()"><option value="">-- Chọn đơn vị --</option></select>
+        </div>
+        <div class="fg">
+          <label>Tên thuốc</label>
+          <select id="bc-drug" style="width:195px" onchange="onBCDrugChange()">
+            <option value="">-- Chọn thuốc --</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Số lô</label>
+          <select id="bc-lot-sel" style="width:190px">
+            <option value="">-- Chọn lô --</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Hạn dùng (tự động)</label>
+          <input type="text" id="bc-exp" placeholder="tự điền" style="width:88px;background:#eef7ff" readonly>
+        </div>
+        <div class="fg">
+          <label>Tồn đầu</label>
+          <input type="number" id="bc-open" placeholder="0" min="0" style="width:68px">
+        </div>
+      </div>
+      <!-- Hàng 2: Nhập/Xuất + nút -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+        <div style="background:#e8f5e9;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:#1a5276;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nhập trong kỳ</div>
+          <div style="display:flex;gap:6px">
+            <div class="fg"><label>Tỉnh cấp</label><input type="number" id="bc-tinh" placeholder="0" min="0" style="width:64px"></div>
+            <div class="fg"><label>Điều chuyển</label><input type="number" id="bc-dc" placeholder="0" min="0" style="width:64px"></div>
+          </div>
+        </div>
+        <div style="background:#fff3f3;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
+          <div style="display:flex;gap:6px">
+            <div class="fg"><label>Sử dụng</label><input type="number" id="bc-sd" placeholder="0" min="0" style="width:64px"></div>
+            <div class="fg"><label>Điều chuyển</label><input type="number" id="bc-dc2" placeholder="0" min="0" style="width:64px"></div>
+            <div class="fg"><label>Hỏng/HH</label><input type="number" id="bc-hh" placeholder="0" min="0" style="width:64px"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-self:flex-end">
+          <button class="btn btn-primary" onclick="addBcRow()">+ Thêm dòng</button>
+          <button class="btn" onclick="addNoUsageRow()"
+            style="background:#e74c3c;color:#fff;font-size:11px;padding:7px 12px;white-space:nowrap"
+            title="Đơn vị không sử dụng thuốc trong kỳ này — tất cả số liệu = 0">
+            📋 Không sử dụng thuốc kỳ này
+          </button>
+        </div>
+      </div>
+    </div>
+    </div><!-- /bvph-zone -->
+
+    <div id="bc-zone">
+      <div class="filter-bar" style="margin-bottom:10px">
+        <div class="fg">
+          <label>Xem báo cáo đơn vị</label>
+          <select id="filter-unit-bc" style="width:240px" onchange="renderBC()">
+            <option value="__all__">Tổng hợp tất cả đơn vị</option>
+          </select>
+        </div>
+        <input type="hidden" id="filter-month-bc" value="2026-05">
+        <div class="fg" style="justify-content:flex-end;margin-top:auto">
+          <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+      </div>
+      <div class="tbl-hd-bar">
+        <h3 id="bc-table-title">Báo cáo tổng hợp — 22 đơn vị tuyến</h3>
+        <div class="del-dd no-print">
+          <button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger);background:white" onclick="toggleDel('other',event)">🗑 Xóa dữ liệu ▾</button>
+          <div class="del-dd-menu" id="del-other">
+            <div class="del-dd-item" onclick="clearRows('other')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              Xóa toàn bộ thuốc trong bảng
+            </div>
+            <div class="del-dd-item" id="del-other-all" onclick="clearAll('other')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Xóa tất cả dữ liệu (Admin)</span>
+              <span id="lock-other" style="margin-left:auto">🔒</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="max-height:420px;overflow-y:auto;position:relative">
+        <table style="border-collapse:collapse;width:100%">
+          <thead>
+            <tr>
+              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2">Số lô</th>
+              <th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="hdr-open" rowspan="2">Tồn đầu</th>
+              <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
+              <th class="hdr-out" colspan="4">Xuất trong kỳ</th>
+              <th class="hdr-end" rowspan="2">Tồn cuối</th>
+              <th class="hdr-act no-print" rowspan="2">Thao tác</th>
+            </tr>
+            <tr>
+              <th class="hdr-in-sub">Tỉnh cấp</th>
+              <th class="hdr-in-sub">Điều chuyển</th>
+              <th class="hdr-in-sub">Tổng nhập</th>
+              <th class="hdr-out-sub">Sử dụng</th>
+              <th class="hdr-out-sub">Xuất ĐC</th>
+              <th class="hdr-out-sub">Hỏng/HH</th>
+              <th class="hdr-out-sub">Tổng xuất</th>
+            </tr>
+          </thead>
+          <tbody id="bc-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div class="footer-actions no-print">
+      <button class="btn btn-outline" onclick="openPrintModal()">🖨 In báo cáo</button>
+      <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt Kho chính</button>
+      <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt 22 ĐV</button>
+      <button class="btn" style="background:#6f42c1;color:white" onclick="saveToFile()" title="Lưu dữ liệu ra file .json trên máy tính">💾 Lưu ra file</button>
+      <button class="btn btn-outline" onclick="loadFromFile()" title="Mở file dữ liệu .json từ máy tính">📂 Mở file</button>
+      <button class="btn btn-primary" id="btn-save-bc" onclick="saveBC()">💾 Lưu báo cáo</button>
+      <button class="btn" id="btn-open-bc" onclick="openReport()" style="display:none;background:#e67e22;color:white">🔓 Mở lại để sửa</button>
+    </div>
+  </div>
+
+  <!-- TAB THỐNG KÊ -->
+  <div class="tab-pane" id="tab-thongke">
+    <div class="filter-bar">
+      <div class="fg">
+        <label>Chiều thống kê</label>
+        <select id="view-by" onchange="onFilterChange()">
+          <option value="drug-by-unit">Chọn thuốc → Tồn cuối từng đơn vị</option>
+          <option value="unit-by-drug">Chọn đơn vị → Tồn cuối từng thuốc</option>
+          <option value="all-drugs-final">Tất cả thuốc — Tồn cuối kỳ</option>
+          <option value="all-drugs-in">Tất cả thuốc — Tổng nhập kỳ</option>
+          <option value="all-drugs-out">Tất cả thuốc — Tổng xuất kỳ</option>
+          <option value="all-units">Tất cả đơn vị — Tổng xuất kỳ</option>
+        </select>
+      </div>
+      <div class="fg" id="fw-drug">
+        <label>Chọn thuốc</label>
+        <select id="sel-drug" style="width:220px"></select>
+      </div>
+      <div class="fg" id="fw-unit" style="display:none">
+        <label>Chọn đơn vị</label>
+        <select id="sel-unit-stat" style="width:230px"></select>
+      </div>
+      <div class="fg"><label>Nguồn dữ liệu</label>
+        <select id="sel-source">
+          <option value="all">Tất cả (BVPHP + 22 ĐV)</option>
+          <option value="bvph">Chỉ BV Phổi HP</option>
+          <option value="other">Chỉ 22 đơn vị tuyến</option>
+        </select>
+      </div>
+      <div style="margin-top:auto"><button class="btn btn-primary" onclick="renderStats()">Xem thống kê</button></div>
+    </div>
+    <div id="stats-area"></div>
+  </div>
+</div>
+
+<!-- TÀI KHOẢN -->
+<div class="page" id="page-tk">
+  <div class="page-header" style="background:linear-gradient(135deg,#1a2332 0%,#2c3e5a 100%);border-bottom:none">
+    <h1 style="color:#fff">Quản lý tài khoản</h1>
+    <p style="color:#8899aa">Danh sách người dùng hệ thống — chỉ Admin mới chỉnh sửa được</p>
+  </div>
+  <div class="page-body">
+    <!-- Thống kê nhanh -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+      <div style="background:linear-gradient(135deg,#e74c3c,#c0392b);border-radius:10px;padding:14px 18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🔑</div>
+        <div>
+          <div style="font-size:11px;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Quản trị viên</div>
+          <div id="acc-count-admin" style="font-size:22px;font-weight:700">—</div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#2980b9,#1a5276);border-radius:10px;padding:14px 18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🏥</div>
+        <div>
+          <div style="font-size:11px;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Nhập liệu BVPH</div>
+          <div id="acc-count-bvph" style="font-size:22px;font-weight:700">—</div>
+        </div>
+      </div>
+      <div style="background:linear-gradient(135deg,#27ae60,#1e8449);border-radius:10px;padding:14px 18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🏨</div>
+        <div>
+          <div style="font-size:11px;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Nhập liệu đơn vị</div>
+          <div id="acc-count-donvi" style="font-size:22px;font-weight:700">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap" style="border-radius:12px;overflow:hidden;border:none;box-shadow:0 2px 12px rgba(0,0,0,0.10)">
+      <table style="border-collapse:collapse;width:100%">
+        <thead>
+          <tr>
+            <th class="left" style="background:#1a2332;color:#fff;padding:11px 14px;font-size:12px;font-weight:700;letter-spacing:.3px;border:none;min-width:160px">Họ tên</th>
+            <th style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Tên đăng nhập</th>
+            <th style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Mật khẩu</th>
+            <th style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Đơn vị</th>
+            <th style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Vai trò</th>
+            <th style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Trạng thái</th>
+            <th class="no-print" style="background:#1a2332;color:#fff;padding:11px 10px;font-size:12px;font-weight:700;border:none">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="accounts-body"></tbody>
+      </table>
+    </div>
+    <div id="add-account-btn" style="margin-top:14px;display:none">
+      <button class="btn btn-primary" onclick="openAddAccount()" style="background:linear-gradient(135deg,#2980b9,#1a5276);padding:9px 20px">
+        ＋ Thêm tài khoản mới
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CÀI ĐẶT -->
+<div class="page" id="page-cd">
+  <div class="page-header"><h1>Cài đặt</h1><p>Cấu hình hệ thống</p></div>
+  <div class="page-body">
+    <div class="card" style="max-width:480px;margin-bottom:14px">
+      <div class="card-title" style="color:var(--text)">Thông tin đơn vị</div>
+      <div class="fg" style="margin-bottom:10px"><label>Tên đơn vị</label><input type="text" value="Bệnh viện Phổi Hải Phòng" style="width:100%"></div>
+      <div class="fg" style="margin-bottom:10px"><label>Địa chỉ</label><input type="text" value="TP. Hải Phòng" style="width:100%"></div>
+      <div class="fg" style="margin-bottom:12px"><label>Điện thoại</label><input type="text" value="0225 123 456" style="width:100%"></div>
+      <button class="btn btn-primary btn-sm">Lưu thông tin</button>
+    </div>
+    <div class="card" style="max-width:480px">
+      <div class="card-title" style="color:var(--text)">Ngưỡng cảnh báo</div>
+      <div class="fg" style="margin-bottom:10px"><label>Tồn kho thấp (viên) — hiện: <strong id="cur-low">200</strong></label><input type="number" id="threshold-low" value="200" style="width:130px"></div>
+      <div class="fg" style="margin-bottom:12px"><label>Hạn dùng sắp hết (tháng) — hiện: <strong id="cur-exp">6</strong></label><input type="number" id="threshold-exp" value="6" style="width:130px"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">Lưu cài đặt</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- main -->
+</div><!-- app -->
+
+<!-- MODAL THÊM TÀI KHOẢN -->
+<div class="modal-overlay" id="modal-acc">
+  <div class="modal">
+    <h3>Thêm tài khoản mới</h3>
+    <div class="fg"><label>Họ tên</label><input type="text" id="acc-name"></div>
+    <div class="fg"><label>Tên đăng nhập</label><input type="text" id="acc-user"></div>
+    <div class="fg"><label>Mật khẩu</label><input type="password" id="acc-pass"></div>
+    <div class="fg"><label>Đơn vị</label><select id="acc-unit" style="width:100%"></select></div>
+    <div class="fg"><label>Vai trò</label>
+      <select id="acc-role" style="width:100%">
+        <option value="donvi">Nhập liệu đơn vị</option>
+        <option value="bvph">Nhập liệu BVPHP</option>
+        <option value="admin">Quản trị viên</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-acc')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveNewAccount()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ĐỔI QUYỀN TÀI KHOẢN -->
+<div class="modal-overlay" id="modal-role">
+  <div class="modal" style="width:360px">
+    <h3 style="font-size:14px;margin-bottom:10px">⚙ Phân quyền tài khoản</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 10px;background:#f7fafc;border-radius:6px">
+      <strong id="role-acc-name">—</strong> &nbsp;·&nbsp; <span id="role-acc-user" style="font-family:monospace">—</span>
+    </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label style="margin-bottom:6px;display:block">Quyền truy cập</label>
+      <select id="role-select" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif;background:var(--surface)">
+        <option value="admin">🔑 Quản trị viên — toàn quyền</option>
+        <option value="bvph">🏥 Nhập liệu BV Phổi HP</option>
+        <option value="donvi">🏨 Nhập liệu đơn vị tuyến</option>
+      </select>
+      <div id="role-desc" style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 8px;background:#f0f4f8;border-radius:5px"></div>
+    </div>
+    <div class="fg" style="margin-bottom:14px">
+      <label style="margin-bottom:6px;display:block">Đổi mật khẩu <span style="font-size:10px;color:var(--muted)">(bỏ trống = giữ nguyên)</span></label>
+      <input type="password" id="role-new-pass" placeholder="Mật khẩu mới..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-role')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveRole()">Lưu quyền</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IN BÁO CÁO -->
+<div class="modal-overlay" id="modal-print">
+  <div class="modal" style="width:400px">
+    <h3 style="font-size:15px;margin-bottom:14px">🖨 Chọn nội dung in</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <label id="print-opt-unit" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+        <input type="radio" name="print-choice" value="unit" style="margin-top:2px;flex-shrink:0" checked>
+        <div>
+          <div style="font-weight:600;font-size:13px">Đơn vị đang xem</div>
+          <div id="print-unit-label" style="font-size:11px;color:var(--muted);margin-top:2px">Báo cáo của đơn vị đang được lọc</div>
+        </div>
+      </label>
+      <label id="print-opt-bvph" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+        <input type="radio" name="print-choice" value="bvph" style="margin-top:2px;flex-shrink:0">
+        <div>
+          <div style="font-weight:600;font-size:13px">Kho chính BV Phổi Hải Phòng</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Bảng báo cáo riêng của Kho chính BVPHP</div>
+        </div>
+      </label>
+      <label id="print-opt-all" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+        <input type="radio" name="print-choice" value="all" style="margin-top:2px;flex-shrink:0">
+        <div>
+          <div style="font-weight:600;font-size:13px">Toàn tỉnh</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Cả BVPHP + 22 đơn vị tuyến</div>
+        </div>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-print')">Hủy</button>
+      <button class="btn btn-primary" onclick="doPrint()">🖨 In ngay</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+var DRUGS=[
+  "Levofloxacin 250mg","Levofloxacin 500mg","Moxifloxacin 400mg",
+  "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g",
+  "Cycloserine 250mg","Prothionamide 250mg","Para-aminosalicylic acid 4g",
+  "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg",
+  "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg"
+];
+
+var BVPH="Bệnh viện Phổi Hải Phòng";
+
+var UNITS=["Bệnh viện Phổi Hải Phòng","Kho lẻ Bệnh viện Phổi Hải Phòng","Trung tâm Y tế Hồng Bàng","Trung tâm Y tế Lê Chân","Trung tâm Y tế Ngô Quyền","Trung tâm Y tế Kiến An","Trung tâm Y tế Đồ Sơn","Trung tâm Y tế Tiên Lãng","Trung tâm Y tế Vĩnh Bảo","Trung tâm Y tế Cát Hải","Trung tâm Y tế Hải An","Trung tâm Y tế An Lão","Trung tâm Y tế Kiến Thụy","Trung tâm Y tế Thủy Nguyên","Trung tâm Y tế An Dương","Trung tâm Y tế Dương Kinh","Cơ sở cai nghiện số 1","Cơ sở cai nghiện số 2","Trại giam Xuân Nguyên","PK 33 Lê Đại Hành","Bệnh viện Đại học Y Hải Phòng","Bệnh viện Đa khoa Đôn Lương","Trung tâm Y tế Bạch Long Vỹ"];
+
+var SUBMITTED=["Bệnh viện Phổi Hải Phòng","Kho lẻ Bệnh viện Phổi Hải Phòng","Trung tâm Y tế Hồng Bàng","Trung tâm Y tế Lê Chân","Trung tâm Y tế Ngô Quyền","Trung tâm Y tế Kiến An","Trung tâm Y tế Vĩnh Bảo","Trung tâm Y tế Cát Hải","Trung tâm Y tế Hải An","Trung tâm Y tế An Lão","Trung tâm Y tế Kiến Thụy","Trung tâm Y tế Thủy Nguyên","Trung tâm Y tế An Dương","Trung tâm Y tế Dương Kinh","Cơ sở cai nghiện số 1","Trại giam Xuân Nguyên","PK 33 Lê Đại Hành","Bệnh viện Đại học Y Hải Phòng","Bệnh viện Đa khoa Đôn Lương","Trung tâm Y tế Bạch Long Vỹ"];
+
+// Tài khoản hệ thống
+var ACCOUNTS=[
+  {name:"Quản trị viên",user:"admin",pass:"1",unit:"BV Phổi Hải Phòng",role:"admin"},
+  {name:"BS. Nguyễn Văn A",user:"bvph",pass:"1",unit:"Bệnh viện Phổi Hải Phòng",role:"bvph"},
+  {name:"DS. Trần Thị Bình",user:"donvi",pass:"1",unit:"Trung tâm Y tế Hồng Bàng",role:"donvi"},
+  {name:"DS. Lê Văn Cường",user:"lechan",pass:"1",unit:"Trung tâm Y tế Lê Chân",role:"donvi"},
+  {name:"CN. Phạm Thị D",user:"ngoq",pass:"1",unit:"Trung tâm Y tế Ngô Quyền",role:"donvi"}
+];
+
+var drugFreq={};
+DRUGS.forEach(function(d){drugFreq[d]=0;});
+["Levofloxacin 250mg","Linezolid 600mg","Cycloserine 250mg","Bedaquiline 100mg","Levofloxacin 500mg","Moxifloxacin 400mg"].forEach(function(d){drugFreq[d]=10;});
+
+var threshold={low:200,expMonths:6};
+
+// Dữ liệu BV Phổi HP
+// Công thức: Tồn cuối = Tồn đầu + Tổng nhập - Tổng xuất
+// Tổng nhập = tinh (tỉnh cấp) + dc (điều chuyển vào)
+// Tổng xuất = sd (sử dụng) + dc2 (điều chuyển ra) + hh (hỏng/hết hạn)
+var bvphData=[
+  {drug:"Levofloxacin 250mg",lot:"BVPH-L01",exp:"2026-12-30",open:2000,tinh:500,dc:0,sd:300,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {drug:"Linezolid 600mg",lot:"BVPH-LZ01",exp:"2027-08-15",open:800,tinh:200,dc:0,sd:100,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {drug:"Bedaquiline 100mg",lot:"BVPH-B99",exp:"2026-06-15",open:300,tinh:0,dc:0,sd:50,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false}
+];
+
+// Dữ liệu 22 đơn vị còn lại
+// tinh = nhập từ tỉnh cấp (từ BVPHP điều chuyển xuống)
+var bcData=[
+  {unit:"Kho lẻ Bệnh viện Phổi Hải Phòng",drug:"Levofloxacin 250mg",lot:"KL-L01",exp:"2026-12-30",open:300,tinh:200,dc:0,sd:50,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {unit:"Trung tâm Y tế Hồng Bàng",drug:"Levofloxacin 250mg",lot:"HB-L01",exp:"2026-10-15",open:100,tinh:0,dc:0,sd:40,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {unit:"Trung tâm Y tế Lê Chân",drug:"Linezolid 600mg",lot:"LC-LZ01",exp:"2027-08-15",open:60,tinh:150,dc:0,sd:25,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {unit:"Trung tâm Y tế Ngô Quyền",drug:"Bedaquiline 100mg",lot:"NQ-B01",exp:"2026-06-15",open:40,tinh:0,dc:80,sd:15,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
+  {unit:"Trung tâm Y tế Kiến An",drug:"Cycloserine 250mg",lot:"KA-CY01",exp:"2027-03-20",open:80,tinh:0,dc:0,sd:30,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false}
+];
+
+var twData=[];  // giữ lại biến để tránh lỗi reference
+var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
+var extraTP={};
+// reportLocked = computed property theo kỳ đang chọn (backward compat)
+Object.defineProperty(window,'reportLocked',{
+  get:function(){ return !!lockedPeriods[_currentPeriodKey()]; },
+  set:function(v){ /* dùng lockPeriod/unlockPeriod thay thế */ }
+});
+
+function _currentPeriodKey(){
+  // Trả về key kỳ đang chọn: "2026-05" hoặc "2026"
+  try{
+    var p = getSelectedPeriod();
+    return p.val;
+  }catch(e){ return ''; }
+}
+function isCurrentPeriodLocked(){
+  return !!lockedPeriods[_currentPeriodKey()];
+}
+
+// Danh mục lô thuốc (admin quản lý) — nguồn chính cho chọn số lô
+// {drug, lot, exp:"YYYY-MM-DD", note}
+var catalogData=[
+  {drug:"Levofloxacin 250mg",lot:"LF250-2026-01",exp:"2027-06-30",note:"Đợt cấp Q1/2026"},
+  {drug:"Levofloxacin 250mg",lot:"LF250-2026-02",exp:"2027-12-31",note:"Đợt cấp Q3/2026"},
+  {drug:"Linezolid 600mg",   lot:"LNZ-2026-01", exp:"2028-03-31",note:"Chương trình DOTS"},
+  {drug:"Bedaquiline 100mg", lot:"BDQ-2026-01", exp:"2026-06-15",note:"Chương trình DOTS"},
+  {drug:"Cycloserine 250mg", lot:"CS-2026-01",  exp:"2027-09-30",note:"Đợt cấp Q2/2026"}
+];
+
+// Session người dùng hiện tại
+var currentUser=null; // {name, user, unit, role}
+
+// ============================================================
+// FORMULAS — Tất cả công thức tính toán tập trung tại đây
+// ============================================================
+function calcRow(r){
+  // Tổng nhập  = Tỉnh cấp + Điều chuyển vào
+  var totalIn  = (r.tinh||0) + (r.dc||0);
+  // Tổng xuất  = Sử dụng + Xuất Tổ CL (dc2) + Xuất tỉnh khác (dc3) + Hỏng/HH
+  var totalOut = (r.sd||0) + (r.dc2||0) + (r.dc3||0) + (r.hh||0);
+  // Tồn cuối   = Tồn đầu + Tổng nhập - Tổng xuất
+  var final    = (r.open||0) + totalIn - totalOut;
+  return {tin:totalIn, tout:totalOut, final:final};
+}
+
+function expFmt(s){return s?s.split('-').reverse().join('/'):'—';}
+
+function parseMonthExp(str){
+  // "mm/yyyy" → "YYYY-MM-DD" (ngày cuối tháng)
+  if(!str) return '';
+  str=str.trim();
+  if(str.indexOf('-')>=0&&str.length===10) return str;
+  var pts=str.split('/');
+  if(pts.length===2){
+    var mm=parseInt(pts[0])||1, yyyy=parseInt(pts[1])||2026;
+    var last=new Date(yyyy,mm,0).getDate();
+    return yyyy+'-'+(mm<10?'0':'')+mm+'-'+(last<10?'0':'')+last;
+  }
+  return '';
+}
+
+function expToMMYYYY(s){
+  // "YYYY-MM-DD" → "mm/yyyy"
+  if(!s) return '';
+  var p=s.split('-');
+  if(p.length===3) return p[1]+'/'+p[0];
+  return s;
+}
+
+function validateMonthExp(str){
+  if(!str) return false;
+  var m=str.trim().match(/^(\d{2})\/(\d{4})$/);
+  if(!m) return false;
+  var mm=parseInt(m[1]);
+  return mm>=1&&mm<=12;
+}
+function isExpiredStr(s){return s&&new Date(s)<new Date();}
+function monthsLeft(s){return s?Math.round((new Date(s)-new Date())/(1000*60*60*24*30.44)):99;}
+
+
+// ============================================================
+// DANH MỤC THUỐC & LÔ SẢN XUẤT
+// ============================================================
+
+// Tính tình trạng lô
+function catalogStatus(expStr){
+  if(!expStr) return {label:'Chưa rõ',cls:'badge-b'};
+  var ml = monthsLeft(expStr);
+  if(ml<=0)  return {label:'Hết hạn',   cls:'badge-r'};
+  if(ml<=3)  return {label:'Sắp hết hạn ('+ml+'T)',cls:'badge-r'};
+  if(ml<=6)  return {label:'Gần hết hạn ('+ml+'T)',cls:'badge-y'};
+  return {label:'Còn hạn',cls:'badge-g'};
+}
+
+function renderCatalog(){
+  var tbody=document.getElementById('catalog-body');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  if(!catalogData.length){
+    tbody.innerHTML='<tr><td colspan="6" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
+    return;
+  }
+  catalogData.forEach(function(r,i){
+    var st=catalogStatus(r.exp);
+    var expDisp=expToMMYYYY(r.exp);
+    var cityQty=getLotCityFinal(r.drug, r.lot, r.exp);
+    var qtyDisp = cityQty>=0 ? cityQty.toLocaleString()+' viên' : '—';
+    var qtyStyle = cityQty===0 ? 'color:var(--danger);font-weight:700' : (cityQty>0&&cityQty<threshold.low ? 'color:var(--warning);font-weight:700' : 'color:var(--success)');
+    var canDel=isAdmin();
+    var rowSt = (st.label==='Hết hạn'||cityQty===0) ? 'background:#fff8f8' : '';
+    tbody.innerHTML+='<tr style="'+rowSt+'">'
+      +'<td class="left" style="font-weight:600">'+r.drug+'</td>'
+      +'<td>'+r.lot+'</td>'
+      +'<td>'+expDisp+'</td>'
+      +'<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'
+      +'<td style="'+qtyStyle+'">'+qtyDisp+'</td>'
+      +'<td style="color:var(--muted);font-size:11px">'+r.note+'</td>'
+      +'<td class="no-print">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
+      +'</tr>';
+  });
+}
+
+function addCatalog(){
+  if(!isAdmin()){toast('Chỉ Admin mới thêm được danh mục!','var(--danger)');return;}
+  var selVal = document.getElementById('cat-drug').value;
+  var drug   = selVal==='__khac__'
+    ? (document.getElementById('cat-drug-custom').value.trim())
+    : selVal;
+  var lot    = document.getElementById('cat-lot').value.trim();
+  var expRaw = document.getElementById('cat-exp').value.trim();
+  var note   = document.getElementById('cat-note').value.trim();
+  if(!drug||!lot||!expRaw){toast('Nhập đủ: tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
+  if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập mm/yyyy','var(--danger)');return;}
+  // Kiểm tra lô đã tồn tại chưa
+  for(var k=0;k<catalogData.length;k++){
+    if(catalogData[k].drug===drug&&catalogData[k].lot===lot){
+      toast('Lô "'+lot+'" của thuốc "'+drug+'" đã có trong danh mục!','var(--warning)');return;
+    }
+  }
+  catalogData.push({drug:drug,lot:lot,exp:parseMonthExp(expRaw),note:note||'—'});
+  ['cat-lot','cat-exp','cat-note','cat-drug-custom'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var cds=document.getElementById('cat-drug');if(cds)cds.value='';
+  var cdw=document.getElementById('cat-drug-custom-wrap');if(cdw)cdw.style.display='none';
+  renderCatalog();
+  fillDrugSelects(); // cập nhật form báo cáo
+  toast('Đã thêm: '+drug+' — Lô '+lot,'var(--success)');
+}
+
+function delCatalog(i){
+  if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}
+  if(!confirm('Xóa "'+catalogData[i].drug+' — Lô '+catalogData[i].lot+'"?'))return;
+  catalogData.splice(i,1);
+  renderCatalog();
+  toast('Đã xóa lô khỏi danh mục','var(--danger)');
+}
+
+// Lấy danh sách thuốc duy nhất từ catalogData + bvphData + bcData (union)
+function getCatalogDrugs(){
+  // Chỉ lấy từ catalogData — nguồn chính thức do Admin quản lý
+  var seen={}, arr=[];
+  catalogData.forEach(function(r){if(!seen[r.drug]){seen[r.drug]=true;arr.push(r.drug);}});
+  return arr.sort();
+}
+
+// Lấy danh sách lô của 1 thuốc
+function getLotsForDrug(drugName){
+  return catalogData.filter(function(r){return r.drug===drugName;});
+}
+
+// Tự động fill hạn dùng khi chọn lô
+function onLotChange(lotVal, expInputId){
+  if(!lotVal) return;
+  for(var k=0;k<catalogData.length;k++){
+    if(catalogData[k].lot===lotVal){
+      var el=document.getElementById(expInputId);
+      if(el){el.value=expToMMYYYY(catalogData[k].exp);el.readOnly=true;el.style.background='#eef7ff';}
+      return;
+    }
+  }
+}
+
+// Fill select lô cho một thuốc
+// Tính tồn cuối của 1 lô tại 1 đơn vị (tất cả kỳ, cộng dồn)
+function getLotFinalQty(unit, drug, lot, exp){
+  var arr = (unit===BVPH) ? bvphData : bcData;
+  var rows = arr.filter(function(r){
+    return r.drug===drug && r.lot===lot && r.exp===exp &&
+           (unit===BVPH ? true : r.unit===unit);
+  });
+  if(!rows.length) return -1; // chưa có dữ liệu
+  // Tìm kỳ mới nhất
+  rows.sort(function(a,b){ return (b.bcMonth||'').localeCompare(a.bcMonth||''); });
+  return calcRow(rows[0]).final;
+}
+
+// Tính tồn cuối toàn thành phố của 1 lô (gộp tất cả đơn vị)
+function getLotCityFinal(drug, lot, exp){
+  var total = 0, found = false;
+  bvphData.concat(bcData).forEach(function(r){
+    if(r.drug===drug && r.lot===lot && r.exp===exp){
+      total += calcRow(r).final;
+      found = true;
+    }
+  });
+  return found ? total : -1;
+}
+
+function fillLotSelect(selectId, drugName, expInputId){
+  var sel=document.getElementById(selectId);
+  if(!sel) return;
+  var lots=getLotsForDrug(drugName);
+  sel.innerHTML='<option value="">-- Chọn lô --</option>';
+  if(!lots.length){
+    var o0=document.createElement('option');
+    o0.disabled=true;
+    o0.textContent='(Chưa có lô — thêm tại Danh sách thuốc)';
+    sel.appendChild(o0);
+  }
+  lots.forEach(function(r){
+    var st   = catalogStatus(r.exp);
+    var isExp= (st.label==='Hết hạn');
+    var qty  = getLotCityFinal(drugName, r.lot, r.exp);
+    var isZero = (qty === 0);  // -1 = chưa có dữ liệu, không tính là hết
+    var opt  = document.createElement('option');
+    opt.value = r.lot;
+
+    // Nhãn hiển thị
+    var label = r.lot+' — HSD: '+expToMMYYYY(r.exp);
+    if(isExp)        label += ' [Hết hạn]';
+    else if(isZero)  label += ' [Tồn = 0]';
+    else             label += ' ['+st.label+']';
+    if(qty >= 0)     label += ' | Tồn: '+qty;
+    opt.textContent = label;
+
+    // Disable nếu hết hạn hoặc tồn = 0
+    if(isExp || isZero){
+      opt.disabled = true;
+      opt.style.color = '#bbb';
+    } else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){
+      opt.style.color = 'var(--warning)';
+    }
+    sel.appendChild(opt);
+  });
+
+  // Khi chọn lô: điền hạn dùng + kiểm tra cảnh báo tồn = 0
+  sel.onchange=function(){
+    var lotVal=this.value;
+    var expEl=document.getElementById(expInputId);
+    if(!expEl) return;
+    var found=catalogData.find(function(r){return r.drug===drugName&&r.lot===lotVal;});
+    if(found){
+      expEl.value=expToMMYYYY(found.exp);
+      expEl.style.background='#eef7ff';
+      // Cảnh báo nếu lô đã hết số lượng (tồn = 0) nhưng vẫn được chọn (e.g. admin)
+      var qty2 = getLotCityFinal(drugName, lotVal, found.exp);
+      if(qty2 === 0){
+        if(!confirm('⚠ Lô "'+lotVal+'" của thuốc "'+drugName+'" hiện có tồn kho = 0.\n\nBạn có chắc chắn muốn nhập thêm số lượng cho lô này không?')){
+          sel.value='';
+          expEl.value='';
+          expEl.style.background='';
+        }
+      }
+    } else {
+      expEl.value='';
+      expEl.style.background='';
+    }
+  };
+}
+
+// Fill dropdown cat-drug từ DRUGS list
+function fillCatDrugSelect(){
+  var sel=document.getElementById('cat-drug');
+  if(!sel) return;
+  // Danh sách thuốc cố định cho catalog
+  var DRUG_LIST=[
+    "Levofloxacin 250mg","Levofloxacin 500mg","Moxifloxacin 400mg",
+    "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g",
+    "Cycloserine 250mg","Prothionamide 250mg","Para-aminosalicylic acid 4g",
+    "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg",
+    "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg"
+  ];
+  sel.innerHTML='<option value="">-- Chọn thuốc --</option>';
+  DRUG_LIST.forEach(function(d){
+    var o=document.createElement('option');
+    o.value=d; o.textContent=d;
+    sel.appendChild(o);
+  });
+  var oKhac=document.createElement('option');
+  oKhac.value='__khac__';
+  oKhac.textContent='Khác (gõ tên thuốc mới)';
+  sel.appendChild(oKhac);
+}
+
+function onCatDrugChange(){
+  var sel=document.getElementById('cat-drug');
+  var wrap=document.getElementById('cat-drug-custom-wrap');
+  if(!sel||!wrap) return;
+  wrap.style.display=(sel.value==='__khac__')?'flex':'none';
+  if(sel.value!=='__khac__'){
+    var inp=document.getElementById('cat-drug-custom');
+    if(inp) inp.value='';
+  }
+}
+
+// Hiện/ẩn catalog form theo quyền
+function setupCatalog(){
+  fillCatDrugSelect();
+  var form=document.getElementById('catalog-form');
+  if(form) form.style.display=isAdmin()?'block':'none';
+  renderCatalog();
+  fillDrugSelects(); // sync form báo cáo
+}
+
+function onBVPHDrugChange(){
+  var drug  = document.getElementById('bvph-drug').value;
+  var expEl = document.getElementById('bvph-exp');
+  var lotSel= document.getElementById('bvph-lot-sel');
+  if(expEl){ expEl.value=''; expEl.style.background=''; }
+  if(lotSel) lotSel.innerHTML='<option value="">-- Chọn lô --</option>';
+  if(drug) fillLotSelect('bvph-lot-sel', drug, 'bvph-exp');
+}
+
+function onBCDrugChange(){
+  var drug  = document.getElementById('bc-drug').value;
+  var expEl = document.getElementById('bc-exp');
+  var lotSel= document.getElementById('bc-lot-sel');
+  if(expEl){ expEl.value=''; expEl.style.background=''; }
+  if(lotSel) lotSel.innerHTML='<option value="">-- Chọn lô --</option>';
+  if(drug) fillLotSelect('bc-lot-sel', drug, 'bc-exp');
+}
+
+function fillDrugSelects(){
+  var drugs = getCatalogDrugs(); // chỉ từ catalogData
+
+  ['bvph-drug','bc-drug'].forEach(function(selId){
+    var sel = document.getElementById(selId);
+    if(!sel) return;
+    var cur = sel.value;
+    // Xóa sạch toàn bộ option cũ
+    sel.innerHTML = '';
+    var blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = drugs.length ? '-- Chọn thuốc --' : '(Chưa có thuốc — Admin thêm tại Danh sách thuốc)';
+    blank.disabled = !drugs.length;
+    blank.selected = true;
+    sel.appendChild(blank);
+
+    drugs.forEach(function(d){
+      var o = document.createElement('option');
+      o.value = d; o.textContent = d;
+      if(d === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+
+// ============================================================
+// LOGIN
+// ============================================================
+var ROLE_LABELS={admin:'Quản trị viên',bvph:'Nhập liệu BVPHP',donvi:'Nhập liệu đơn vị'};
+var ROLE_COLORS={admin:'#e74c3c',bvph:'#2980b9',donvi:'#27ae60'};
+
+function doLogin(){
+  var u=document.getElementById('lu').value.trim();
+  var p=document.getElementById('lp').value;
+  var acc=ACCOUNTS.find(function(a){return a.user===u&&a.pass===p;});
+  if(!acc){document.getElementById('login-err').style.display='block';return;}
+  currentUser=acc;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  // Cập nhật sidebar
+  var initials=acc.name.split(' ').map(function(w){return w[0];}).slice(-2).join('').toUpperCase();
+  document.getElementById('sb-av').textContent=initials;
+  document.getElementById('sb-av').style.background=ROLE_COLORS[acc.role]||'var(--accent)';
+  document.getElementById('sb-name').textContent=acc.name;
+  document.getElementById('sb-role').textContent=ROLE_LABELS[acc.role]||acc.role;
+  initApp();
+}
+function doLogout(){
+  currentUser=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('lp').value='';
+  document.getElementById('login-err').style.display='none';
+}
+
+// ============================================================
+// INIT SAU KHI ĐĂNG NHẬP
+// ============================================================
+function initApp(){
+  // Fill selects
+  var sel=document.getElementById('bc-unit');
+  sel.innerHTML='<option value="">-- Chọn đơn vị --</option>';
+  UNITS.forEach(function(u){var o=document.createElement('option');o.value=u;o.textContent=u;sel.appendChild(o);});
+  // Nếu tài khoản đơn vị, tự chọn đơn vị
+  if(currentUser.role==='donvi'||currentUser.role==='bvph'){
+    for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===currentUser.unit){sel.selectedIndex=i;break;}}
+  }
+
+  var sd=document.getElementById('sel-drug');sd.innerHTML='';
+  DRUGS.forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent=d;sd.appendChild(o);});
+  var su=document.getElementById('sel-unit-stat');su.innerHTML='';
+  UNITS.forEach(function(u){var o=document.createElement('option');o.value=u;o.textContent=u;su.appendChild(o);});
+
+  // Admin-zone TW
+  if(currentUser.role==='admin'){
+    document.getElementById('admin-zone').style.display='block';
+    var _trt=document.getElementById('tw-role-tag');if(_trt)_trt.textContent='';
+    document.getElementById('add-account-btn').style.display='block';
+  } else {
+    document.getElementById('admin-zone').style.display='none';
+    document.getElementById('add-account-btn').style.display='none';
+  }
+
+  updateLocks();
+  // Ẩn hint thêm thuốc mới nếu không phải admin
+  var hintEl=document.getElementById('bvph-drug-hint');
+  if(hintEl) hintEl.style.display=isAdmin()?'inline':'none';
+
+  // Hiển thị form nhập theo vai trò
+  var fB=document.getElementById('form-bvph');
+  var fD=document.getElementById('form-donvi');
+  if(currentUser.role==='admin'){
+    if(fB)fB.style.display='block'; if(fD)fD.style.display='block';
+  } else if(currentUser.role==='bvph'){
+    if(fB)fB.style.display='block'; if(fD)fD.style.display='none';
+  } else {
+    if(fB)fB.style.display='none'; if(fD)fD.style.display='block';
+  }
+
+  // Fill bộ lọc đơn vị trong bảng báo cáo 22 đơn vị
+  var fubc=document.getElementById('filter-unit-bc');
+  if(fubc){
+    fubc.innerHTML='<option value="__all__">-- Tổng hợp tất cả đơn vị --</option>';
+    UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
+      var o=document.createElement('option');o.value=u;o.textContent=u;fubc.appendChild(o);
+    });
+    if(currentUser.role==='donvi'){
+      for(var k=0;k<fubc.options.length;k++){
+        if(fubc.options[k].value===currentUser.unit){fubc.selectedIndex=k;break;}
+      }
+    }
+  }
+  // Đảm bảo bc-unit cũng được fill đúng
+  var bcUnit=document.getElementById('bc-unit');
+  if(bcUnit){
+    bcUnit.innerHTML='<option value="">-- Chọn đơn vị --</option>';
+    UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
+      var o=document.createElement('option');o.value=u;o.textContent=u;bcUnit.appendChild(o);
+    });
+    if(currentUser.role==='donvi'){
+      for(var k=0;k<bcUnit.options.length;k++){
+        if(bcUnit.options[k].value===currentUser.unit){bcUnit.selectedIndex=k;break;}
+      }
+    }
+  }
+
+  // Đồng bộ thuoc-month với kỳ báo cáo mặc định khi khởi động
+  var _initPeriod = getSelectedPeriod();
+  var _tmEl = document.getElementById('thuoc-month');
+  if(_tmEl && _initPeriod.type === 'month') _tmEl.value = _initPeriod.val;
+
+  loadSaved();
+  setTimeout(function(){ updateSaveBtnUI(); setupCatalog(); fillDrugSelects(); }, 100);
+  renderTQ();renderDrugTable();renderBVPH();renderBC();renderTP();renderAccounts();
+
+  // Fill account modal unit select
+  var au=document.getElementById('acc-unit');au.innerHTML='';
+  UNITS.forEach(function(u){var o=document.createElement('option');o.value=u;o.textContent=u;au.appendChild(o);});
+
+  document.addEventListener('click',function(e){if(!e.target.closest('.del-dd'))closeDelMenus();});
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function nav(page,el){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.sb-item').forEach(function(i){i.classList.remove('active');});
+  document.getElementById('page-'+page).classList.add('active');
+  if(el)el.classList.add('active');
+  if(page==='tq'){renderTQ();}
+  if(page==='bc'){renderBVPH();renderBC();}
+  if(page==='thuoc'){renderDrugTable();}
+  if(page==='tk')renderAccounts();
+}
+
+// ============================================================
+// PHÂN QUYỀN
+// ============================================================
+function isAdmin(){return !!(currentUser&&currentUser.role==='admin');}
+function canEditBVPH(){return currentUser&&(currentUser.role==='admin'||currentUser.role==='bvph');}
+function canEditUnit(unit){
+  if(isAdmin()) return true;
+  if(!currentUser) return false;
+  if(currentUser.role==='bvph' && unit===BVPH) return true;
+  if(currentUser.role==='donvi' && currentUser.unit===unit) return true;
+  return false;
+}
+function updateLocks(){
+  ['bvph','other'].forEach(function(k){
+    var lk=document.getElementById('lock-'+k);
+    if(lk)lk.textContent=isAdmin()?'🔓':'🔒';
+    var it=document.getElementById('del-'+k+'-all');
+    if(it)it.className=isAdmin()?'del-dd-item':'del-dd-item locked';
+  });
+}
+
+// ============================================================
+// TÀI KHOẢN
+// ============================================================
+function renderAccounts(){
+  var tbody=document.getElementById('accounts-body');
+  tbody.innerHTML='';
+
+  // Màu & icon theo vai trò
+  var ROLE_STYLE={
+    admin:{ border:'#e74c3c', rowBg:'#fff8f8', avatarBg:'linear-gradient(135deg,#e74c3c,#c0392b)', icon:'🔑', label:'Quản trị viên',
+            badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fde8e8;color:#c0392b;border:1px solid #f5c6cb">🔑 Quản trị</span>' },
+    bvph: { border:'#2980b9', rowBg:'#f0f7ff', avatarBg:'linear-gradient(135deg,#2980b9,#1a5276)', icon:'🏥', label:'Nhập liệu BVPH',
+            badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d1ecf1;color:#0c5460;border:1px solid #bee5eb">🏥 BV Phổi HP</span>' },
+    donvi:{ border:'#27ae60', rowBg:'#f0fff5', avatarBg:'linear-gradient(135deg,#27ae60,#1e8449)', icon:'🏨', label:'Nhập liệu đơn vị',
+            badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d4edda;color:#155724;border:1px solid #c3e6cb">🏨 Đơn vị</span>' }
+  };
+
+  // Cập nhật thẻ thống kê
+  var cntAdmin=0,cntBvph=0,cntDonvi=0;
+  ACCOUNTS.forEach(function(a){
+    if(a.role==='admin') cntAdmin++;
+    else if(a.role==='bvph') cntBvph++;
+    else cntDonvi++;
+  });
+  var ea=document.getElementById('acc-count-admin');   if(ea) ea.textContent=cntAdmin;
+  var eb=document.getElementById('acc-count-bvph');    if(eb) eb.textContent=cntBvph;
+  var ed=document.getElementById('acc-count-donvi');   if(ed) ed.textContent=cntDonvi;
+
+  ACCOUNTS.forEach(function(a,i){
+    var isSelf = currentUser && a.user===currentUser.user;
+    var rs = ROLE_STYLE[a.role] || ROLE_STYLE.donvi;
+
+    // Avatar chữ cái
+    var initials = a.name.split(' ').map(function(w){return w[0]||'';}).slice(-2).join('').toUpperCase();
+    var avatar = '<div style="width:34px;height:34px;border-radius:50%;background:'+rs.avatarBg
+      +';display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.15)">'+initials+'</div>';
+
+    // Tên + self tag
+    var nameCell = '<div style="display:flex;align-items:center;gap:9px">'
+      + avatar
+      + '<div>'
+      + '<div style="font-weight:700;color:var(--text);font-size:13px">'+a.name+(isSelf?' <span style="font-size:10px;background:#e6f1fb;color:var(--accent);border-radius:4px;padding:1px 5px;font-weight:600">bạn</span>':'')+'</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:1px">'+rs.label+'</div>'
+      + '</div></div>';
+
+    // Cột mật khẩu
+    var passCell='';
+    if(isAdmin()){
+      passCell='<div style="display:flex;align-items:center;gap:4px;justify-content:center">'
+        +'<span id="pass-mask-'+i+'" style="font-family:monospace;letter-spacing:3px;color:#aaa">•••••</span>'
+        +'<span id="pass-show-'+i+'" style="font-family:monospace;font-size:12px;color:var(--text);display:none;background:#f7f7f7;border-radius:4px;padding:1px 6px">'+a.pass+'</span>'
+        +'<button class="btn btn-xs" style="padding:2px 7px;background:#edf2f7;color:var(--text);font-size:10px;border-radius:5px" '
+        +'onclick="togglePass('+i+')" id="pass-btn-'+i+'" title="Hiện/ẩn">👁</button>'
+        +'<button class="btn btn-xs" style="padding:2px 7px;background:#fff0f0;color:var(--danger);font-size:10px;border-radius:5px" '
+        +'onclick="resetPass('+i+')" title="Đổi mật khẩu">✎</button>'
+        +'</div>';
+    } else {
+      passCell='<span style="font-family:monospace;letter-spacing:3px;color:#ccc">•••••</span>';
+    }
+
+    // Nút thao tác
+    var btns='';
+    if(isAdmin()){
+      btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editAccount('+i+')">✏ Sửa</button> ';
+      btns+='<button class="btn btn-xs" style="background:#6c757d;color:white;border-radius:5px" onclick="changeRole('+i+')">⚙ Quyền</button>';
+      if(!isSelf) btns+=' <button class="btn btn-xs" style="background:#e74c3c;color:white;border-radius:5px" onclick="deleteAccount('+i+')">✕ Xóa</button>';
+    } else {
+      btns='<span style="color:#ccc;font-size:11px">—</span>';
+    }
+
+    // Dòng bảng
+    tbody.innerHTML+=
+      '<tr style="background:'+rs.rowBg+';border-left:4px solid '+rs.border+';transition:background .15s">'
+      +'<td class="left" style="padding:10px 14px;border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none">'+nameCell+'</td>'
+      +'<td style="font-family:monospace;font-size:12px;color:#444;border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none">'+a.user+'</td>'
+      +'<td style="border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none">'+passCell+'</td>'
+      +'<td style="font-size:11px;color:var(--muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none" title="'+a.unit+'">'+a.unit+'</td>'
+      +'<td style="border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none">'+rs.badge+'</td>'
+      +'<td style="border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none">'
+        +'<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d4edda;color:#155724;border:1px solid #c3e6cb">'
+        +'<span style="width:6px;height:6px;border-radius:50%;background:#27ae60;display:inline-block"></span>Hoạt động</span></td>'
+      +'<td class="no-print" style="white-space:nowrap;border-bottom:1px solid #f0f4f8;border-top:none;border-left:none;border-right:none;padding:8px 10px">'+btns+'</td>'
+      +'</tr>';
+  });
+}
+
+// Toggle hiện/ẩn mật khẩu trong bảng
+function togglePass(i){
+  var mask=document.getElementById('pass-mask-'+i);
+  var show=document.getElementById('pass-show-'+i);
+  var btn =document.getElementById('pass-btn-'+i);
+  if(!mask||!show) return;
+  var hidden=(show.style.display==='none');
+  mask.style.display=hidden?'none':'inline';
+  show.style.display=hidden?'inline':'none';
+  if(btn) btn.textContent=hidden?'🙈':'👁';
+}
+
+// Đặt lại mật khẩu ngay trong bảng
+function resetPass(i){
+  if(!isAdmin()){toast('Chỉ Admin mới đặt lại mật khẩu!','var(--danger)');return;}
+  var np=prompt('Mật khẩu mới cho "'+ACCOUNTS[i].name+'":','');
+  if(np===null) return;
+  np=np.trim();
+  if(!np){toast('Mật khẩu không được để trống!','var(--danger)');return;}
+  if(np.length<1){toast('Mật khẩu không được để trống!','var(--danger)');return;}
+  ACCOUNTS[i].pass=np;
+  renderAccounts();
+  toast('Đã đặt lại mật khẩu cho "'+ACCOUNTS[i].name+'"','var(--success)');
+}
+function openAddAccount(){document.getElementById('modal-acc').classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function saveNewAccount(){
+  var name=document.getElementById('acc-name').value.trim();
+  var user=document.getElementById('acc-user').value.trim();
+  var pass=document.getElementById('acc-pass').value;
+  var unit=document.getElementById('acc-unit').value;
+  var role=document.getElementById('acc-role').value;
+  if(!name||!user||!pass){toast('Vui lòng nhập đủ thông tin!','var(--danger)');return;}
+  if(ACCOUNTS.find(function(a){return a.user===user;})){toast('Tên đăng nhập đã tồn tại!','var(--danger)');return;}
+  ACCOUNTS.push({name:name,user:user,pass:pass,unit:unit,role:role});
+  closeModal('modal-acc');renderAccounts();
+  toast('Đã thêm tài khoản: '+name,'var(--success)');
+}
+function editAccount(i){
+  var a=ACCOUNTS[i];
+  var n=prompt('Họ tên:',a.name);
+  if(n===null) return;
+  var u=prompt('Đơn vị:',a.unit);
+  if(n.trim()) ACCOUNTS[i].name=n.trim();
+  if(u!==null&&u.trim()) ACCOUNTS[i].unit=u.trim();
+  renderAccounts();
+  toast('Đã cập nhật: '+ACCOUNTS[i].name,'var(--success)');
+}
+
+var _roleEditIdx=-1;
+var ROLE_DESC={
+  admin:'Toàn quyền: xem & chỉnh sửa tất cả dữ liệu, quản lý tài khoản, xóa dữ liệu',
+  bvph:'Chỉ nhập & sửa báo cáo của Bệnh viện Phổi Hải Phòng',
+  donvi:'Chỉ nhập & sửa báo cáo của đơn vị được phân công'
+};
+
+function changeRole(i){
+  if(!isAdmin()){toast('Chỉ Admin mới đổi quyền!','var(--danger)');return;}
+  _roleEditIdx=i;
+  var a=ACCOUNTS[i];
+  document.getElementById('role-acc-name').textContent=a.name;
+  document.getElementById('role-acc-user').textContent=a.user;
+  var sel=document.getElementById('role-select');
+  sel.value=a.role;
+  document.getElementById('role-desc').textContent=ROLE_DESC[a.role]||'';
+  document.getElementById('modal-role').classList.add('open');
+}
+
+function saveRole(){
+  if(_roleEditIdx<0) return;
+  var newRole=document.getElementById('role-select').value;
+  var _rnp=document.getElementById('role-new-pass');
+  var newPass=_rnp?_rnp.value.trim():'';
+  var RLABELS={admin:'Quản trị viên',bvph:'Nhập liệu BVPHP',donvi:'Nhập liệu đơn vị'};
+  var oldName=ACCOUNTS[_roleEditIdx].name;
+  ACCOUNTS[_roleEditIdx].role=newRole;
+  if(newPass) ACCOUNTS[_roleEditIdx].pass=newPass;
+  closeModal('modal-role');
+  var _rnp2=document.getElementById('role-new-pass');if(_rnp2)_rnp2.value='';
+  renderAccounts();
+  var msg='Đã đổi quyền "'+oldName+'" → '+RLABELS[newRole];
+  if(newPass) msg+=' + đổi mật khẩu';
+  toast(msg,'var(--success)');
+  _roleEditIdx=-1;
+}
+
+function deleteAccount(i){
+  if(!isAdmin()){toast('Chỉ Admin mới xóa tài khoản!','var(--danger)');return;}
+  var a=ACCOUNTS[i];
+  if(currentUser&&a.user===currentUser.user){toast('Không xóa tài khoản đang đăng nhập!','var(--danger)');return;}
+  if(!confirm('Xóa tài khoản "'+a.name+'" ('+a.user+')?'))return;
+  ACCOUNTS.splice(i,1);
+  renderAccounts();toast('Đã xóa: '+a.name,'var(--danger)');
+}
+
+// ============================================================
+// AUTOCOMPLETE
+// ============================================================
+function getSortedDrugs(){
+  return DRUGS.slice().sort(function(a,b){return(drugFreq[b]||0)-(drugFreq[a]||0);});
+}
+function acShow(inputId,listId,allowNew){
+  var val=document.getElementById(inputId).value.toLowerCase().trim();
+  var list=document.getElementById(listId);
+  var drugs=getSortedDrugs();
+  var filtered=val?drugs.filter(function(d){return d.toLowerCase().indexOf(val)>=0;}):drugs.slice(0,8);
+  list.innerHTML='';
+  // Nếu admin + allowNew + val mới hoàn toàn: hiện tuỳ chọn "Thêm tên mới"
+  if(allowNew&&isAdmin()&&val&&filtered.length===0){
+    var divNew=document.createElement('div');
+    divNew.style.cssText='color:var(--success);font-style:italic';
+    divNew.innerHTML='+ Thêm thuốc mới: <strong>'+document.getElementById(inputId).value+'</strong>';
+    divNew.onclick=function(){
+      var newDrug=document.getElementById(inputId).value.trim();
+      if(newDrug&&DRUGS.indexOf(newDrug)<0){
+        DRUGS.push(newDrug);drugFreq[newDrug]=5;
+        toast('Đã thêm thuốc mới: '+newDrug,'var(--success)');
+      }
+      list.style.display='none';
+    };
+    list.appendChild(divNew);
+    list.style.display='block';
+    return;
+  }
+  if(!filtered.length){list.style.display='none';return;}
+  filtered.forEach(function(d){
+    var div=document.createElement('div');
+    div.innerHTML=d+(drugFreq[d]>0?'<span class="freq-badge">Hay dùng</span>':'');
+    div.onclick=function(){document.getElementById(inputId).value=d;list.style.display='none';drugFreq[d]=(drugFreq[d]||0)+1;};
+    list.appendChild(div);
+  });
+  list.style.display='block';
+}
+// BVPH: admin được thêm tên thuốc mới
+function acShowBVPH(){acShow('bvph-drug','bvph-ac',true);}
+// Đơn vị: chỉ chọn từ danh sách có sẵn
+function acShowDonVi(){acShow('bc-drug','bc-ac',false);}
+function hideAc(id){var e=document.getElementById(id);if(e)e.style.display='none';}
+
+// ============================================================
+// TỔNG QUAN — toàn bộ số liệu lấy từ bvphData + bcData thực tế
+// ============================================================
+
+// Tính danh sách đơn vị đã có dữ liệu (= đã nộp báo cáo thực tế)
+// ============================================================
+// KỲ THỐNG KÊ TỔNG QUAN (độc lập với kỳ báo cáo BC)
+// ============================================================
+function getTQPeriod(){
+  var yearEl  = document.getElementById('tq-year');
+  var monthEl = document.getElementById('tq-month');
+  var year  = yearEl  ? yearEl.value  : '2026';
+  var month = monthEl ? monthEl.value : '05';
+  if(month === '__year__') return { type:'year', year:year, val:year };
+  return { type:'month', year:year, val:year+'-'+month };
+}
+
+function matchTQPeriod(r){
+  var p = getTQPeriod();
+  if(!r.bcMonth) return true;
+  if(p.type==='year') return r.bcMonth.startsWith(p.year+'-') || r.bcMonth===p.year;
+  return r.bcMonth === p.val;
+}
+
+function onTQPeriodChange(){
+  renderTQ();
+}
+
+
+function getSubmittedUnits(){
+  // Chỉ tính đơn vị có dữ liệu trong KỲ đang chọn ở Tổng quan
+  var set={};
+  var bvphFiltered = bvphData.filter(matchTQPeriod);
+  var bcFiltered   = bcData.filter(matchTQPeriod);
+  if(bvphFiltered.length > 0) set[BVPH] = true;
+  bcFiltered.forEach(function(r){ if(r.unit) set[r.unit] = true; });
+  return Object.keys(set);
+}
+
+function renderTQ(){
+  // Cập nhật label kỳ
+  var tqP = getTQPeriod();
+  var mNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+                'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+  var periodLabel = tqP.type==='year' ? 'Cả năm '+tqP.year :
+    mNames[parseInt(tqP.val.split('-')[1]||'0')]+'/'+tqP.year;
+  var subEl = document.getElementById('tq-sub');
+  if(subEl) subEl.textContent = periodLabel+' — TP. Hải Phòng';
+
+  var submitted = getSubmittedUnits();
+  var notSub = UNITS.filter(function(u){ return submitted.indexOf(u)===-1; });
+  // Chỉ tính tổng kho của kỳ đang chọn
+  var allRows = bvphData.filter(matchTQPeriod).concat(bcData.filter(matchTQPeriod));
+
+  // ── Thẻ số liệu ──
+  document.getElementById('tq-da').textContent = submitted.length;
+  document.getElementById('tq-chua').textContent = notSub.length;
+  document.getElementById('tq-pct').textContent = 'Đạt '+Math.round(submitted.length/UNITS.length*100)+'%';
+
+  // Tổng tồn kho toàn thành phố (tồn cuối kỳ gộp tất cả lô)
+  var tongTon = allRows.reduce(function(s,r){ return s+calcRow(r).final; },0);
+  var tongNhap = allRows.reduce(function(s,r){ return s+calcRow(r).tin; },0);
+  var tongXuat = allRows.reduce(function(s,r){ return s+calcRow(r).tout; },0);
+
+  // Ghi vào các thẻ tổng quan (nếu tồn tại)
+  var elTon=document.getElementById('tq-tongton');
+  if(elTon) elTon.textContent=tongTon.toLocaleString();
+  var elNhap=document.getElementById('tq-tongnhap');
+  if(elNhap) elNhap.textContent=tongNhap.toLocaleString();
+  var elXuat=document.getElementById('tq-tongxuat');
+  if(elXuat) elXuat.textContent=tongXuat.toLocaleString();
+
+  // ── Danh sách chưa nộp ──
+  // Cập nhật badge số lượng
+  var chuaCount = document.getElementById('tq-chua-count');
+  var daCount   = document.getElementById('tq-da-count');
+  if(chuaCount) chuaCount.textContent = notSub.length + ' đơn vị';
+  if(daCount)   daCount.textContent   = submitted.length + ' đơn vị';
+
+  // Danh sách chưa nộp — dạng chip tag
+  var cl = document.getElementById('tq-chua-list');
+  if(cl){
+    if(!notSub.length){
+      cl.innerHTML = '<span style="color:var(--success);font-weight:600;font-size:13px">✓ Tất cả 23 đơn vị đã nộp báo cáo!</span>';
+    } else {
+      cl.innerHTML = notSub.map(function(u){
+        return '<span style="display:inline-flex;align-items:center;gap:5px;background:#fff0f0;border:1px solid #fbb;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#c0392b">'
+          +'<span style="width:7px;height:7px;border-radius:50%;background:#e74c3c;flex-shrink:0;display:inline-block"></span>'+u+'</span>';
+      }).join('');
+    }
+  }
+
+  // Danh sách đã nộp — dạng chip tag (hover tooltip: số thuốc + tồn)
+  var dl = document.getElementById('tq-da-list');
+  if(dl){
+    if(!submitted.length){
+      dl.innerHTML = '<span style="color:var(--muted);font-size:13px">Chưa có đơn vị nào nộp báo cáo</span>';
+    } else {
+      dl.innerHTML = submitted.map(function(u){
+        var ur = (u===BVPH)
+          ? bvphData.filter(matchTQPeriod)
+          : bcData.filter(function(r){return r.unit===u && matchTQPeriod(r);});
+        var nd = {}; ur.forEach(function(r){nd[r.drug]=1;});
+        var tc = ur.reduce(function(s,r){return s+calcRow(r).final;},0);
+        var tip = Object.keys(nd).length+' thuốc — tồn '+tc.toLocaleString()+' viên';
+        return '<span title="'+tip+'" style="display:inline-flex;align-items:center;gap:5px;background:#f0fff4;border:1px solid #9ae6b4;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#1a6f3e;cursor:default">'
+          +'<span style="width:7px;height:7px;border-radius:50%;background:#27ae60;flex-shrink:0;display:inline-block"></span>'+u+'</span>';
+      }).join('');
+    }
+  }
+
+  updateAlerts();
+}
+
+// Cảnh báo tính TRỰC TIẾP từ bvphData + bcData
+function updateAlerts(){
+  var allRows=bvphData.concat(bcData);
+
+  // ── Tồn kho thấp: gom tồn cuối theo tên thuốc ──
+  var lowMap={};
+  allRows.forEach(function(r){
+    var c=calcRow(r);
+    lowMap[r.drug]=(lowMap[r.drug]||0)+c.final;
+  });
+  var lowList=[];
+  Object.keys(lowMap).forEach(function(d){
+    if(lowMap[d]<threshold.low && lowMap[d]>=0) lowList.push({name:d,qty:lowMap[d]});
+  });
+  lowList.sort(function(a,b){return a.qty-b.qty;});
+
+  document.getElementById('tq-low').textContent=lowList.length||'0';
+  document.getElementById('tq-low-sub').textContent='Mặt hàng dưới '+threshold.low+' viên';
+  var ll=document.getElementById('tq-lowlist'); ll.innerHTML='';
+  if(!lowList.length){
+    ll.innerHTML='<li><span style="color:var(--success);font-weight:600">✓ Tất cả mặt hàng đủ tồn kho</span></li>';
+  }
+  lowList.forEach(function(x){
+    var cls=x.qty<=0?'dot-r':'dot-y';
+    var bls=x.qty<=0?'badge-r':'badge-y';
+    ll.innerHTML+='<li><span class="dot '+cls+'"></span><span class="dn">'+x.name+'</span>'
+      +'<span class="badge '+bls+'" style="margin-left:auto">'+x.qty.toLocaleString()+' viên</span></li>';
+  });
+
+  // ── Sắp hết hạn: theo từng lô, gom tránh trùng ──
+  var expMap={};
+  allRows.forEach(function(r){
+    var key=r.lot+'-'+r.drug;
+    if(!expMap[key]){
+      var ml=monthsLeft(r.exp);
+      if(ml<threshold.expMonths){
+        expMap[key]={name:r.drug,lot:r.lot,exp:r.exp,months:ml,unit:r.unit||BVPH};
+      }
+    }
+  });
+  var expList=[];
+  Object.keys(expMap).forEach(function(k){expList.push(expMap[k]);});
+  expList.sort(function(a,b){return a.months-b.months;});
+
+  var el2=document.getElementById('tq-explist'); el2.innerHTML='';
+  if(!expList.length){
+    el2.innerHTML='<li><span style="color:var(--success);font-weight:600">&#10003; Không có lô nào sắp hết hạn</span></li>';
+  }
+  expList.forEach(function(x){
+    var lbl=x.months<=0?'DA HET HAN':'Con '+x.months+' thang';
+    var bcls=x.months<=0?'badge-r':(x.months<=2?'badge-r':'badge-y');
+    var dcls=x.months<=0?'dot-r':'dot-y';
+    el2.innerHTML+='<li><span class="dot '+dcls+'"></span>'
+      +'<span class="dn">'+x.name+' - Lo '+x.lot+' ('+expFmt(x.exp)+') - '+x.unit+'</span>'
+      +'<span class="badge '+bcls+'">'+lbl+'</span></li>';
+  });
+}
+
+// ============================================================
+// DANH SÁCH THUỐC — kết hợp bvphData + bcData, lọc theo tháng
+// ============================================================
+
+// Lấy tháng đang chọn ở trang Danh sách thuốc
+function getDrugMonth(){
+  var el = document.getElementById('thuoc-month');
+  return el ? el.value : ''; // dạng "YYYY-MM" hoặc "" = tất cả
+}
+
+// So khớp tháng cho bảng danh sách thuốc
+function matchDrugMonth(r){
+  var mon = getDrugMonth();
+  if(!mon) return true;            // không chọn → hiện hết
+  if(!r.bcMonth) return true;      // dòng không tag tháng → hiện hết
+  return r.bcMonth === mon;        // so khớp "YYYY-MM"
+}
+
+function renderDrugTable(){
+  var tbody=document.getElementById('thuoc-body');
+  tbody.innerHTML='';
+
+  // Lọc theo tháng
+  var all = bvphData.filter(matchDrugMonth).concat(bcData.filter(matchDrugMonth));
+
+  // Cập nhật label tháng đang xem
+  var mon = getDrugMonth();
+  var labelEl = document.getElementById('thuoc-month-label');
+  if(labelEl){
+    if(!mon){ labelEl.textContent = 'Tất cả kỳ'; }
+    else {
+      var p = mon.split('-');
+      labelEl.textContent = 'Tháng '+parseInt(p[1])+'/'+p[0];
+    }
+  }
+
+  if(!all.length){
+    tbody.innerHTML='<tr><td colspan="9" style="color:var(--muted);font-style:italic;padding:14px">'
+      +(mon ? 'Không có dữ liệu trong tháng '+mon+'. Hãy thử chọn tháng khác.' : 'Chưa có dữ liệu')+'</td></tr>';
+    setDrugTotals(0,0,0,0);
+    return;
+  }
+
+  var totOpen=0,totIn=0,totOut=0,totFinal=0;
+  all.forEach(function(r){
+    var c=calcRow(r);
+    totOpen+=r.open; totIn+=c.tin; totOut+=c.tout; totFinal+=c.final;
+    var expired=isExpiredStr(r.exp);
+    var fcls=c.final<threshold.low?'final-low':'final-ok';
+    var st=expired
+      ?'<span class="badge badge-y">Đã HH</span>'
+      :(c.final<threshold.low
+        ?'<span class="badge badge-r">Sắp hết</span>'
+        :'<span class="badge badge-g">Đủ kho</span>');
+    var unitCell=r.unit||BVPH;
+    tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'">'
+      +'<td class="left">'+r.drug+'</td>'
+      +'<td style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;max-width:130px" title="'+unitCell+'">'+unitCell+'</td>'
+      +'<td>'+r.lot+'</td>'
+      +'<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'⚠ ':'')+expFmt(r.exp)+'</td>'
+      +'<td class="open-stock">'+r.open+'</td>'
+      +'<td style="color:var(--success);font-weight:700">'+c.tin+'</td>'
+      +'<td style="color:var(--danger);font-weight:700">'+c.tout+'</td>'
+      +'<td class="'+fcls+'">'+c.final+'</td>'
+      +'<td>'+st+'</td>'
+      +'</tr>';
+  });
+  setDrugTotals(totOpen,totIn,totOut,totFinal);
+}
+function setDrugTotals(o,i,x,f){
+  document.getElementById('dt-fo').textContent=o;
+  document.getElementById('dt-tnhap').textContent=i;
+  document.getElementById('dt-txuat').textContent=x;
+  document.getElementById('dt-ff').textContent=f;
+}
+function filterDrugTable(){
+  var q=document.getElementById('search-drug').value.toLowerCase();
+  document.querySelectorAll('#thuoc-body tr').forEach(function(tr){
+    tr.style.display=(tr.dataset.drug&&tr.dataset.drug.indexOf(q)>=0)?'':'none';
+  });
+}
+
+// Đồng bộ tháng bảng Danh sách thuốc với kỳ báo cáo đang chọn
+function syncDrugMonth(){
+  var p = getSelectedPeriod();
+  var el = document.getElementById('thuoc-month');
+  if(!el) return;
+  if(p.type === 'year'){
+    el.value = p.year + '-01'; // cả năm → để tháng 1 làm đại diện
+    toast('Đã đồng bộ: hiển thị cả năm ' + p.year, 'var(--accent)');
+  } else {
+    el.value = p.val; // "YYYY-MM"
+    toast('Đã đồng bộ kỳ báo cáo: ' + document.getElementById('bc-period-label').textContent, 'var(--accent)');
+  }
+  renderDrugTable();
+}
+
+// ============================================================
+// KHO TRUNG ƯƠNG
+// ============================================================
+function renderTWTable_obsolete_DISABLED(){
+  var tbody=document.getElementById('tw-body');tbody.innerHTML='';
+  if(!twData.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:10px">Chưa có dữ liệu kho Trung ương</td></tr>';return;}
+  twData.forEach(function(r,i){
+    tbody.innerHTML+='<tr><td class="left">'+r.drug+'</td><td>'+r.lot+'</td><td>'+expFmt(r.exp)+'</td><td style="color:var(--success);font-weight:700">'+r.qty.toLocaleString()+'</td><td>'+r.note+'</td><td>'+r.date+'</td><td><button class="btn btn-danger btn-xs" onclick="delTW('+i+')">Xóa</button></td></tr>';
+  });
+}
+function addTW_obsolete_DISABLED(){
+  if(!isAdmin()){toast('Chỉ Admin mới được nhập kho Trung ương!','var(--danger)');return;}
+  var drug=document.getElementById('tw-drug').value.trim(),lot=document.getElementById('tw-lot').value.trim(),exp=document.getElementById('tw-exp').value,qty=parseInt(document.getElementById('tw-qty').value)||0,note=document.getElementById('tw-note').value.trim();
+  if(!drug||!lot||!exp||!qty){toast('Vui lòng nhập đủ: tên thuốc, số lô, hạn dùng, số lượng!','var(--danger)');return;}
+  var t=new Date();
+  twData.push({drug:drug,lot:lot,exp:exp,qty:qty,note:note||'—',date:t.getDate()+'/'+(t.getMonth()+1)+'/'+t.getFullYear()});
+  drugFreq[drug]=(drugFreq[drug]||0)+1;
+  ['tw-drug','tw-lot','tw-qty','tw-note'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('tw-exp').value='';
+  toast('Đã thêm kho TW: '+drug+' — Lô '+lot,'var(--success)');
+}
+function delTW_obsolete_DISABLED(i){if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}if(confirm('Xóa "'+twData[i].drug+'"?')){twData.splice(i,1);toast('Đã xóa','var(--danger)');}}
+
+// Tính Xuất Tổ CL của BVPH theo từng thuốc = tổng tinh (nhập tỉnh cấp) của bcData cùng tên thuốc
+// Tính tổng tinh của bcData theo drug+lot+exp (3 chiều)
+// Dùng để so sánh checkMismatch — KHÔNG dùng để ghi đè dc2
+function calcAutoTCL(drug, lot, exp){
+  var total = 0;
+  for(var k=0;k<bcData.length;k++){
+    var r = bcData[k];
+    if(r.drug===drug && r.lot===lot && r.exp===exp)
+      total += (r.tinh||0);
+  }
+  return total;
+}
+
+// Tính tổng tinh chỉ theo tên thuốc (legacy, giữ để tương thích)
+function calcAutoTCLByDrug(drugName){
+  var total = 0;
+  for(var k=0;k<bcData.length;k++){
+    if(bcData[k].drug===drugName) total += (bcData[k].tinh||0);
+  }
+  return total;
+}
+
+// ============================================================
+// BÁO CÁO — Render bảng
+// Quy tắc hiển thị:
+//   - Số liệu tĩnh (text) khi chưa bấm Sửa
+//   - Chuyển thành input khi bấm Sửa, trở về tĩnh khi bấm Lưu
+//   - Tồn đầu: khoá sau khi chốt (chỉ Admin sửa được)
+//   - Bảng BVPH: Xuất Tổ CL = auto, Xuất tỉnh khác = nhập tay
+// ============================================================
+function buildTbl(data, bodyId, prefix){
+  var tbody = document.getElementById(bodyId);
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  var isBVPH = (prefix === 'bvph');
+
+  // Biến tổng footer
+  var sumOpen=0, sumTinh=0, sumDC=0, sumTIN=0;
+  var sumSD=0, sumDC2=0, sumDC3=0, sumHH=0, sumTOUT=0, sumFinal=0;
+
+  for(var idx=0; idx<data.length; idx++){
+    var row = data[idx];
+    var rowIdx = idx; // index trong data[] (= filtered cho bcData)
+
+    // dc2 = Xuất Tổ CL nhập tay của BVPH — KHÔNG auto-fill
+    var res = calcRow(row);
+
+    sumOpen  += (row.open||0);
+    sumTinh  += (row.tinh||0);
+    sumDC    += (row.dc||0);
+    sumTIN   += res.tin;
+    sumSD    += (row.sd||0);
+    sumDC2   += (row.dc2||0);
+    sumDC3   += (row.dc3||0);
+    sumHH    += (row.hh||0);
+    sumTOUT  += res.tout;
+    sumFinal += res.final;
+
+    var expired   = isExpiredStr(row.exp);
+    var finalCls  = res.final < threshold.low ? 'final-low' : 'final-ok';
+    var canEdit   = currentUser ? (isBVPH ? canEditBVPH() : canEditUnit(row.unit)) : false;
+    var isLocked  = (row.locked  === true);
+    var isEditing = (row.editing === true);
+    // Tồn đầu khoá với non-admin sau khi chốt
+    var openRO    = (!isAdmin() && row.openLocked === true);
+
+    // Nút thao tác
+    // reportLocked=true: báo cáo đã lưu → ẩn hết nút trừ admin
+    // isLocked=true: dòng bị khoá → chỉ admin thấy nút Mở
+    // isLocked=false: bình thường → Sửa/Lưu + Xóa
+    var btns = '';
+    if(canEdit){
+      var editLbl = isEditing ? '&#128190; Lưu' : '&#9999; Sửa';
+      var editSty = isEditing
+        ? 'background:var(--success);color:white'
+        : 'background:var(--warning);color:white';
+      btns  = '<button class="btn btn-xs" style="'+editSty+'"'
+        + ' onclick="editR(\'' + prefix + '\',' + rowIdx + ')">'+editLbl+'</button> ';
+      btns += '<button class="btn btn-danger btn-xs"'
+        + ' onclick="delR(\'' + prefix + '\',' + rowIdx + ')">Xóa</button>';
+    } else {
+      btns = '<span style="color:var(--muted);font-size:11px">—</span>';
+    }
+    // Tạo ô input hoặc text tuỳ trạng thái
+    // QUAN TRỌNG: dùng onchange string attribute (không dùng addEventListener)
+    // vì innerHTML sẽ làm mất event listener
+    function makeCell(field, val, readOnly){
+      var locked = readOnly || isLocked;
+      if(isEditing && canEdit && !locked){
+        // Truyền prefix và rowIdx trực tiếp vào onchange string
+        var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
+        return '<input type="number" min="0" value="' + val + '"'
+          + ' style="width:54px;padding:4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px"'
+          + ' onchange="' + onch + '"'
+          + ' oninput="' + onch + '"'
+          + '>';
+      }
+      // Tĩnh
+      var style = readOnly && !isAdmin() ? 'color:var(--muted)' : '';
+      return '<span style="' + style + '">' + val + '</span>';
+    }
+
+    var expDisp   = expToMMYYYY(row.exp);
+    var trStyle   = reportLocked ? 'background:#f5f5f5' : (isLocked ? 'background:#f8f9fa' : '');
+    var lockBadge = isLocked ? ' <small style="color:#aaa">&#128274;</small>' : '';
+
+    var tr = '<tr style="'+trStyle+'">';
+    tr += '<td class="left">'+row.drug+lockBadge+'</td>';
+    tr += '<td>'+row.lot+'</td>';
+    tr += '<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'&#9888; ':'')+expDisp+'</td>';
+    tr += '<td class="open-stock">'+makeCell('open', row.open, openRO)+'</td>';
+    tr += '<td>'+makeCell('tinh', row.tinh||0, false)+'</td>';
+    tr += '<td>'+makeCell('dc',   row.dc||0,   false)+'</td>';
+    tr += '<td class="calc-cell"><strong>'+res.tin+'</strong></td>';
+    tr += '<td>'+makeCell('sd',   row.sd||0,   false)+'</td>';
+    if(isBVPH){
+      tr += '<td>'+makeCell('dc2', row.dc2||0, false)+'</td>';
+      tr += '<td>'+makeCell('dc3', row.dc3||0, false)+'</td>';
+    } else {
+      tr += '<td>'+makeCell('dc2', row.dc2||0, false)+'</td>';
+    }
+    tr += '<td>'+makeCell('hh',  row.hh||0,  false)+'</td>';
+    tr += '<td class="calc-cell"><strong>'+res.tout+'</strong></td>';
+    tr += '<td class="'+finalCls+'">'+res.final+'</td>';
+    tr += '<td class="no-print" style="white-space:nowrap">'+btns+'</td>';
+    tr += '</tr>';
+    tbody.innerHTML += tr;
+  }
+
+  // Hàng tổng cộng - thêm vào cuối tbody nếu có nhiều hơn 1 dòng
+  if(data.length > 1){
+    var ncols_before_sd = isBVPH ? 8 : 8;
+    var sumRow='<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">';
+    sumRow+='<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+data.length+' lô)</td>';
+    sumRow+='<td class="open-stock">'+sumOpen+'</td>';
+    sumRow+='<td>'+sumTinh+'</td>';
+    sumRow+='<td>'+sumDC+'</td>';
+    sumRow+='<td class="calc-cell">'+sumTIN+'</td>';
+    sumRow+='<td>'+sumSD+'</td>';
+    if(isBVPH){
+      sumRow+='<td class="calc-cell">'+sumDC2+'</td>';
+      sumRow+='<td>'+sumDC3+'</td>';
+    } else {
+      sumRow+='<td>'+sumDC2+'</td>';
+    }
+    sumRow+='<td>'+sumHH+'</td>';
+    sumRow+='<td class="calc-cell">'+sumTOUT+'</td>';
+    sumRow+='<td style="color:var(--accent);font-size:13px">'+sumFinal+'</td>';
+    sumRow+='<td></td></tr>';
+    tbody.innerHTML+=sumRow;
+  }
+}
+function setFoot(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
+
+// ============================================================
+// KỲ BÁO CÁO — lấy giá trị từ 2 dropdown sel-year + sel-month
+// ============================================================
+function getSelectedPeriod(){
+  var yearEl  = document.getElementById('sel-year');
+  var monthEl = document.getElementById('sel-month');
+  var year  = yearEl  ? yearEl.value  : '2026';
+  var month = monthEl ? monthEl.value : '05';
+  if(month === '__year__'){
+    return { type:'year', year:year, val:year };
+  }
+  return { type:'month', year:year, val:year+'-'+month };
+}
+
+function matchPeriod(r){
+  var p = getSelectedPeriod();
+  if(!r.bcMonth) return true; // không có tag tháng → hiện hết
+  if(p.type === 'year'){
+    return r.bcMonth.startsWith(p.year + '-') || r.bcMonth === p.year;
+  }
+  return r.bcMonth === p.val;
+}
+
+function onYearChange(){ onGlobalMonthChange(); }
+
+function onGlobalMonthChange(){
+  var p = getSelectedPeriod();
+  // Cập nhật label
+  var labelEl = document.getElementById('bc-period-label');
+  if(labelEl){
+    if(p.type === 'year'){
+      labelEl.textContent = 'Cả năm ' + p.year;
+    } else {
+      var mNames = ['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+                    'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+      var mNum = parseInt(p.val.split('-')[1]) || 0;
+      labelEl.textContent = mNames[mNum] + '/' + p.year;
+    }
+  }
+  // Đồng bộ hidden inputs để addBVPHRow/addBcRow lưu đúng bcMonth
+  var syncVal = p.val;
+  ['bvph-month','bc-month','filter-month-bc','tp-month'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.value = syncVal;
+  });
+  renderBVPH();
+  renderBC();
+  renderTP();
+  // Tự động đồng bộ tháng bảng Danh sách thuốc nếu đang ở trang thuoc
+  var tmEl = document.getElementById('thuoc-month');
+  if(tmEl && p.type === 'month') tmEl.value = p.val;
+  renderDrugTable();
+  // Cập nhật nút Lưu/Mở theo kỳ mới
+  updateSaveBtnUI();
+}
+
+
+function renderBVPH(){
+  var filtered = bvphData.filter(matchPeriod);
+  buildTbl(filtered,'bvph-body','bvph');
+  checkMismatch();renderTQ();renderDrugTable();
+  renderTP();
+  updateLockedUI();
+}
+function renderBC(){
+  var selUnit = document.getElementById('filter-unit-bc');
+  var unitVal = selUnit ? selUnit.value : '__all__';
+
+  // Lọc theo đơn vị VÀ kỳ báo cáo (năm hoặc tháng cụ thể)
+  var filtered = bcData.filter(function(r){
+    var unitOk = (unitVal==='__all__' || r.unit===unitVal);
+    var monOk  = matchPeriod(r);
+    return unitOk && monOk;
+  });
+
+  // Cập nhật tiêu đề bảng
+  var titleEl=document.getElementById('bc-table-title');
+  var noteEl=document.getElementById('bc-filter-note');
+  if(titleEl){
+    if(unitVal==='__all__') titleEl.textContent='Báo cáo tổng hợp — 22 đơn vị tuyến';
+    else titleEl.textContent='Báo cáo — '+unitVal;
+  }
+  if(noteEl){
+    if(unitVal==='__all__'){
+      // Tổng hợp: cộng theo từng thuốc, không cộng chung
+      noteEl.textContent='Xem tổng: '+filtered.length+' dòng | Chú ý: tồn cuối tính theo từng thuốc riêng';
+    } else {
+      noteEl.textContent=filtered.length+' lô thuốc của đơn vị này';
+    }
+  }
+
+  buildTbl(filtered,'bc-body','other');
+  checkMismatch();renderTQ();renderDrugTable();
+  renderTP();
+  updateLockedUI();
+}
+
+// ============================================================
+// MISMATCH CHECK
+// So sánh: dc2 (điều chuyển ra) BVPHP = tinh (tỉnh cấp) đơn vị nhận
+// ============================================================
+function checkMismatch(){
+  var el=document.getElementById('bvph-mismatch'); if(!el) return;
+
+  // Lọc theo kỳ báo cáo đang chọn (năm hoặc tháng)
+  var bvphFiltered = bvphData.filter(matchPeriod);
+  var bcFiltered   = bcData.filter(matchPeriod);
+
+  // So sánh theo KEY = drug + lot + exp (3 chiều, cùng kỳ báo cáo)
+  // dc2 (Xuất Tổ CL, nhập tay BVPH) phải = tổng tinh (nhập tỉnh cấp) của các đơn vị
+  var KEY = function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
+
+  // Gom Xuất Tổ CL của BVPH theo key (dc2 nhập tay)
+  var bvphBySrc = {};
+  bvphFiltered.forEach(function(r){
+    var k = KEY(r);
+    if(!bvphBySrc[k]) bvphBySrc[k]={drug:r.drug,lot:r.lot,exp:r.exp,val:0};
+    bvphBySrc[k].val += (r.dc2||0);
+  });
+
+  // Gom Nhập tỉnh cấp của các đơn vị theo key drug+lot+exp (tinh)
+  var otherByKey = {};
+  bcFiltered.forEach(function(r){
+    var k = KEY(r);
+    if(!otherByKey[k]) otherByKey[k]={drug:r.drug,lot:r.lot,exp:r.exp,val:0};
+    otherByKey[k].val += (r.tinh||0);
+  });
+
+  // Gộp tất cả keys
+  var allKeys={};
+  Object.keys(bvphBySrc).forEach(function(k){allKeys[k]=1;});
+  Object.keys(otherByKey).forEach(function(k){allKeys[k]=1;});
+
+  var drugsOK=[], drugsErr=[];
+  Object.keys(allKeys).forEach(function(k){
+    var bvphOut=(bvphBySrc[k]||{val:0}).val;
+    var unitIn =(otherByKey[k]||{val:0}).val;
+    var meta   =bvphBySrc[k]||otherByKey[k];
+    if(bvphOut===0&&unitIn===0) return;
+    if(bvphOut===unitIn){
+      drugsOK.push({drug:meta.drug,lot:meta.lot,exp:meta.exp,val:bvphOut});
+    } else {
+      drugsErr.push({drug:meta.drug,lot:meta.lot,exp:meta.exp,bvph:bvphOut,unit:unitIn,diff:bvphOut-unitIn});
+    }
+  });
+
+  var html='';
+  if(drugsErr.length>0){
+    var errRows = drugsErr.map(function(m){
+      return '<tr><td style="padding:3px 8px;font-weight:600">'+m.drug+'</td>'
+        +'<td style="padding:3px 8px;font-size:11px;color:var(--muted)">'+m.lot+'</td>'
+        +'<td style="padding:3px 8px;font-size:11px;color:var(--muted)">'+expToMMYYYY(m.exp)+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;color:#1a5276">'+m.bvph+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;color:var(--success)">'+m.unit+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;color:var(--danger);font-weight:700">'+(m.diff>0?'+':'')+m.diff+'</td></tr>';
+    }).join('');
+    html += '<div class="mismatch-box warn" style="flex-direction:column;gap:6px">'
+      +'<div style="font-weight:700">⚠ Không khớp (đối chiếu theo thuốc + lô + hạn dùng):</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11px">'
+      +'<tr style="color:var(--muted)"><th style="padding:2px 8px;text-align:left">Thuốc</th>'
+      +'<th style="padding:2px 8px;text-align:left">Số lô</th>'
+      +'<th style="padding:2px 8px;text-align:left">Hạn dùng</th>'
+      +'<th style="padding:2px 8px;text-align:right">BVPHP xuất</th>'
+      +'<th style="padding:2px 8px;text-align:right">Đơn vị nhập</th>'
+      +'<th style="padding:2px 8px;text-align:right">Chênh</th></tr>'
+      + errRows + '</table></div>';
+  }
+  if(drugsOK.length>0){
+    var okList = drugsOK.map(function(m){ return m.drug+' ['+m.lot+'] ('+m.val+' viên)'; }).join(', ');
+    html += '<div class="mismatch-box ok" style="font-size:12px">✓ Khớp: '+okList+'</div>';
+  }
+  el.innerHTML = html || '';
+}
+
+// ============================================================
+// CẬP NHẬT & XÓA DÒNG
+// ============================================================
+function getFilteredBC(){
+  var selUnit = document.getElementById('filter-unit-bc');
+  var unitVal = selUnit ? selUnit.value : '__all__';
+  return bcData.filter(function(r){
+    var unitOk = (unitVal==='__all__' || r.unit===unitVal);
+    return unitOk && matchPeriod(r);
+  });
+}
+
+function updField(prefix, rowIdx, field, val){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
+  var v = Math.max(0, parseInt(val)||0);
+  var realIdx = -1;
+
+  if(prefix === 'bvph'){
+    var bvphFiltered2 = bvphData.filter(matchPeriod);
+    if(rowIdx < bvphFiltered2.length)
+      realIdx = bvphData.indexOf(bvphFiltered2[rowIdx]);
+  } else {
+    var filtered2 = getFilteredBC();
+    if(rowIdx < filtered2.length)
+      realIdx = bcData.indexOf(filtered2[rowIdx]);
+  }
+
+  if(realIdx < 0) return; // không tìm thấy dòng
+
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  arr[realIdx][field] = v;
+
+  if(prefix==='bvph') renderBVPH(); else renderBC();
+  saveLocalCache(buildPayload());
+}
+function delR(prefix, rowIdx){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi xóa.','var(--danger)');return;}
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  var realIdx = -1;
+
+  if(prefix === 'bvph'){
+    var bvphFd = bvphData.filter(matchPeriod);
+    if(rowIdx < bvphFd.length) realIdx = bvphData.indexOf(bvphFd[rowIdx]);
+  } else {
+    var bcFd = getFilteredBC();
+    if(rowIdx < bcFd.length) realIdx = bcData.indexOf(bcFd[rowIdx]);
+  }
+
+  if(realIdx < 0) return;
+  var target = arr[realIdx];
+  if(!target) return;
+  if(confirm('Xóa dòng "'+target.drug+' — Lô '+target.lot+'"?')){
+    arr.splice(realIdx, 1);
+    if(prefix==='bvph') renderBVPH(); else renderBC();
+    saveLocalCache(buildPayload());
+    toast('Đã xóa dòng', 'var(--danger)');
+  }
+}
+function editR(prefix, rowIdx){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  var realIdx = -1;
+
+  if(prefix === 'bvph'){
+    var bvphF = bvphData.filter(matchPeriod);
+    if(rowIdx < bvphF.length) realIdx = bvphData.indexOf(bvphF[rowIdx]);
+  } else {
+    var bcF = getFilteredBC();
+    if(rowIdx < bcF.length) realIdx = bcData.indexOf(bcF[rowIdx]);
+  }
+
+  if(realIdx < 0){ toast('Không tìm thấy dòng!','var(--danger)'); return; }
+  var target = arr[realIdx];
+  if(!target) return;
+  if(target.locked && !isAdmin()){toast('Dòng đã khóa! Chỉ Admin mở được.','var(--danger)');return;}
+
+  if(target.editing){
+    // Đang sửa → bấm Lưu: flush tất cả input trong tbody
+    var bodyId = prefix==='bvph' ? 'bvph-body' : 'bc-body';
+    var tbody  = document.getElementById(bodyId);
+    if(tbody){
+      var inputs = tbody.querySelectorAll('input[type=number]');
+      var fields = ['open','tinh','dc','sd','dc2','dc3','hh'];
+      inputs.forEach(function(inp){
+        var onch = inp.getAttribute('onchange') || inp.getAttribute('oninput') || '';
+        fields.forEach(function(f){
+          // Chỉ flush input thuộc đúng dòng này (rowIdx) và field này
+          if(onch.indexOf(','+rowIdx+',') >= 0 &&
+             (onch.indexOf("'"+f+"'") >= 0 || onch.indexOf('"'+f+'"') >= 0)){
+            var v = Math.max(0, parseInt(inp.value)||0);
+            arr[realIdx][f] = v;
+          }
+        });
+      });
+    }
+    target.editing = false;
+    saveLocalCache(buildPayload());
+    toast('Đã lưu: '+target.drug, 'var(--success)');
+  } else {
+    target.editing = true;
+    toast('Đang sửa: '+target.drug+' — Bấm Lưu khi xong', 'var(--warning)');
+  }
+  if(prefix==='bvph') renderBVPH(); else renderBC();
+}
+
+function getReal(prefix, rowIdx){
+  if(prefix === 'bvph'){
+    var bvphF2 = bvphData.filter(matchPeriod);
+    return rowIdx < bvphF2.length ? bvphData.indexOf(bvphF2[rowIdx]) : -1;
+  }
+  var filtered = getFilteredBC();
+  return rowIdx < filtered.length ? bcData.indexOf(filtered[rowIdx]) : -1;
+}
+
+function lockRow(prefix, rowIdx){
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  var ri  = prefix==='bvph' ? rowIdx : getReal(prefix, rowIdx);
+  if(ri < 0 || ri >= arr.length) return;
+  arr[ri].locked=true; arr[ri].editing=false; arr[ri].openLocked=true;
+  saveLocalCache(buildPayload());
+  if(prefix==='bvph') renderBVPH(); else renderBC();
+  toast('Đã khóa: '+arr[ri].drug+'. Tồn đầu không thể sửa.','#6c757d');
+}
+
+// Chốt báo cáo: tồn cuối → tồn đầu kỳ mới, reset nhập/xuất, khoá tồn đầu
+function chot(prefix){
+  var canDo = isAdmin() || (prefix==='bvph' && canEditBVPH()) || (prefix==='other' && true);
+  if(!canDo){toast('Không có quyền chốt báo cáo!','var(--danger)');return;}
+  if(!confirm('Chốt báo cáo và chuyển tồn cuối → tồn đầu kỳ mới?\nSau khi chốt, tồn đầu sẽ KHÔNG sửa được (trừ Admin).'))return;
+  var arr = (prefix==='bvph') ? bvphData : bcData;
+  arr.forEach(function(row){
+    var res = calcRow(row);
+    row.open       = res.final; // tồn cuối kỳ này = tồn đầu kỳ sau
+    row.tinh       = 0;
+    row.dc         = 0;
+    row.sd         = 0;
+    row.dc2        = 0;
+    row.dc3        = 0;
+    row.hh         = 0;
+    row.locked     = false;  // mở khoá dòng để nhập liệu kỳ mới
+    row.editing    = false;
+    row.openLocked = true;   // nhưng khoá tồn đầu (không cho sửa)
+  });
+  // Lưu vào localStorage
+  try{
+    var payload={bvphData:bvphData,bcData:bcData,catalogData:catalogData,ACCOUNTS:ACCOUNTS,drugFreq:drugFreq,threshold:threshold,savedAt:new Date().toISOString()};
+    localStorage.setItem('thuoclao_data', JSON.stringify(payload));
+  }catch(e){}
+  if(prefix==='bvph') renderBVPH(); else renderBC();
+  toast('Đã chốt báo cáo! Tồn cuối → Tồn đầu kỳ mới. Dữ liệu đã được lưu.','var(--success)');
+}
+
+function unlockRow(prefix, rowIdx){
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  var ri  = prefix==='bvph' ? rowIdx : getReal(prefix, rowIdx);
+  if(ri < 0 || ri >= arr.length) return;
+  arr[ri].locked = false;
+  if(prefix==='bvph') renderBVPH(); else renderBC();
+  toast('Đã mở khóa: '+arr[ri].drug, 'var(--success)');
+}
+function onUnitChange(){
+  var unit=document.getElementById('bc-unit').value;
+  if(unit===BVPH){
+    toast('Dữ liệu BVPHP sẽ được thêm vào bảng riêng phía trên','#1a5276');
+    return;
+  }
+  // Tự động set bộ lọc về đơn vị đang chọn
+  var fu=document.getElementById('filter-unit-bc');
+  if(fu&&unit){for(var k=0;k<fu.options.length;k++){if(fu.options[k].value===unit){fu.selectedIndex=k;break;}}}
+  renderBC();
+}
+// ============================================================
+// LƯU / MỞ FILE TRÊN Ổ CỨNG
+// Dùng File System Access API (Chrome/Edge 86+)
+// Fallback: tải file .json về thư mục Downloads
+// ============================================================
+var _fileHandle = null; // giữ handle để lưu lại cùng file
+
+async function saveToFile(){
+  if(!isAdmin()){toast('Chỉ Admin mới lưu file!','var(--danger)');return;}
+  var payload = buildPayload();
+  var json    = JSON.stringify(payload, null, 2);
+  var blob    = new Blob([json], {type:'application/json'});
+
+  // Thử File System Access API (Chrome/Edge — cho phép chọn vị trí)
+  if(window.showSaveFilePicker){
+    try{
+      var opts = {
+        suggestedName: 'thuoclao_data_'+new Date().toISOString().slice(0,10)+'.json',
+        types:[{description:'Dữ liệu thuốc lao',accept:{'application/json':['.json']}}]
+      };
+      _fileHandle = await window.showSaveFilePicker(opts);
+      var writable = await _fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      toast('✓ Đã lưu file thành công: '+_fileHandle.name,'var(--success)');
+      return;
+    }catch(e){
+      if(e.name==='AbortError') return; // người dùng bấm Cancel
+    }
+  }
+
+  // Fallback: tải về Downloads
+  var url = URL.createObjectURL(blob);
+  var a   = document.createElement('a');
+  a.href  = url;
+  a.download = 'thuoclao_data_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Đã tải file về máy (thư mục Downloads)','var(--success)');
+}
+
+async function loadFromFile(){
+  // Thử File System Access API
+  if(window.showOpenFilePicker){
+    try{
+      var [handle] = await window.showOpenFilePicker({
+        types:[{description:'Dữ liệu thuốc lao',accept:{'application/json':['.json']}}],
+        multiple: false
+      });
+      _fileHandle = handle;
+      var file = await handle.getFile();
+      var text = await file.text();
+      var p    = JSON.parse(text);
+      applyPayload(p);
+      saveLocalCache(p); // đồng bộ vào localStorage
+      toast('✓ Đã mở file: '+handle.name,'var(--success)');
+      return;
+    }catch(e){
+      if(e.name==='AbortError') return;
+      toast('Lỗi đọc file: '+e.message,'var(--danger)');return;
+    }
+  }
+
+  // Fallback: input file ẩn
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.onchange = function(){
+    var f = inp.files[0]; if(!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      try{
+        var p = JSON.parse(fr.result);
+        applyPayload(p);
+        saveLocalCache(p);
+        toast('✓ Đã mở file: '+f.name,'var(--success)');
+      }catch(e){ toast('File không hợp lệ!','var(--danger)'); }
+    };
+    fr.readAsText(f);
+  };
+  inp.click();
+}
+
+// Lưu nhanh vào file đang mở (không hỏi lại vị trí)
+async function quickSaveToFile(){
+  if(!_fileHandle) return;
+  try{
+    var payload  = buildPayload();
+    var writable = await _fileHandle.createWritable();
+    await writable.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+    await writable.close();
+  }catch(e){}
+}
+
+
+// ============================================================
+function getPrevPeriod(){
+  var p = getSelectedPeriod();
+  if(p.type==='year') return null; // "Cả năm" không tự chuyển
+  var yr = parseInt(p.year), mn = parseInt(p.val.split('-')[1]);
+  mn--;
+  if(mn<=0){ mn=12; yr--; }
+  return yr+'-'+(mn<10?'0':'')+mn;
+}
+
+// Kiểm tra dòng có dữ liệu kỳ trước không (cùng unit+drug+lot+exp)
+function findPrevRow(arr, unit, drug, lot, exp, prevMon){
+  if(!prevMon) return null;
+  var isBVPH = (unit === BVPH);
+  for(var k=0;k<arr.length;k++){
+    var r=arr[k];
+    if(r.bcMonth===prevMon && r.drug===drug && r.lot===lot && r.exp===exp){
+      // bvphData: rows có thể có unit:BVPH hoặc không có unit
+      if(isBVPH){
+        if(!r.unit || r.unit===BVPH) return r;
+      } else {
+        if(r.unit===unit) return r;
+      }
+    }
+  }
+  return null;
+}
+
+// Khi addBcRow / addBVPHRow: nếu có dữ liệu kỳ trước → override open + openLocked
+function applyAutoOpen(row, arr){
+  var prev = getPrevPeriod();
+  if(!prev) return; // không áp dụng cho "Cả năm"
+  var prevRow = findPrevRow(arr, row.unit, row.drug, row.lot, row.exp, prev);
+  if(prevRow){
+    var res = calcRow(prevRow);
+    row.open = res.final;      // tồn cuối kỳ trước → tồn đầu kỳ này
+    row.openLocked = !isAdmin(); // khoá với non-admin
+  }
+}
+
+// Thêm dòng "Không sử dụng thuốc" cho đơn vị đang chọn
+// Tất cả số liệu = 0, dùng để xác nhận đơn vị đã nộp báo cáo kỳ này
+function addNoUsageRow(){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi nhập thêm.','var(--danger)');return;}
+  var unitSel = document.getElementById('bc-unit');
+  var unit    = unitSel ? unitSel.value : '';
+  if(!unit){
+    toast('Vui lòng chọn đơn vị trước!','var(--danger)');
+    return;
+  }
+  if(!canEditUnit(unit)){
+    toast('Bạn không có quyền nhập liệu cho đơn vị này!','var(--danger)');
+    return;
+  }
+
+  var period = getSelectedPeriod();
+  var mon    = period.type==='year' ? period.year+'-01' : period.val;
+
+  // Kiểm tra đơn vị này đã có dữ liệu kỳ này chưa
+  var existing = bcData.filter(function(r){
+    return r.unit===unit && r.bcMonth===mon;
+  });
+  if(existing.length > 0){
+    if(!confirm('Đơn vị "'+unit+'" đã có '+existing.length+' dòng dữ liệu trong kỳ này.\n\nBạn có muốn thêm thêm dòng không sử dụng thuốc không?'))
+      return;
+  }
+
+  // Lấy danh sách thuốc từ catalogData
+  var lots = catalogData.filter(function(r){
+    // Chỉ lấy lô còn hạn
+    return monthsLeft(r.exp) > 0;
+  });
+
+  if(!lots.length){
+    toast('Danh mục thuốc chưa có lô nào còn hạn. Hãy thêm tại Danh sách thuốc.','var(--warning)');
+    return;
+  }
+
+  var added = 0;
+  lots.forEach(function(r){
+    // Bỏ qua nếu đã có dòng cùng drug+lot+exp trong kỳ này
+    var dup = bcData.find(function(d){
+      return d.unit===unit && d.drug===r.drug && d.lot===r.lot &&
+             d.exp===r.exp && d.bcMonth===mon;
+    });
+    if(dup) return;
+
+    var newRow = {
+      unit:unit, drug:r.drug, lot:r.lot, exp:r.exp,
+      open:0, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+      locked:false, editing:false, bcMonth:mon, openLocked:false
+    };
+    // Áp dụng tồn đầu tự động từ kỳ trước
+    applyAutoOpen(newRow, bcData);
+    bcData.push(newRow);
+    added++;
+  });
+
+  // Đặt bộ lọc về đơn vị vừa thêm
+  var fu = document.getElementById('filter-unit-bc');
+  if(fu){
+    for(var k=0;k<fu.options.length;k++){
+      if(fu.options[k].value===unit){ fu.selectedIndex=k; break; }
+    }
+  }
+
+  renderBC();
+  renderTQ();
+  saveLocalCache(buildPayload());
+
+  if(added > 0)
+    toast('Đã thêm '+added+' dòng báo cáo (không sử dụng) cho "'+unit+'"','var(--success)');
+  else
+    toast('Tất cả lô đã có dữ liệu trong kỳ này rồi','var(--warning)');
+}
+
+function addBVPHRow(){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi nhập thêm.','var(--danger)');return;}
+  var drug   = document.getElementById('bvph-drug').value;
+  var lotSel = document.getElementById('bvph-lot-sel');
+  var lot    = lotSel ? lotSel.value.trim() : '';
+  var expRaw = document.getElementById('bvph-exp').value.trim();
+  var open   = Math.max(0, parseInt(document.getElementById('bvph-open').value)||0);
+  var _p2   = getSelectedPeriod();
+  var mon    = _p2.type==='year' ? _p2.year+'-01' : _p2.val;
+  var tinh   = Math.max(0, parseInt(document.getElementById('bvph-tinh').value)||0);
+  var dc     = Math.max(0, parseInt(document.getElementById('bvph-dc').value)||0);
+  var sd     = Math.max(0, parseInt(document.getElementById('bvph-sd').value)||0);
+  var dc2    = Math.max(0, parseInt(document.getElementById('bvph-dc2').value)||0);
+  var dc3    = Math.max(0, parseInt(document.getElementById('bvph-dc3').value)||0);
+  var hh     = Math.max(0, parseInt(document.getElementById('bvph-hh').value)||0);
+  if(!drug||!lot||!expRaw){toast('Nhập đủ: tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
+  if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
+  if(!canEditBVPH()){toast('Bạn không có quyền nhập BVPHP!','var(--danger)');return;}
+  var exp = parseMonthExp(expRaw);
+  drugFreq[drug] = (drugFreq[drug]||0) + 1;
+  var newRowBV={unit:BVPH,drug:drug,lot:lot,exp:exp,open:open,
+    tinh:tinh,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
+    locked:false,editing:false,bcMonth:mon,openLocked:false};
+  applyAutoOpen(newRowBV,bvphData);
+  bvphData.push(newRowBV);
+  var ls=document.getElementById('bvph-lot-sel');if(ls)ls.value='';
+  var bd=document.getElementById('bvph-drug');if(bd)bd.value='';
+  ['bvph-exp','bvph-open','bvph-dc2',
+   'bvph-tinh','bvph-dc','bvph-sd','bvph-dc3','bvph-hh'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var _bp=document.getElementById('bvph-preview');if(_bp)_bp.textContent='—';
+  hideAc('bvph-ac');
+  renderBVPH();
+  toast('Đã thêm BVPHP: '+drug+' — Lô '+lot, 'var(--success)');
+}
+
+function addBcRow(){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi nhập thêm.','var(--danger)');return;}
+  var unit   = document.getElementById('bc-unit').value;
+  var drug   = document.getElementById('bc-drug').value;
+  var lotSel2 = document.getElementById('bc-lot-sel');
+  var lot     = lotSel2 ? lotSel2.value.trim() : '';
+  var expRaw = document.getElementById('bc-exp').value.trim();
+  var open   = Math.max(0, parseInt(document.getElementById('bc-open').value)||0);
+  var _p    = getSelectedPeriod();
+  var mon    = _p.type==='year' ? _p.year+'-01' : _p.val;
+  var tinh   = Math.max(0, parseInt(document.getElementById('bc-tinh').value)||0);
+  var dc     = Math.max(0, parseInt(document.getElementById('bc-dc').value)||0);
+  var sd     = Math.max(0, parseInt(document.getElementById('bc-sd').value)||0);
+  var dc2    = Math.max(0, parseInt(document.getElementById('bc-dc2').value)||0);
+  var hh     = Math.max(0, parseInt(document.getElementById('bc-hh').value)||0);
+  if(!unit||!drug||!lot||!expRaw){toast('Nhập đủ: đơn vị, tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
+  if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
+  if(!canEditUnit(unit)){toast('Bạn không có quyền nhập đơn vị này!','var(--danger)');return;}
+  var exp = parseMonthExp(expRaw);
+  drugFreq[drug] = (drugFreq[drug]||0) + 1;
+  var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
+    tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
+    locked:false,editing:false,bcMonth:mon,openLocked:false};
+  applyAutoOpen(newRowBC,bcData);
+  bcData.push(newRowBC);
+  var ls2=document.getElementById('bc-lot-sel');if(ls2)ls2.value='';
+  var bd2=document.getElementById('bc-drug');if(bd2)bd2.value='';
+  ['bc-exp','bc-open',
+   'bc-tinh','bc-dc','bc-sd','bc-dc2','bc-hh'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var _bcp=document.getElementById('bc-preview');if(_bcp)_bcp.textContent='—';
+  hideAc('bc-ac');
+  var fu=document.getElementById('filter-unit-bc');
+  if(fu&&unit!==BVPH){for(var k=0;k<fu.options.length;k++){if(fu.options[k].value===unit){fu.selectedIndex=k;break;}}}
+  var fm=document.getElementById('filter-month-bc');
+  if(fm&&mon) fm.value=mon;
+  renderBC();
+  // Cập nhật dc2 của bvphData (Xuất Tổ CL auto)
+  renderBVPH();
+  toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
+}
+function buildPayload(){
+  return {
+    bvphData:bvphData, bcData:bcData, extraTP:extraTP, catalogData:catalogData,
+    ACCOUNTS:ACCOUNTS, drugFreq:drugFreq, threshold:threshold,
+    lockedPeriods:lockedPeriods,
+    reportLocked: isCurrentPeriodLocked(), // backward compat
+    savedAt: new Date().toISOString()
+  };
+}
+
+function saveLocalCache(payload){
+  try{ localStorage.setItem('thuoclao_data', JSON.stringify(payload)); }catch(e){}
+}
+
+function saveBC(){
+  var periodKey = _currentPeriodKey();
+  if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--danger)'); return; }
+
+  // 1. Khóa kỳ này
+  lockedPeriods[periodKey] = true;
+
+  // 2. Đánh dấu locked=true cho tất cả rows của kỳ này
+  bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+    r.locked=true; r.editing=false; r.openLocked=true;
+  });
+  bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+    r.locked=true; r.editing=false; r.openLocked=true;
+  });
+
+  // 3. Tính kỳ tiếp theo
+  var nextKey = _nextPeriodKey(periodKey);
+
+  // 4. Tạo rows tồn đầu kỳ tiếp (nếu chưa có)
+  if(nextKey){
+    _createNextPeriodRows(periodKey, nextKey);
+  }
+
+  // 5. Lưu
+  var payload = buildPayload();
+  saveLocalCache(payload);
+  if(window.electronAPI && window.electronAPI.saveData){
+    window.electronAPI.saveData(payload).catch(function(){});
+  }
+  quickSaveToFile();
+
+  renderBVPH(); renderBC();
+  updateSaveBtnUI();
+
+  var nextLabel = nextKey ? ' — Kỳ '+_keyToLabel(nextKey)+' đã tự động tạo tồn đầu.' : '';
+  toast('✓ Đã lưu & khoá kỳ '+_keyToLabel(periodKey)+'.'+nextLabel,'#1a5276');
+}
+
+// Tính key kỳ tiếp theo: "2026-05" → "2026-06"
+function _nextPeriodKey(key){
+  if(!key || key.indexOf('-') < 0) return null;
+  var p = key.split('-');
+  var yr = parseInt(p[0]), mn = parseInt(p[1]);
+  mn++;
+  if(mn > 12){ mn = 1; yr++; }
+  return yr+'-'+(mn<10?'0':'')+mn;
+}
+
+// Chuyển key thành nhãn đọc được: "2026-05" → "Tháng 5/2026"
+function _keyToLabel(key){
+  if(!key) return key;
+  var p = key.split('-');
+  if(p.length === 2) return 'Tháng '+parseInt(p[1])+'/'+p[0];
+  return key;
+}
+
+// Tạo rows tồn đầu kỳ tiếp từ tồn cuối kỳ này (mỗi thuốc+lô+đơn vị)
+function _createNextPeriodRows(curKey, nextKey){
+  // Gom rows kỳ hiện tại
+  var bvphCur = bvphData.filter(function(r){ return r.bcMonth===curKey; });
+  var bcCur   = bcData.filter(function(r){   return r.bcMonth===curKey; });
+
+  // Tạo rows BVPH kỳ tiếp nếu chưa có
+  bvphCur.forEach(function(r){
+    var exists = bvphData.some(function(x){
+      return x.bcMonth===nextKey && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
+    });
+    if(!exists){
+      var fin = calcRow(r).final;
+      bvphData.push({
+        unit:r.unit||BVPH, drug:r.drug, lot:r.lot, exp:r.exp,
+        open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+        locked:false, editing:false, bcMonth:nextKey, openLocked:true
+      });
+    }
+  });
+
+  // Tạo rows 22ĐV kỳ tiếp nếu chưa có
+  bcCur.forEach(function(r){
+    var exists = bcData.some(function(x){
+      return x.bcMonth===nextKey && x.unit===r.unit && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
+    });
+    if(!exists){
+      var fin = calcRow(r).final;
+      bcData.push({
+        unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp,
+        open:fin, tinh:0, dc:0, sd:0, dc2:0, hh:0,
+        locked:false, editing:false, bcMonth:nextKey, openLocked:true
+      });
+    }
+  });
+}
+
+// Mở lại báo cáo kỳ đang chọn (chỉ Admin)
+function openReport(){
+  if(!isAdmin()){toast('Chỉ Admin mới mở lại báo cáo!','var(--danger)');return;}
+  var periodKey = _currentPeriodKey();
+  var label = _keyToLabel(periodKey);
+  if(!confirm('Mở lại báo cáo '+label+' để chỉnh sửa?\nSẽ bỏ khoá các dòng của kỳ này.'))return;
+  // Chỉ mở kỳ đang chọn
+  delete lockedPeriods[periodKey];
+  bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+  bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+  renderBVPH(); renderBC();
+  updateSaveBtnUI();
+  updateLockedUI();
+  toast('Đã mở lại báo cáo '+label+' để chỉnh sửa','var(--warning)');
+}
+
+function updateSaveBtnUI(){
+  var locked   = isCurrentPeriodLocked();
+  var saveBtn  = document.getElementById('btn-save-bc');
+  var openBtn  = document.getElementById('btn-open-bc');
+  if(saveBtn) saveBtn.style.display = locked ? 'none' : '';
+  if(openBtn) openBtn.style.display = locked ? ''     : 'none';
+  updateLockedUI();
+}
+
+// Ẩn/hiện toàn bộ UI theo trạng thái khóa báo cáo
+function updateLockedUI(){
+  var locked = isCurrentPeriodLocked();
+
+  // Form nhập liệu — ẩn hoàn toàn khi đã lưu (tất cả user, kể cả admin)
+  var fB = document.getElementById('form-bvph');
+  var fD = document.getElementById('form-donvi');
+  if(fB) fB.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='bvph') ? 'block' : 'none');
+  if(fD) fD.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='donvi') ? 'block' : 'none');
+
+  // Nút Xóa dữ liệu — ẩn hoàn toàn khi đã lưu
+  document.querySelectorAll('.del-dd').forEach(function(el){
+    el.style.display = locked ? 'none' : '';
+  });
+
+  // Nút Chốt báo cáo — ẩn khi đã lưu
+  document.querySelectorAll('.btn-chot').forEach(function(el){
+    el.style.display = locked ? 'none' : '';
+  });
+
+  // Banner trạng thái khóa
+  var banner = document.getElementById('report-locked-banner');
+  if(banner){
+    banner.style.display = locked ? 'flex' : 'none';
+    if(locked){
+      var savedAt = '';
+      try{
+        var raw = localStorage.getItem('thuoclao_data');
+        if(raw){ var pld=JSON.parse(raw); if(pld.savedAt) savedAt=' lúc '+new Date(pld.savedAt).toLocaleString('vi-VN'); }
+      }catch(e){}
+      var msgEl = document.getElementById('report-locked-msg');
+      if(msgEl) msgEl.textContent = '🔒 Báo cáo '+_keyToLabel(_currentPeriodKey())+' đã được lưu'+savedAt+'. Bấm "Mở lại để sửa" để chỉnh sửa (chỉ Admin).';
+    }
+  }
+
+  // Cột Thao tác header — ẩn khi locked
+  document.querySelectorAll('th.hdr-act').forEach(function(th){
+    th.style.display = locked ? 'none' : '';
+  });
+  document.querySelectorAll('td.no-print').forEach(function(td){
+    if(td.querySelector('button, span') && !td.querySelector('input')){
+      td.style.display = locked ? 'none' : '';
+    }
+  });
+}
+
+function applyPayload(p){
+  if(!p) return;
+  if(p.bvphData)    bvphData    = p.bvphData;
+  if(p.bcData)      bcData      = p.bcData;
+  if(p.twData)      twData      = p.twData;
+  if(p.ACCOUNTS)    ACCOUNTS    = p.ACCOUNTS;
+  if(p.catalogData) catalogData = p.catalogData;
+  if(p.drugFreq)    drugFreq    = p.drugFreq;
+  if(p.threshold)   threshold   = p.threshold;
+  if(p.extraTP)     extraTP     = p.extraTP;
+  if(p.lockedPeriods) lockedPeriods = p.lockedPeriods;
+  else if(p.reportLocked){ // backward compat với file cũ chỉ có reportLocked boolean
+    // không biết kỳ nào, thôi để trống
+  }
+  // Gọi fillDrugSelects ngay sau khi catalogData đã được gán
+  fillDrugSelects();
+  if(p.savedAt) toast('Đã tải dữ liệu đã lưu ('+new Date(p.savedAt).toLocaleString('vi-VN')+')','#1a5276');
+  setTimeout(function(){ updateSaveBtnUI(); updateLockedUI(); renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); }, 150);
+}
+
+async function loadSaved(){
+  // Ưu tiên load từ file Electron
+  if(window.electronAPI && window.electronAPI.loadData){
+    try{
+      var res = await window.electronAPI.loadData();
+      if(res && res.ok && res.data){ applyPayload(res.data); return; }
+    }catch(e){}
+  }
+  // Fallback: localStorage
+  try{
+    var raw=localStorage.getItem('thuoclao_data');
+    if(raw) applyPayload(JSON.parse(raw));
+  }catch(e){}
+}
+
+// ============================================================
+// IN BÁO CÁO
+// ============================================================
+function openPrintModal(){
+  // Cập nhật label đơn vị đang xem
+  var selUnit = document.getElementById('filter-unit-bc');
+  var unitVal = selUnit ? selUnit.value : '__all__';
+  var unitLabel = (unitVal==='__all__') ? 'Tổng hợp 22 đơn vị' : unitVal;
+  var lbl = document.getElementById('print-unit-label');
+  if(lbl) lbl.textContent = unitLabel;
+
+  // Chọn mặc định phù hợp
+  var radios = document.querySelectorAll('input[name="print-choice"]');
+  radios.forEach(function(r){ r.checked = (r.value==='unit'); });
+
+  document.getElementById('modal-print').classList.add('open');
+}
+
+function doPrint(){
+  var sel = document.querySelector('input[name="print-choice"]:checked');
+  if(!sel) return;
+  var choice = sel.value;
+  closeModal('modal-print');
+
+  // Lấy kỳ báo cáo
+  var p = getSelectedPeriod();
+  var periodStr = p.type==='year' ? 'Cả năm '+p.year :
+    (function(){
+      var mn=['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+              'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+      return mn[parseInt(p.val.split('-')[1]||'0')]+'/'+p.year;
+    })();
+
+  // Cập nhật tiêu đề in
+  var titleEl = document.getElementById('print-main-title');
+  var subEl   = document.getElementById('print-sub-title');
+  var perEl   = document.getElementById('print-period-label');
+
+  if(choice==='unit'){
+    var selUnit = document.getElementById('filter-unit-bc');
+    var unitVal = selUnit ? selUnit.value : '__all__';
+    var unitName = (unitVal==='__all__') ? 'Tổng hợp 22 đơn vị tuyến' : unitVal;
+    if(titleEl) titleEl.textContent = 'BÁO CÁO THUỐC LAO HÀNG 2';
+    if(subEl)   subEl.textContent   = unitName;
+    if(perEl)   perEl.textContent   = periodStr+' — In lúc: '+new Date().toLocaleString('vi-VN');
+    document.body.className = 'print-unit';
+  } else if(choice==='bvph'){
+    if(titleEl) titleEl.textContent = 'BÁO CÁO THUỐC LAO HÀNG 2';
+    if(subEl)   subEl.textContent   = 'Bệnh viện Phổi Hải Phòng';
+    if(perEl)   perEl.textContent   = periodStr+' — In lúc: '+new Date().toLocaleString('vi-VN');
+    document.body.className = 'print-bvph';
+  } else {
+    if(titleEl) titleEl.textContent = 'BÁO CÁO THUỐC LAO HÀNG 2 — TOÀN TỈNH';
+    if(subEl)   subEl.textContent   = 'TP. Hải Phòng — Tổng hợp BVPHP + 22 đơn vị tuyến';
+    if(perEl)   perEl.textContent   = periodStr+' — In lúc: '+new Date().toLocaleString('vi-VN');
+    document.body.className = 'print-all';
+  }
+
+  setTimeout(function(){
+    window.print();
+    // Khôi phục sau khi in
+    setTimeout(function(){ document.body.className=''; }, 500);
+  }, 150);
+}
+
+function closeDelMenus(){document.querySelectorAll('.del-dd-menu').forEach(function(m){m.classList.remove('open');});}
+function toggleDel(key, e){
+  if(e) e.stopPropagation();
+  var menu = document.getElementById('del-'+key);
+  if(!menu) return;
+  var isOpen = menu.classList.contains('open');
+  closeDelMenus();
+  if(!isOpen) menu.classList.add('open');
+}
+function clearRows(key){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi xóa.','var(--danger)');return;}
+  closeDelMenus();
+  if(!confirm('Xóa toàn bộ thuốc trong kỳ đang hiển thị?\n(Chỉ xóa dữ liệu kỳ này, không xóa lịch sử kỳ khác)'))return;
+  if(key==='bvph'){
+    bvphData=bvphData.filter(function(r){return !matchPeriod(r);});
+    renderBVPH();
+  }else{
+    bcData=bcData.filter(function(r){return !matchPeriod(r);});
+    renderBC();
+  }
+  saveLocalCache(buildPayload());
+  toast('Đã xóa toàn bộ thuốc trong kỳ này','var(--warning)');
+}
+function clearAll(key){
+  if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi xóa.','var(--danger)');return;}
+  closeDelMenus();
+  if(!isAdmin()){toast('Chỉ Admin mới có quyền xóa toàn bộ dữ liệu!','var(--danger)');return;}
+  if(!confirm('⚠ XÓA TẤT CẢ DỮ LIỆU?\n\nHành động này không thể hoàn tác!'))return;
+  if(key==='bvph'){bvphData=[];renderBVPH();toast('Đã xóa toàn bộ dữ liệu BVPHP','var(--danger)');}
+  else{bcData=[];renderBC();toast('Đã xóa toàn bộ dữ liệu 22 đơn vị','var(--danger)');}
+}
+
+// ============================================================
+// THỐNG KÊ — Liên kết trực tiếp với bvphData & bcData
+// ============================================================
+function onFilterChange(){
+  var by=document.getElementById('view-by').value;
+  document.getElementById('fw-drug').style.display=(by==='drug-by-unit')?'':'none';
+  document.getElementById('fw-unit').style.display=(by==='unit-by-drug')?'':'none';
+}
+
+function getSourceData(){
+  var src=document.getElementById('sel-source').value;
+  if(src==='bvph')return bvphData;
+  if(src==='other')return bcData;
+  return bvphData.concat(bcData);
+}
+
+function renderStats(){
+  var by=document.getElementById('view-by').value;
+  var data=getSourceData();
+  var items=[],title='',metricLabel='';
+
+  if(by==='drug-by-unit'){
+    var selDrug=document.getElementById('sel-drug').value;
+    title='Tồn cuối kỳ của thuốc "'+selDrug+'" theo từng đơn vị';
+    metricLabel='Tồn cuối (viên)';
+    var map={};
+    // BVPHP
+    bvphData.filter(function(r){return r.drug===selDrug;}).forEach(function(r){
+      var c=calcRow(r);map[BVPH]=(map[BVPH]||0)+c.final;
+    });
+    // 22 đơn vị
+    bcData.filter(function(r){return r.drug===selDrug;}).forEach(function(r){
+      var c=calcRow(r);var u=r.unit||'?';map[u]=(map[u]||0)+c.final;
+    });
+    Object.keys(map).forEach(function(k){items.push({n:k,v:map[k]});});
+    if(!items.length)items=[{n:'Chưa có dữ liệu cho thuốc này',v:0}];
+
+  } else if(by==='unit-by-drug'){
+    var selUnit=document.getElementById('sel-unit-stat').value;
+    title='Tồn cuối kỳ các thuốc tại "'+selUnit+'"';
+    metricLabel='Tồn cuối (viên)';
+    var src2=selUnit===BVPH?bvphData:bcData.filter(function(r){return r.unit===selUnit;});
+    // Gom theo thuốc (phòng trường hợp nhiều lô)
+    var drugMap={};
+    src2.forEach(function(r){var c=calcRow(r);drugMap[r.drug]=(drugMap[r.drug]||0)+c.final;});
+    Object.keys(drugMap).forEach(function(k){items.push({n:k,v:drugMap[k]});});
+    if(!items.length)items=[{n:'Chưa có dữ liệu tại đơn vị này',v:0}];
+
+  } else if(by==='all-drugs-final'){
+    title='Tổng tồn cuối kỳ — Tất cả thuốc';metricLabel='Tồn cuối (viên)';
+    var dm={};data.forEach(function(r){var c=calcRow(r);dm[r.drug]=(dm[r.drug]||0)+c.final;});
+    Object.keys(dm).forEach(function(k){items.push({n:k,v:dm[k]});});
+
+  } else if(by==='all-drugs-in'){
+    title='Tổng nhập trong kỳ — Tất cả thuốc';metricLabel='Tổng nhập (viên)';
+    var dm2={};data.forEach(function(r){var c=calcRow(r);dm2[r.drug]=(dm2[r.drug]||0)+c.tin;});
+    Object.keys(dm2).forEach(function(k){items.push({n:k,v:dm2[k]});});
+
+  } else if(by==='all-drugs-out'){
+    title='Tổng xuất trong kỳ — Tất cả thuốc';metricLabel='Tổng xuất (viên)';
+    var dm3={};data.forEach(function(r){var c=calcRow(r);dm3[r.drug]=(dm3[r.drug]||0)+c.tout;});
+    Object.keys(dm3).forEach(function(k){items.push({n:k,v:dm3[k]});});
+
+  } else { // all-units
+    title='Tổng xuất trong kỳ — Tất cả đơn vị';metricLabel='Tổng xuất (viên)';
+    var um={};
+    bvphData.forEach(function(r){var c=calcRow(r);um[BVPH]=(um[BVPH]||0)+c.tout;});
+    bcData.forEach(function(r){var c=calcRow(r);var u=r.unit||'?';um[u]=(um[u]||0)+c.tout;});
+    Object.keys(um).forEach(function(k){items.push({n:k,v:um[k]});});
+    if(!items.length)items=[{n:'Chưa có dữ liệu',v:0}];
+  }
+
+  items.sort(function(a,b){return b.v-a.v;});
+  var max=items.reduce(function(m,x){return Math.max(m,x.v);},0)||1;
+  var total=items.reduce(function(s,x){return s+x.v;},0);
+  var nonZero=items.filter(function(x){return x.v>0;}).length;
+
+  // Summary cards
+  var summaryHtml='<div class="stats-summary"><div class="ss-card"><div class="lbl">Tổng giá trị</div><div class="val">'+total.toLocaleString()+'</div></div><div class="ss-card"><div class="lbl">Số mặt hàng/đơn vị</div><div class="val">'+items.length+'</div></div><div class="ss-card"><div class="lbl">Có dữ liệu (&gt;0)</div><div class="val">'+nonZero+'</div></div></div>';
+
+  var barsHtml='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">';
+  barsHtml+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><h2 style="font-size:14px;font-weight:700;color:var(--text)">'+title+'</h2><span style="font-size:11px;color:var(--muted)">'+metricLabel+'</span></div>';
+  items.forEach(function(x){
+    var pct=Math.round(x.v/max*100);
+    var col=x.v<=0?'#ddd':(x.v<threshold.low&&by.indexOf('final')>=0?'var(--danger)':'var(--accent)');
+    barsHtml+='<div class="stat-bar-item"><span class="sbl" title="'+x.n+'">'+x.n+'</span><div class="sbtrack"><div class="sbfill" style="width:'+pct+'%;background:'+col+'"></div></div><span class="sbval">'+x.v.toLocaleString()+'</span></div>';
+  });
+  barsHtml+='</div>';
+  document.getElementById('stats-area').innerHTML=summaryHtml+barsHtml;
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(t,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  if(el)el.classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='thongke')renderStats();
+}
+
+// ============================================================
+// CÀI ĐẶT
+// ============================================================
+function saveSettings(){
+  var low=parseInt(document.getElementById('threshold-low').value)||200;
+  var exp=parseInt(document.getElementById('threshold-exp').value)||6;
+  threshold.low=Math.max(0,low);
+  threshold.expMonths=Math.max(1,exp);
+  document.getElementById('cur-low').textContent=threshold.low;
+  document.getElementById('cur-exp').textContent=threshold.expMonths;
+  renderBVPH();renderBC();renderTQ();
+  toast('Đã lưu cài đặt — Ngưỡng tồn kho: '+threshold.low+' viên, Hạn dùng: '+threshold.expMonths+' tháng','var(--success)');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg,color){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=color||'#1a5276';t.style.display='block';
+  clearTimeout(t._to);t._to=setTimeout(function(){t.style.display='none';},3500);
+}
+
+
+// Preview tồn cuối khi gõ form
+function updatePreview(prefix){ /* preview removed, no-op */ }
+
+// Login Enter key
+document.getElementById('lp').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+document.getElementById('lu').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('lp').focus();});
+// Role select description update
+document.addEventListener('change',function(e){
+  if(e.target&&e.target.id==='role-select'){
+    var desc=document.getElementById('role-desc');
+    if(desc) desc.textContent=ROLE_DESC[e.target.value]||'';
+  }
+});
+
+// ============================================================
+// BẢNG TỔNG TOÀN THÀNH PHỐ
+// Tự tổng hợp từ bvphData + bcData theo drug+lot+exp+kỳ
+// Nhập TW, Tỉnh khác, Hỏng/HH: có thể sửa từng dòng (inline)
+// ============================================================
+
+function onTPDrugChange(){} // placeholder
+
+function addTPRowReal(){
+  toast('Bảng Tổng toàn TP tự tổng hợp từ dữ liệu Kho chính và 22 đơn vị.\nKhông cần nhập thêm.','#6c3483');
+}
+
+function renderTP(){
+  var tbody = document.getElementById('tp-body');
+  if(!tbody) return;
+
+  var KEY = function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
+
+  // Tổng hợp từ bvphData + bcData theo kỳ
+  // Cấu trúc map:
+  //   open    = tồn đầu BVPH + tồn đầu 22ĐV (cộng gộp toàn TP)
+  //   sdAll   = sử dụng BVPH + sử dụng 22ĐV
+  //   bvphDC2 = Xuất Tổ CL của BVPH (nội bộ, không hiển thị riêng)
+  //   bvphDC3 = Xuất tỉnh khác — CHỈ từ BVPH
+  //   bvphHH  = Hỏng/HH — CHỈ từ BVPH
+  var map = {};
+
+  bvphData.filter(matchPeriod).forEach(function(r){
+    var k=KEY(r);
+    if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC2:0,bvphDC3:0,bvphHH:0};
+    map[k].open    += (r.open||0);
+    map[k].sdAll   += (r.sd||0);
+    map[k].bvphDC2 += (r.dc2||0);
+    map[k].bvphDC3 += (r.dc3||0);  // Xuất tỉnh khác: chỉ từ BVPH
+    map[k].bvphHH  += (r.hh||0);   // Hỏng/HH: chỉ từ BVPH
+  });
+
+  bcData.filter(matchPeriod).forEach(function(r){
+    var k=KEY(r);
+    if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC2:0,bvphDC3:0,bvphHH:0};
+    map[k].open  += (r.open||0);
+    map[k].sdAll += (r.sd||0);   // SD: cộng từ 22ĐV
+    // dc3 và hh của 22ĐV không đưa vào bảng TP (chỉ lấy từ BVPH)
+  });
+
+  var keys = Object.keys(map);
+  tbody.innerHTML = '';
+  if(!keys.length){
+    tbody.innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:12px">Chưa có dữ liệu trong kỳ này. Nhập dữ liệu ở Kho chính hoặc 22 đơn vị trước.</td></tr>';
+    return;
+  }
+
+  keys.sort(function(a,b){ return map[a].drug.localeCompare(map[b].drug,'vi'); });
+
+  var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
+
+  keys.forEach(function(k){
+    var m   = map[k];
+    var ex  = extraTP[k] || {tw:0,dc:0,hh:0};
+    var tw  = ex.tw  || 0;
+    var dc  = ex.dc  || 0;
+    // Xuất tỉnh khác = dc3 tổng hợp từ BVPH + 22ĐV (tự động)
+    var dc3 = m.bvphDC3 || 0;
+    // Hỏng/HH = tổng từ BVPH + 22ĐV (tự động) + extra nhập tay
+    var hh  = m.bvphHH + (ex.hh || 0);
+    // SD toàn TP = BVPH + 22ĐV
+    var sd  = m.sdAll || 0;
+    var tin  = tw + dc;
+    var tout = sd + dc3 + hh;
+    var fin  = m.open + tin - tout;
+    var fcls = fin < threshold.low ? 'final-low' : 'final-ok';
+    var exp_ = isExpiredStr(m.exp);
+    var expD = expToMMYYYY(m.exp);
+
+    sO+=m.open; sTW+=tw; sDC+=dc; sTIN+=tin;
+    sSD+=sd; sDC3+=dc3; sHH+=hh; sTOUT+=tout; sFin+=fin;
+
+    // Ô nhập inline cho TW, dc nhập tỉnh khác (dc3 và hh lấy tự động từ dữ liệu)
+    function inpCell(field, val){
+      return '<input type="number" min="0" value="'+val+'" disabled data-tpkey="'+encodeURIComponent(k)+'" data-tpfield="'+field+'"'
+        +' style="width:58px;padding:3px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px"'
+        +' onchange="onTPInp(this)"'
+        +' oninput="onTPInp(this)">';
+    }
+
+    tbody.innerHTML +=
+      '<tr>'
+      +'<td class="left">'+m.drug+'</td>'
+      +'<td>'+m.lot+'</td>'
+      +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
+      +'<td class="open-stock">'+m.open+'</td>'
+      +('<td style="background:#d4edda">'+inpCell('tw',tw)+'</td>')
+      +('<td style="background:#d4edda">'+inpCell('dc',dc)+'</td>')
+      +'<td class="calc-cell" style="background:#d4edda;color:#145a32"><strong class="tp-tin">'+tin+'</strong></td>'
+      +'<td style="background:#f8d7da" data-tp-sd="1">'+sd+'</td>'
+      +'<td style="background:#f8d7da;color:var(--muted)" data-tp-dc3="1">'+dc3+'</td>'
+      +'<td style="background:#f8d7da" data-tp-hh="1">'+hh+'</td>'
+      +'<td class="calc-cell" style="background:#f8d7da;color:#7b1f1f"><strong class="tp-tout">'+tout+'</strong></td>'
+      +'<td class="'+fcls+'">'+fin+'</td>'
+      +'<td class="no-print" style="white-space:nowrap">'
+        +'<button class="btn btn-xs" style="background:var(--warning);color:white" data-editing="0" onclick="editTPInline(this)">&#9999; Sửa</button>'
+      +'</td>'
+      +'</tr>';
+  });
+
+  if(keys.length > 1){
+    tbody.innerHTML +=
+      '<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">'
+      +'<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+keys.length+' lô)</td>'
+      +'<td class="open-stock">'+sO+'</td>'
+      +'<td>'+sTW+'</td>'
+      +'<td>'+sDC+'</td>'
+      +'<td class="calc-cell">'+sTIN+'</td>'
+      +'<td>'+sSD+'</td>'
+      +'<td>'+sDC3+'</td>'
+      +'<td>'+sHH+'</td>'
+      +'<td class="calc-cell">'+sTOUT+'</td>'
+      +'<td style="color:var(--accent);font-size:13px">'+sFin+'</td>'
+      +'<td></td>'
+      +'</tr>';
+  }
+}
+
+function onTPInp(inp){
+  var rawKey = inp.getAttribute('data-tpkey');
+  var key    = rawKey ? decodeURIComponent(rawKey) : '';
+  var field  = inp.getAttribute('data-tpfield');
+  if(!key || !field) return;
+  if(!extraTP[key]) extraTP[key]={tw:0,dc:0,hh:0};
+  extraTP[key][field] = Math.max(0, parseInt(inp.value)||0);
+  saveLocalCache(buildPayload());
+  // Cập nhật tồn cuối của dòng này (không re-render toàn bảng)
+  var tr = inp.closest('tr');
+  if(!tr) return;
+  // Lấy tồn đầu từ ô open-stock
+  var openCell = tr.querySelector('.open-stock');
+  var openVal  = openCell ? parseInt(openCell.textContent)||0 : 0;
+  // Lấy giá trị TW, dc từ input trong dòng
+  var twV=0, dcV=0;
+  tr.querySelectorAll('input[data-tpfield]').forEach(function(i){
+    var f=i.getAttribute('data-tpfield'), v=Math.max(0,parseInt(i.value)||0);
+    if(f==='tw') twV=v; else if(f==='dc') dcV=v;
+  });
+  // Lấy sd, dc3, hh từ data attributes (tất cả tự động, không phải input)
+  var sdCell  = tr.querySelector('[data-tp-sd]');
+  var dc3Cell = tr.querySelector('[data-tp-dc3]');
+  var hhCell  = tr.querySelector('[data-tp-hh]');
+  var sdV  = sdCell  ? parseInt(sdCell.textContent)||0  : 0;
+  var dc3V = dc3Cell ? parseInt(dc3Cell.textContent)||0 : 0;
+  var hhV  = hhCell  ? parseInt(hhCell.textContent)||0  : 0;
+  var tin  = twV + dcV;
+  var tout = sdV + dc3V + hhV;
+  var fin  = openVal + tin - tout;
+  // Cập nhật ô Tổng nhập
+  var tinEl = tr.querySelector('strong.tp-tin');
+  if(tinEl) tinEl.textContent = tin;
+  // Cập nhật ô Tổng xuất
+  var toutEl = tr.querySelector('strong.tp-tout');
+  if(toutEl) toutEl.textContent = tout;
+  // Cập nhật tồn cuối
+  var finCell = tr.querySelector('td.final-ok, td.final-low');
+  if(!finCell){
+    var allCells = tr.querySelectorAll('td');
+    finCell = allCells[allCells.length - 2];
+  }
+  if(finCell){ finCell.textContent = fin; finCell.className = fin < threshold.low ? 'final-low' : 'final-ok'; }
+}
+
+function onTPCalc(inp){ onTPInp(inp); } // alias
+
+function setExtraTP(key, field, val){
+  if(!extraTP[key]) extraTP[key]={tw:0,dc:0,hh:0};
+  extraTP[key][field] = Math.max(0, parseInt(val)||0);
+  saveLocalCache(buildPayload());
+  // Không re-render toàn bảng — onTPInp xử lý cập nhật dòng đó
+}
+
+
+function editTPInline(btn){
+  var tr = btn.closest('tr');
+  if(!tr) return;
+  var inputs = tr.querySelectorAll('input[type=number]');
+  var isEditing = btn.dataset.editing === '1';
+  if(isEditing){
+    // Lưu: trigger onchange của từng input
+    inputs.forEach(function(inp){
+      var ev = new Event('change');
+      inp.dispatchEvent(ev);
+      inp.disabled = true;
+      inp.style.background = '#f0f0f0';
+    });
+    btn.dataset.editing = '0';
+    btn.innerHTML = '&#9999; Sửa';
+    btn.style.background = 'var(--warning)';
+    toast('Đã lưu dòng tổng TP', 'var(--success)');
+  } else {
+    inputs.forEach(function(inp){ 
+      inp.disabled = false;
+      inp.style.background='#fff'; 
+      inp.focus&&inp.focus(); 
+    });
+    btn.dataset.editing = '1';
+    btn.innerHTML = '&#128190; Lưu';
+    btn.style.background = 'var(--success)';
+  }
+}
+
+function updTPField(){} // không dùng nữa
+function editTPRow(){}  // không dùng nữa
+function delTPRow(){}   // không dùng nữa
+</script>
+</body>
+</html>
