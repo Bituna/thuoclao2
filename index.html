@@ -326,11 +326,13 @@ em{font-style:normal!important}i{font-style:normal!important}
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
       <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ thống kê:</label>
-      <select id="tq-year" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
-        <option value="2025">2025</option>
-        <option value="2026" selected>2026</option>
-        <option value="2027">2027</option>
-      </select>
+      <input id="tq-year" list="tq-year-list" value="2026"
+        style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);width:80px;cursor:pointer" placeholder="Năm..."
+        oninput="_yearInput(this,'tq-year-list',onTQPeriodChange)"
+        onchange="onTQPeriodChange()">
+      <datalist id="tq-year-list">
+        <option value="2025"><option value="2026"><option value="2027">
+      </datalist>
       <select id="tq-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
         <option value="__year__">Cả năm</option>
         <option value="01">Tháng 1</option>
@@ -429,6 +431,9 @@ em{font-style:normal!important}i{font-style:normal!important}
           </div>
           <div class="fg"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
           <div style="margin-top:auto"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
+          <div style="margin-top:auto" id="btn-clear-catalog">
+            <button class="btn btn-danger btn-sm" onclick="clearAllCatalog()" title="Xóa toàn bộ danh mục thuốc (chỉ Admin)">🗑 Xóa tất cả</button>
+          </div>
         </div>
       </div>
       <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
@@ -505,11 +510,13 @@ em{font-style:normal!important}i{font-style:normal!important}
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
       <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ báo cáo:</label>
-      <select id="sel-year" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);cursor:pointer;width:90px" onchange="onYearChange()">
-        <option value="2025">2025</option>
-        <option value="2026" selected>2026</option>
-        <option value="2027">2027</option>
-      </select>
+      <input id="sel-year" list="sel-year-list" value="2026"
+        style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);width:80px;cursor:pointer" placeholder="Năm..."
+        oninput="_yearInput(this,'sel-year-list',onYearChange)"
+        onchange="onYearChange()">
+      <datalist id="sel-year-list">
+        <option value="2025"><option value="2026"><option value="2027">
+      </datalist>
       <select id="sel-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);cursor:pointer;width:130px" onchange="onGlobalMonthChange()">
         <option value="__year__">Cả năm</option>
         <option value="01">Tháng 1</option>
@@ -1416,10 +1423,19 @@ function renderCatalog(){
   if(!tbody) return;
   tbody.innerHTML='';
   if(!catalogData.length){
-    tbody.innerHTML='<tr><td colspan="6" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
     return;
   }
+
+  // Dedupe: gộp dòng cùng tên thuốc + số lô + hạn dùng thành 1
+  var seen={}, deduped=[], realIdx=[];
   catalogData.forEach(function(r,i){
+    var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
+    if(!seen[key]){ seen[key]=true; deduped.push(r); realIdx.push(i); }
+  });
+
+  deduped.forEach(function(r,di){
+    var i=realIdx[di]; // index thực để xóa đúng
     var st=catalogStatus(r.exp);
     var expDisp=expToMMYYYY(r.exp);
     var cityQty=getLotCityFinal(r.drug, r.lot, r.exp);
@@ -1439,6 +1455,18 @@ function renderCatalog(){
   });
 }
 
+function clearAllCatalog(){
+  if(!isAdmin()){toast('Chỉ Admin mới xóa được danh mục!','var(--danger)');return;}
+  if(!confirm('⚠ Xóa TOÀN BỘ danh mục thuốc?\n\nHành động này không thể hoàn tác!'))return;
+  catalogData=[];
+  renderCatalog();
+  fillDrugSelects();
+  saveLocalCache(buildPayload());
+  // Đồng bộ catalog rỗng lên Supabase
+  if(_supaOnline) _saveSupaCatalog().catch(function(){});
+  toast('Đã xóa toàn bộ danh mục thuốc','var(--danger)');
+}
+
 function addCatalog(){
   if(!isAdmin()){toast('Chỉ Admin mới thêm được danh mục!','var(--danger)');return;}
   var selVal = document.getElementById('cat-drug').value;
@@ -1450,13 +1478,14 @@ function addCatalog(){
   var note   = document.getElementById('cat-note').value.trim();
   if(!drug||!lot||!expRaw){toast('Nhập đủ: tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập mm/yyyy','var(--danger)');return;}
-  // Kiểm tra lô đã tồn tại chưa
+  var expParsed = parseMonthExp(expRaw);
+  // Kiểm tra trùng: cùng thuốc + lô + hạn dùng
   for(var k=0;k<catalogData.length;k++){
-    if(catalogData[k].drug===drug&&catalogData[k].lot===lot){
-      toast('Lô "'+lot+'" của thuốc "'+drug+'" đã có trong danh mục!','var(--warning)');return;
+    if(catalogData[k].drug===drug && catalogData[k].lot===lot && catalogData[k].exp===expParsed){
+      toast('Lô "'+lot+'" HSD '+expRaw+' của "'+drug+'" đã có trong danh mục!','var(--warning)');return;
     }
   }
-  catalogData.push({drug:drug,lot:lot,exp:parseMonthExp(expRaw),note:note||'—'});
+  catalogData.push({drug:drug,lot:lot,exp:expParsed,note:note||'—'});
   ['cat-lot','cat-exp','cat-note','cat-drug-custom'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var cds=document.getElementById('cat-drug');if(cds)cds.value='';
   var cdw=document.getElementById('cat-drug-custom-wrap');if(cdw)cdw.style.display='none';
@@ -1528,36 +1557,37 @@ function fillLotSelect(selectId, drugName, expInputId){
   var sel=document.getElementById(selectId);
   if(!sel) return;
   var lots=getLotsForDrug(drugName);
+
+  // Dedupe: gộp lô cùng số lô + hạn dùng thành 1
+  var seen={}, uniqueLots=[];
+  lots.forEach(function(r){
+    var key = r.lot+'|'+(r.exp||'');
+    if(!seen[key]){ seen[key]=true; uniqueLots.push(r); }
+  });
+
+  // Bỏ lô hết hạn khỏi danh sách gợi ý
+  var validLots = uniqueLots.filter(function(r){
+    return catalogStatus(r.exp).label !== 'Hết hạn';
+  });
+
   sel.innerHTML='<option value="">-- Chọn lô --</option>';
-  if(!lots.length){
+  if(!validLots.length){
     var o0=document.createElement('option');
     o0.disabled=true;
-    o0.textContent='(Chưa có lô — thêm tại Danh sách thuốc)';
+    o0.textContent='(Chưa có lô còn hạn — thêm tại Danh sách thuốc)';
     sel.appendChild(o0);
   }
-  lots.forEach(function(r){
+  validLots.forEach(function(r){
     var st   = catalogStatus(r.exp);
-    var isExp= (st.label==='Hết hạn');
     var qty  = getLotCityFinal(drugName, r.lot, r.exp);
-    var isZero = (qty === 0);  // -1 = chưa có dữ liệu, không tính là hết
+    var isZero = (qty === 0);
     var opt  = document.createElement('option');
     opt.value = r.lot;
-
-    // Nhãn hiển thị
-    var label = r.lot+' — HSD: '+expToMMYYYY(r.exp);
-    if(isExp)        label += ' [Hết hạn]';
-    else if(isZero)  label += ' [Tồn = 0]';
-    else             label += ' ['+st.label+']';
-    if(qty >= 0)     label += ' | Tồn: '+qty;
+    var label = r.lot+' — HSD: '+expToMMYYYY(r.exp)+' ['+st.label+']';
+    if(qty >= 0) label += ' | Tồn: '+qty;
     opt.textContent = label;
-
-    // Disable nếu hết hạn hoặc tồn = 0
-    if(isExp || isZero){
-      opt.disabled = true;
-      opt.style.color = '#bbb';
-    } else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){
-      opt.style.color = 'var(--warning)';
-    }
+    if(isZero){ opt.disabled=true; opt.style.color='#bbb'; }
+    else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){ opt.style.color='var(--warning)'; }
     sel.appendChild(opt);
   });
 
@@ -1851,6 +1881,7 @@ function initApp(){
   }
   setTimeout(function(){
     updateSaveBtnUI(); setupCatalog(); fillDrugSelects();
+    _initYearDatalist(); // khởi tạo datalist năm từ localStorage
     setTimeout(initFileHandle, 500);
     // Kiểm tra cloud rồi tự tải data kỳ hiện tại
     setTimeout(function(){
@@ -2581,6 +2612,49 @@ function buildTbl(data, bodyId, prefix){
 function setFoot(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
 
 // ============================================================
+// ── Xử lý gõ năm vào ô năm — lưu vào datalist + localStorage ────────────────
+var _YEAR_STORAGE_KEY = 'thuoclao_years';
+var _savedYears = (function(){
+  try{ return JSON.parse(localStorage.getItem(_YEAR_STORAGE_KEY)||'[]'); }catch(e){ return []; }
+})();
+// Đảm bảo năm mặc định có sẵn
+[2025,2026,2027].forEach(function(y){ if(_savedYears.indexOf(y)<0) _savedYears.push(y); });
+
+function _yearInput(inp, listId, callback){
+  var val = inp.value.trim();
+  if(!/^\d{4}$/.test(val)) return; // chỉ xử lý khi đủ 4 chữ số
+  var yr = parseInt(val);
+  if(yr < 2020 || yr > 2099) return; // giới hạn hợp lý
+
+  // Thêm vào danh sách nếu chưa có
+  if(_savedYears.indexOf(yr) < 0){
+    _savedYears.push(yr);
+    _savedYears.sort();
+    // Lưu vào localStorage
+    try{ localStorage.setItem(_YEAR_STORAGE_KEY, JSON.stringify(_savedYears)); }catch(e){}
+  }
+
+  // Cập nhật TẤT CẢ datalist năm (cả 2 bộ selector dùng chung danh sách)
+  _refreshYearDatalist('tq-year-list');
+  _refreshYearDatalist('sel-year-list');
+
+  if(callback) callback();
+}
+
+function _refreshYearDatalist(listId){
+  var dl = document.getElementById(listId);
+  if(!dl) return;
+  // Tối đa 5 lựa chọn gần nhất, nếu hơn thì datalist tự cuộn (browser behavior)
+  // Sắp xếp giảm dần (năm mới nhất lên đầu) để 5 lựa chọn hiển thị là năm gần nhất
+  var sorted = _savedYears.slice().sort(function(a,b){return b-a;});
+  dl.innerHTML = sorted.map(function(y){ return '<option value="'+y+'">'; }).join('');
+}
+
+function _initYearDatalist(){
+  _refreshYearDatalist('tq-year-list');
+  _refreshYearDatalist('sel-year-list');
+}
+
 // KỲ BÁO CÁO — lấy giá trị từ 2 dropdown sel-year + sel-month
 // ============================================================
 function getSelectedPeriod(){
