@@ -434,6 +434,10 @@ em{font-style:normal!important}i{font-style:normal!important}
           <div style="margin-top:auto" id="btn-clear-catalog">
             <button class="btn btn-danger btn-sm" onclick="clearAllCatalog()" title="Xóa toàn bộ danh mục thuốc (chỉ Admin)">🗑 Xóa tất cả</button>
           </div>
+          <div style="margin-top:auto">
+            <button class="btn btn-sm" style="background:#6f42c1;color:white" onclick="triggerCatalogUpload()" title="Upload file CSV/Excel danh sách thuốc">📤 Upload file</button>
+            <input type="file" id="catalog-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCatalogFile(this)">
+          </div>
         </div>
       </div>
       <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
@@ -1499,6 +1503,124 @@ function renderCatalog(){
   });
 }
 
+function triggerCatalogUpload(){
+  if(!isAdmin()){toast('Chỉ Admin mới upload được!','var(--danger)');return;}
+  document.getElementById('catalog-file-input').click();
+}
+
+// Import danh sách thuốc từ CSV hoặc Excel
+// Cột cần có: Tên thuốc | Số lô | Hạn dùng (mm/yyyy)
+// Hỗ trợ cột thêm: Ghi chú (tùy chọn)
+function importCatalogFile(input){
+  var file = input.files[0];
+  if(!file) return;
+  input.value = ''; // reset để có thể upload lại cùng file
+
+  var ext = file.name.split('.').pop().toLowerCase();
+
+  if(ext === 'csv'){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      _parseCatalogCSV(e.target.result);
+    };
+    reader.readAsText(file, 'UTF-8');
+  } else if(ext === 'xlsx' || ext === 'xls'){
+    if(typeof XLSX === 'undefined'){
+      toast('Thư viện Excel chưa tải. Kiểm tra kết nối mạng!','var(--danger)');return;
+    }
+    var reader2 = new FileReader();
+    reader2.onload = function(e){
+      try{
+        var wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var data = XLSX.utils.sheet_to_csv(ws);
+        _parseCatalogCSV(data);
+      }catch(err){
+        toast('Lỗi đọc file Excel: '+err.message,'var(--danger)');
+      }
+    };
+    reader2.readAsArrayBuffer(file);
+  } else {
+    toast('Chỉ hỗ trợ file .csv, .xlsx, .xls','var(--warning)');
+  }
+}
+
+function _parseCatalogCSV(csvText){
+  var lines = csvText.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(lines.length < 2){toast('File không có dữ liệu!','var(--warning)');return;}
+
+  // Đọc header để tìm cột
+  var sep = lines[0].indexOf('\t') >= 0 ? '\t' : ',';
+  var headers = lines[0].split(sep).map(function(h){return h.trim().toLowerCase().replace(/['"]/g,'');});
+
+  // Tìm index các cột
+  function findCol(){
+    var keywords = Array.prototype.slice.call(arguments);
+    for(var i=0;i<headers.length;i++){
+      for(var k=0;k<keywords.length;k++){
+        if(headers[i].indexOf(keywords[k]) >= 0) return i;
+      }
+    }
+    return -1;
+  }
+  var colDrug = findCol('tên thuốc','ten thuoc','thuoc','drug','name','tên','ten');
+  var colLot  = findCol('số lô','so lo','lô','lot','batch','lô sx','số lô sx');
+  var colExp  = findCol('hạn dùng','han dung','hạn','expir','hsd','exp','date');
+  var colNote = findCol('ghi chú','ghi chu','note','nguồn','nguon','ghi');
+
+  if(colDrug < 0 || colLot < 0 || colExp < 0){
+    toast('File thiếu cột: Tên thuốc, Số lô, Hạn dùng\n(Dòng đầu phải là tên cột)','var(--danger)');
+    return;
+  }
+
+  var added=0, skipped=0, errors=[];
+  for(var i=1;i<lines.length;i++){
+    var cols = lines[i].split(sep).map(function(c){return c.trim().replace(/^["']|["']$/g,'');});
+    var drug = cols[colDrug]||'';
+    var lot  = cols[colLot]||'';
+    var expRaw = cols[colExp]||'';
+    var note = colNote>=0 ? (cols[colNote]||'') : '';
+
+    if(!drug||!lot||!expRaw){ skipped++; continue; }
+
+    // Chuẩn hóa hạn dùng — chấp nhận: mm/yyyy, m/yyyy, yyyy-mm, mm-yyyy
+    var expNorm = expRaw.replace(/[.\-]/g,'/');
+    // yyyy/mm → mm/yyyy
+    if(/^\d{4}\/\d{1,2}$/.test(expNorm)){
+      var p=expNorm.split('/'); expNorm=p[1]+'/'+p[0];
+    }
+    if(!validateMonthExp(expNorm)){
+      errors.push('Dòng '+(i+1)+': hạn dùng "'+expRaw+'" không hợp lệ');
+      skipped++; continue;
+    }
+
+    var expParsed = parseMonthExp(expNorm);
+    // Kiểm tra trùng
+    var dup = catalogData.some(function(r){
+      return r.drug===drug && r.lot===lot && r.exp===expParsed;
+    });
+    if(dup){ skipped++; continue; }
+
+    catalogData.push({drug:drug, lot:lot, exp:expParsed, note:note});
+    added++;
+  }
+
+  renderCatalog();
+  fillDrugSelects();
+  saveLocalCache(buildPayload());
+  if(_supaOnline) _saveSupaCatalog().catch(function(){});
+
+  var msg = '✓ Đã thêm '+added+' thuốc vào danh mục';
+  if(skipped) msg += ' | Bỏ qua: '+skipped;
+  toast(msg, added>0?'var(--success)':'var(--warning)');
+  if(errors.length){
+    setTimeout(function(){
+      toast('Lỗi định dạng: '+errors.slice(0,3).join('; ')+(errors.length>3?'...':''),'orange');
+    },1500);
+  }
+}
+
+
 function clearAllCatalog(){
   if(!isAdmin()){toast('Chỉ Admin mới xóa được danh mục!','var(--danger)');return;}
   if(!confirm('⚠ Xóa TOÀN BỘ danh mục thuốc?\n\nHành động này không thể hoàn tác!'))return;
@@ -2043,7 +2165,7 @@ function renderAccounts(){
     if(isAdmin()){
       btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editAccount('+i+')">✏ Sửa</button> ';
       btns+='<button class="btn btn-xs" style="background:#6c757d;color:white;border-radius:5px" onclick="changeRole('+i+')">⚙ Quyền</button>';
-      if(!isSelf) btns+=' <button class="btn btn-xs" style="background:#e74c3c;color:white;border-radius:5px" onclick="deleteAccount('+i+')">✕ Xóa</button>';
+      if(!isSelf && a.role!=='admin') btns+=' <button class="btn btn-xs" style="background:#e74c3c;color:white;border-radius:5px" onclick="deleteAccount('+i+')">✕ Xóa</button>';
     } else {
       btns='<span style="color:#ccc;font-size:11px">—</span>';
     }
@@ -2140,14 +2262,20 @@ function changeRole(i){
 function saveRole(){
   if(_roleEditIdx<0) return;
   var newRole=document.getElementById('role-select').value;
+  var target=ACCOUNTS[_roleEditIdx];
+  // Không cho đổi role của tài khoản admin gốc (user='admin')
+  if(target.user==='admin' && newRole!=='admin'){
+    toast('Không thể đổi quyền của tài khoản Admin gốc!','var(--danger)');return;
+  }
   var _rnp=document.getElementById('role-new-pass');
   var newPass=_rnp?_rnp.value.trim():'';
   var RLABELS={admin:'Quản trị viên',bvph:'Nhập liệu BVPHP',donvi:'Nhập liệu đơn vị'};
-  var oldName=ACCOUNTS[_roleEditIdx].name;
-  ACCOUNTS[_roleEditIdx].role=newRole;
-  if(newPass) ACCOUNTS[_roleEditIdx].pass=newPass;
+  var oldName=target.name;
+  target.role=newRole;
+  if(newPass) target.pass=newPass;
   closeModal('modal-role');
   var _rnp2=document.getElementById('role-new-pass');if(_rnp2)_rnp2.value='';
+  saveLocalCache(buildPayload());
   renderAccounts();
   var msg='Đã đổi quyền "'+oldName+'" → '+RLABELS[newRole];
   if(newPass) msg+=' + đổi mật khẩu';
@@ -2159,8 +2287,10 @@ function deleteAccount(i){
   if(!isAdmin()){toast('Chỉ Admin mới xóa tài khoản!','var(--danger)');return;}
   var a=ACCOUNTS[i];
   if(currentUser&&a.user===currentUser.user){toast('Không xóa tài khoản đang đăng nhập!','var(--danger)');return;}
+  if(a.role==='admin'){toast('Không thể xóa tài khoản Admin! Đổi quyền trước rồi mới xóa.','var(--danger)');return;}
   if(!confirm('Xóa tài khoản "'+a.name+'" ('+a.user+')?'))return;
   ACCOUNTS.splice(i,1);
+  saveLocalCache(buildPayload());
   renderAccounts();toast('Đã xóa: '+a.name,'var(--danger)');
 }
 
