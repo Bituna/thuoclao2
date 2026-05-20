@@ -1046,18 +1046,24 @@ var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 var _supaHdr = {
   'apikey': SUPA_KEY,
   'Authorization': 'Bearer ' + SUPA_KEY,
-  'Content-Type': 'application/json',
-  'Prefer': 'return=minimal'
+  'Content-Type': 'application/json'
+  // Prefer header được thêm riêng cho từng request cần thiết
 };
 var _supaOnline = false; // true khi kết nối thành công
 
 // Kiểm tra kết nối Supabase
 async function checkSupabase(){
   try{
-    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ping&select=key',
-      {headers:_supaHdr, signal: AbortSignal.timeout(5000)});
-    _supaOnline = r.ok;
-  }catch(e){ _supaOnline = false; }
+    var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1',
+      {headers: hdCheck, signal: AbortSignal.timeout(6000)});
+    // 200, 206, hoặc mọi 2xx đều là online
+    // 401/403 = auth lỗi → offline
+    _supaOnline = (r.status >= 200 && r.status < 300);
+  }catch(e){
+    _supaOnline = false;
+    console.warn('Supabase offline:', e.message);
+  }
   _updateCloudStatus();
 }
 
@@ -1144,67 +1150,82 @@ async function saveToSupabase(periodKey){
   if(!_supaOnline) return false;
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
+
   try{
-    // Gom rows của kỳ này — chỉ lấy data thuộc quyền user hiện tại
+    // Header cơ bản (không có Prefer để tránh conflict)
+    var hdBase = {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json'
+    };
+
+    // Gom rows theo quyền
     var rows = [];
     if(role==='bvph' || role==='admin'){
       bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-        rows.push({period:periodKey,unit:r.unit||'bvph',drug:r.drug,lot:r.lot,exp:r.exp||'',
-          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
-          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:!!r.locked,bc_month:periodKey});
+        rows.push({period:periodKey, unit:r.unit||'bvph', drug:r.drug, lot:r.lot,
+          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
+          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
     }
     if(role==='donvi' || role==='admin'){
-      var bcFilter = role==='donvi'
+      var bcF = role==='donvi'
         ? bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;})
         : bcData.filter(function(r){return r.bcMonth===periodKey;});
-      bcFilter.forEach(function(r){
-        rows.push({period:periodKey,unit:r.unit||'donvi',drug:r.drug,lot:r.lot,exp:r.exp||'',
-          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
-          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:!!r.locked,bc_month:periodKey});
+      bcF.forEach(function(r){
+        rows.push({period:periodKey, unit:r.unit||unit, drug:r.drug, lot:r.lot,
+          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
+          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
     }
-    if(!rows.length) return true;
 
-    // Xóa CHỈ data của unit mình (không xóa đơn vị khác)
+    // Bước 1: Xóa data cũ của unit/kỳ này
     var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey);
-    if(role==='donvi') delUrl += '&unit=eq.'+encodeURIComponent(unit);
+    if(role==='donvi')  delUrl += '&unit=eq.'+encodeURIComponent(unit);
     else if(role==='bvph') delUrl += '&unit=eq.bvph';
-    // admin: xóa tất cả kỳ này (tổng hợp lại)
 
-    var del = await fetch(delUrl,{method:'DELETE',headers:_supaHdr});
-    if(!del.ok) throw new Error('Xóa thất bại: '+del.status);
-
-    // Insert mới
-    var ins = await fetch(SUPA_URL+'/rest/v1/reports',{
-      method:'POST', headers:_supaHdr, body:JSON.stringify(rows)
-    });
-    if(!ins.ok) throw new Error('Insert thất bại: '+ins.status);
-
-    // Admin: lưu thêm catalog và lockedPeriods
-    if(role==='admin'){
-      await _saveSupaCatalog();
+    var delRes = await fetch(delUrl, {method:'DELETE', headers:hdBase});
+    if(!delRes.ok){
+      var errText = await delRes.text();
+      throw new Error('Xóa lỗi '+delRes.status+': '+errText);
     }
 
-    // Lưu lockedPeriods
-    await fetch(SUPA_URL+'/rest/v1/settings',{
-      method:'POST',
-      headers:Object.assign({},_supaHdr,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
-      body:JSON.stringify({key:'lockedPeriods',value:lockedPeriods})
+    // Bước 2: Insert mới (chỉ nếu có rows)
+    if(rows.length > 0){
+      var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
+        method: 'POST',
+        headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+        body: JSON.stringify(rows)
+      });
+      if(!insRes.ok){
+        var insErr = await insRes.text();
+        throw new Error('Insert lỗi '+insRes.status+': '+insErr);
+      }
+    }
+
+    // Bước 3: Lưu lockedPeriods vào settings
+    await fetch(SUPA_URL+'/rest/v1/settings', {
+      method: 'POST',
+      headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
+      body: JSON.stringify({key:'lockedPeriods', value:lockedPeriods})
     });
+
+    // Bước 4: Admin lưu catalog
+    if(role==='admin') await _saveSupaCatalog();
 
     return true;
   }catch(e){
-    console.error('Supabase save error:',e);
+    console.error('Supabase saveToSupabase error:', e);
     return false;
   }
 }
 
 async function _saveSupaCatalog(){
-  if(!catalogData.length) return;
+  var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
   await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
+  if(!catalogData.length) return;
   await fetch(SUPA_URL+'/rest/v1/catalog', {
-    method:'POST', headers:_supaHdr,
+    method:'POST', headers:hdPost,
     body: JSON.stringify(catalogData.map(function(r){
       return {drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''};
     }))
@@ -3104,6 +3125,7 @@ async function rechoseFile(){
 // ── API công khai ──────────────────────────────────────────
 async function quickSaveToFile(){ await _writeToFile(buildPayload()); }
 async function saveToFile(){ await rechoseFile(); }
+async function _promptSaveFile(){ await rechoseFile(); } // backward compat alias
 
 async function loadFromFile(){
   if(window.showOpenFilePicker){
