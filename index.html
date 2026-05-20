@@ -251,6 +251,7 @@ em{font-style:normal!important}i{font-style:normal!important}
   th.hdr-act{background:#0f3d6d!important;color:#fff!important;border-color:#224a73!important}
   #bc-zone .tbl-wrap thead th:not([class*="hdr"]){background:#1a5276}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -812,11 +813,16 @@ em{font-style:normal!important}i{font-style:normal!important}
 
 
     <div class="footer-actions no-print">
+      <div id="file-status-bar" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:180px"></div>
+      <div id="cloud-status" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:160px">
+        <span style="color:#999;font-size:11px">☁ Cloud: đang kiểm tra...</span>
+      </div>
       <button class="btn btn-outline" onclick="openPrintModal()">🖨 In báo cáo</button>
       <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt Kho chính</button>
       <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt 22 ĐV</button>
-      <button class="btn" style="background:#6f42c1;color:white" onclick="saveToFile()" title="Lưu dữ liệu ra file .json trên máy tính">💾 Lưu ra file</button>
+      <button class="btn" style="background:#1d6f42;color:white" onclick="exportExcel()" title="Xuất báo cáo ra file Excel (.xlsx)">📊 Xuất Excel</button>
       <button class="btn btn-outline" onclick="loadFromFile()" title="Mở file dữ liệu .json từ máy tính">📂 Mở file</button>
+      <button class="btn" style="background:#1a5276;color:white" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải dữ liệu kỳ đang chọn từ cloud">☁ Tải từ cloud</button>
       <button class="btn btn-primary" id="btn-save-bc" onclick="saveBC()">💾 Lưu báo cáo</button>
       <button class="btn" id="btn-open-bc" onclick="openReport()" style="display:none;background:#e67e22;color:white">🔓 Mở lại để sửa</button>
     </div>
@@ -1023,6 +1029,162 @@ em{font-style:normal!important}i{font-style:normal!important}
 
 <script>
 // ============================================================
+// SUPABASE CONFIG
+// ============================================================
+var SUPA_URL = 'https://tgupkrzuhqwdrrlnfkpg.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndXBrcnp1aHF3ZHJybG5ma3BnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzk0MTYsImV4cCI6MjA5NDgxNTQxNn0.8XM7Dk8l-AAbpPFNB8HBnGag3g4E4PZrjI-6LqorW58';
+var _supaHdr = {
+  'apikey': SUPA_KEY,
+  'Authorization': 'Bearer ' + SUPA_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=minimal'
+};
+var _supaOnline = false; // true khi kết nối thành công
+
+// Kiểm tra kết nối Supabase
+async function checkSupabase(){
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ping&select=key',
+      {headers:_supaHdr, signal: AbortSignal.timeout(5000)});
+    _supaOnline = r.ok;
+  }catch(e){ _supaOnline = false; }
+  _updateCloudStatus();
+}
+
+// Cập nhật icon cloud trên UI
+function _updateCloudStatus(){
+  var el = document.getElementById('cloud-status');
+  if(!el) return;
+  if(_supaOnline){
+    el.innerHTML = '<span style="color:#27ae60;font-size:11px">☁ Cloud: <strong>Đã kết nối</strong></span>';
+  } else {
+    el.innerHTML = '<span style="color:#e67e22;font-size:11px">☁ Cloud: <span style="cursor:pointer;text-decoration:underline" onclick="checkSupabase()">Offline — thử lại</span></span>';
+  }
+}
+
+// ── LƯU LÊN SUPABASE ──────────────────────────────────────
+async function saveToSupabase(periodKey){
+  if(!_supaOnline) return false;
+  try{
+    // Gom tất cả rows của kỳ này
+    var rows = [];
+    bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+      rows.push({
+        period:periodKey, unit:r.unit||'bvph', drug:r.drug, lot:r.lot, exp:r.exp||'',
+        open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
+        dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
+        locked:!!r.locked, bc_month:periodKey
+      });
+    });
+    bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+      rows.push({
+        period:periodKey, unit:r.unit||'donvi', drug:r.drug, lot:r.lot, exp:r.exp||'',
+        open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
+        dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
+        locked:!!r.locked, bc_month:periodKey
+      });
+    });
+
+    if(!rows.length) return true;
+
+    // Xóa data cũ của kỳ này
+    var del = await fetch(
+      SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey),
+      {method:'DELETE', headers:_supaHdr}
+    );
+    if(!del.ok) throw new Error('Xóa thất bại: '+del.status);
+
+    // Insert mới
+    var ins = await fetch(SUPA_URL+'/rest/v1/reports', {
+      method:'POST',
+      headers:_supaHdr,
+      body: JSON.stringify(rows)
+    });
+    if(!ins.ok) throw new Error('Insert thất bại: '+ins.status);
+
+    // Lưu catalog
+    await _saveSupaCatalog();
+
+    // Lưu lockedPeriods vào settings
+    await fetch(SUPA_URL+'/rest/v1/settings', {
+      method:'POST',
+      headers:Object.assign({},_supaHdr,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body: JSON.stringify({key:'lockedPeriods', value:lockedPeriods})
+    });
+
+    return true;
+  }catch(e){
+    console.error('Supabase save error:', e);
+    return false;
+  }
+}
+
+async function _saveSupaCatalog(){
+  if(!catalogData.length) return;
+  await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
+  await fetch(SUPA_URL+'/rest/v1/catalog', {
+    method:'POST', headers:_supaHdr,
+    body: JSON.stringify(catalogData.map(function(r){
+      return {drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''};
+    }))
+  });
+}
+
+// ── TẢI TỪ SUPABASE ───────────────────────────────────────
+async function loadFromSupabase(periodKey){
+  if(!periodKey){ toast('Chưa chọn kỳ!','var(--danger)'); return; }
+  try{
+    toast('Đang tải từ cloud...','#1a5276');
+
+    // Tải reports
+    var r = await fetch(
+      SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=unit,drug,lot',
+      {headers:_supaHdr}
+    );
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var rows = await r.json();
+
+    if(!rows.length){ toast('Không có dữ liệu kỳ này trên cloud','var(--warning)'); return; }
+
+    // Phân loại
+    var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
+    var newBc   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
+
+    // Giữ data kỳ khác, thay kỳ này
+    bvphData = bvphData.filter(function(r){return r.bcMonth!==periodKey;}).concat(newBvph);
+    bcData   = bcData.filter(function(r){  return r.bcMonth!==periodKey;}).concat(newBc);
+
+    // Tải lockedPeriods
+    var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
+    var sv = await sr.json();
+    if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
+
+    // Tải catalog
+    var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+    var cd = await cr.json();
+    if(cd.length) catalogData = cd;
+
+    saveLocalCache(buildPayload());
+    fillDrugSelects();
+    renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
+    updateSaveBtnUI();
+    toast('✓ Đã tải '+rows.length+' dòng từ cloud (kỳ '+periodKey+')','#27ae60');
+  }catch(e){
+    toast('Lỗi tải cloud: '+e.message,'var(--danger)');
+  }
+}
+
+function _mapRow(r){
+  return {
+    unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp||'',
+    open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
+    dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
+    locked:!!r.locked, editing:false, bcMonth:r.bc_month||r.period,
+    openLocked:!!r.locked
+  };
+}
+
+// ============================================================
 // DATA
 // ============================================================
 var DRUGS=[
@@ -1079,15 +1241,21 @@ var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
 var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
 Object.defineProperty(window,'reportLocked',{
-  get:function(){ return !!lockedPeriods[_currentPeriodKey()]; },
+  get:function(){
+    try{ return !!lockedPeriods[_currentPeriodKey()]; }catch(e){ return false; }
+  },
   set:function(v){ /* dùng lockPeriod/unlockPeriod thay thế */ }
 });
 
 function _currentPeriodKey(){
-  // Trả về key kỳ đang chọn: "2026-05" hoặc "2026"
   try{
-    var p = getSelectedPeriod();
-    return p.val;
+    var yearEl  = document.getElementById('sel-year');
+    var monthEl = document.getElementById('sel-month');
+    if(!yearEl || !monthEl) return '';
+    var year  = yearEl.value  || '2026';
+    var month = monthEl.value || '05';
+    if(month === '__year__') return year;
+    return year + '-' + month;
   }catch(e){ return ''; }
 }
 function isCurrentPeriodLocked(){
@@ -1539,7 +1707,11 @@ function initApp(){
   if(_tmEl && _initPeriod.type === 'month') _tmEl.value = _initPeriod.val;
 
   loadSaved();
-  setTimeout(function(){ updateSaveBtnUI(); setupCatalog(); fillDrugSelects(); }, 100);
+  setTimeout(function(){
+    updateSaveBtnUI(); setupCatalog(); fillDrugSelects();
+    setTimeout(initFileHandle, 500);
+    setTimeout(checkSupabase, 800); // kiểm tra kết nối cloud
+  }, 100);
   renderTQ();renderDrugTable();renderBVPH();renderBC();renderTP();renderAccounts();
 
   // Fill account modal unit select
@@ -1709,12 +1881,17 @@ function saveNewAccount(){
   toast('Đã thêm tài khoản: '+name,'var(--success)');
 }
 function editAccount(i){
-  var a=ACCOUNTS[i];
-  var n=prompt('Họ tên:',a.name);
-  if(n===null) return;
-  var u=prompt('Đơn vị:',a.unit);
-  if(n.trim()) ACCOUNTS[i].name=n.trim();
-  if(u!==null&&u.trim()) ACCOUNTS[i].unit=u.trim();
+  if(!isAdmin()){toast('Chỉ Admin mới sửa tài khoản!','var(--danger)');return;}
+  var a = ACCOUNTS[i];
+  // Dùng modal-role để chỉnh (đã có modal phân quyền, mở rộng thêm tên/đơn vị)
+  // Nếu không có modal riêng, dùng prompt an toàn với fallback
+  var n = window.prompt('Họ tên mới cho "'+a.name+'":', a.name);
+  if(n === null) return; // bấm Cancel
+  var u = window.prompt('Đơn vị:', a.unit);
+  if(u === null) return;
+  if(n.trim()) ACCOUNTS[i].name = n.trim();
+  if(u.trim()) ACCOUNTS[i].unit = u.trim();
+  saveLocalCache(buildPayload());
   renderAccounts();
   toast('Đã cập nhật: '+ACCOUNTS[i].name,'var(--success)');
 }
@@ -1925,7 +2102,8 @@ function renderTQ(){
 
 // Cảnh báo tính TRỰC TIẾP từ bvphData + bcData
 function updateAlerts(){
-  var allRows=bvphData.concat(bcData);
+  // Lọc theo kỳ đang chọn ở Tổng quan
+  var allRows=bvphData.filter(matchTQPeriod).concat(bcData.filter(matchTQPeriod));
 
   // ── Tồn kho thấp: gom tồn cuối theo tên thuốc ──
   var lowMap={};
@@ -2099,6 +2277,7 @@ function addTW_obsolete_DISABLED(){
   document.getElementById('tw-exp').value='';
   toast('Đã thêm kho TW: '+drug+' — Lô '+lot,'var(--success)');
 }
+function delTW(i){ delTW_obsolete_DISABLED(i); }
 function delTW_obsolete_DISABLED(i){if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}if(confirm('Xóa "'+twData[i].drug+'"?')){twData.splice(i,1);toast('Đã xóa','var(--danger)');}}
 
 // Tính Xuất Tổ CL của BVPH theo từng thuốc = tổng tinh (nhập tỉnh cấp) của bcData cùng tên thuốc
@@ -2190,15 +2369,14 @@ function buildTbl(data, bodyId, prefix){
     function makeCell(field, val, readOnly){
       var locked = readOnly || isLocked;
       if(isEditing && canEdit && !locked){
-        // Truyền prefix và rowIdx trực tiếp vào onchange string
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
         return '<input type="number" min="0" value="' + val + '"'
+          + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
           + ' style="width:54px;padding:4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px"'
           + ' onchange="' + onch + '"'
           + ' oninput="' + onch + '"'
           + '>';
       }
-      // Tĩnh
       var style = readOnly && !isAdmin() ? 'color:var(--muted)' : '';
       return '<span style="' + style + '">' + val + '</span>';
     }
@@ -2510,18 +2688,12 @@ function editR(prefix, rowIdx){
     var bodyId = prefix==='bvph' ? 'bvph-body' : 'bc-body';
     var tbody  = document.getElementById(bodyId);
     if(tbody){
-      var inputs = tbody.querySelectorAll('input[type=number]');
-      var fields = ['open','tinh','dc','sd','dc2','dc3','hh'];
-      inputs.forEach(function(inp){
-        var onch = inp.getAttribute('onchange') || inp.getAttribute('oninput') || '';
-        fields.forEach(function(f){
-          // Chỉ flush input thuộc đúng dòng này (rowIdx) và field này
-          if(onch.indexOf(','+rowIdx+',') >= 0 &&
-             (onch.indexOf("'"+f+"'") >= 0 || onch.indexOf('"'+f+'"') >= 0)){
-            var v = Math.max(0, parseInt(inp.value)||0);
-            arr[realIdx][f] = v;
-          }
-        });
+      // Dùng data-rowidx và data-fld để flush chính xác — không parse chuỗi onchange
+      tbody.querySelectorAll('input[data-rowidx="'+rowIdx+'"][data-prefix="'+prefix+'"]').forEach(function(inp){
+        var fld = inp.getAttribute('data-fld');
+        if(fld && fld in arr[realIdx]){
+          arr[realIdx][fld] = Math.max(0, parseInt(inp.value)||0);
+        }
       });
     }
     target.editing = false;
@@ -2601,98 +2773,134 @@ function onUnitChange(){
   renderBC();
 }
 // ============================================================
-// LƯU / MỞ FILE TRÊN Ổ CỨNG
-// Dùng File System Access API (Chrome/Edge 86+)
-// Fallback: tải file .json về thư mục Downloads
 // ============================================================
-var _fileHandle = null; // giữ handle để lưu lại cùng file
+// LƯU / MỞ FILE TRÊN Ổ CỨNG — TỰ ĐỘNG, KHÔNG HỎI LẠI
+// PM tự tạo file lần đầu, mọi lần lưu ghi thẳng vào file đó
+// File System Access API + IndexedDB lưu handle qua sessions
+// ============================================================
+var _fileHandle = null;
 
-async function saveToFile(){
-  if(!isAdmin()){toast('Chỉ Admin mới lưu file!','var(--danger)');return;}
-  var payload = buildPayload();
-  var json    = JSON.stringify(payload, null, 2);
-  var blob    = new Blob([json], {type:'application/json'});
-
-  // Thử File System Access API (Chrome/Edge — cho phép chọn vị trí)
-  if(window.showSaveFilePicker){
-    try{
-      var opts = {
-        suggestedName: 'thuoclao_data_'+new Date().toISOString().slice(0,10)+'.json',
-        types:[{description:'Dữ liệu thuốc lao',accept:{'application/json':['.json']}}]
-      };
-      _fileHandle = await window.showSaveFilePicker(opts);
-      var writable = await _fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      toast('✓ Đã lưu file thành công: '+_fileHandle.name,'var(--success)');
-      return;
-    }catch(e){
-      if(e.name==='AbortError') return; // người dùng bấm Cancel
-    }
-  }
-
-  // Fallback: tải về Downloads
-  var url = URL.createObjectURL(blob);
-  var a   = document.createElement('a');
-  a.href  = url;
-  a.download = 'thuoclao_data_'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('✓ Đã tải file về máy (thư mục Downloads)','var(--success)');
+// ── IndexedDB: lưu/đọc handle file ──────────────────────────
+var _IDB = 'thuoclao_db', _IDB_ST = 'handles', _IDB_KEY = 'dataFile';
+function _openDB(){
+  return new Promise(function(res,rej){
+    var r = indexedDB.open(_IDB,1);
+    r.onupgradeneeded = function(e){ e.target.result.createObjectStore(_IDB_ST); };
+    r.onsuccess = function(e){ res(e.target.result); };
+    r.onerror   = function(){ rej(r.error); };
+  });
 }
+async function _saveHandle(h){
+  try{ var db=await _openDB(); return new Promise(function(res){ var tx=db.transaction(_IDB_ST,'readwrite'); tx.objectStore(_IDB_ST).put(h,_IDB_KEY); tx.oncomplete=res; }); }catch(e){}
+}
+async function _loadHandle(){
+  try{ var db=await _openDB(); return new Promise(function(res){ var r=db.transaction(_IDB_ST,'readonly').objectStore(_IDB_ST).get(_IDB_KEY); r.onsuccess=function(){ res(r.result||null); }; r.onerror=function(){ res(null); }; }); }catch(e){ return null; }
+}
+
+// ── Ghi dữ liệu vào file ──────────────────────────────────
+async function _writeToFile(payload){
+  if(!_fileHandle) return false;
+  try{
+    var w = await _fileHandle.createWritable();
+    await w.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+    await w.close();
+    return true;
+  }catch(e){
+    try{
+      var perm = await _fileHandle.requestPermission({mode:'readwrite'});
+      if(perm==='granted'){
+        var w2=await _fileHandle.createWritable();
+        await w2.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+        await w2.close();
+        return true;
+      }
+    }catch(e2){}
+    return false;
+  }
+}
+
+// ── Cập nhật UI thanh trạng thái file ─────────────────────
+function _updateFileStatus(){
+  var el=document.getElementById('file-status-bar');
+  if(!el) return;
+  if(_fileHandle){
+    el.innerHTML='<span style="color:#27ae60;font-size:11px">💾 File dữ liệu: <strong>'+_fileHandle.name+'</strong> &nbsp;<a href="#" onclick="rechoseFile();return false;" style="color:#aaa;font-size:10px">[đổi]</a></span>';
+  } else if(window.showSaveFilePicker){
+    el.innerHTML='<span style="color:#e67e22;font-size:11px">⚠ Chưa chọn file — <a href="#" onclick="rechoseFile();return false;" style="color:#e67e22;font-weight:600">Chọn file lưu ngay</a></span>';
+  } else {
+    el.innerHTML='<span style="color:#999;font-size:11px">ℹ Dùng Chrome/Edge để lưu file tự động</span>';
+  }
+}
+
+// ── Khởi tạo file khi mở PM ───────────────────────────────
+async function initFileHandle(){
+  // 1. Thử khôi phục handle từ IndexedDB
+  var h = await _loadHandle();
+  if(h){
+    try{
+      var perm = await h.queryPermission({mode:'readwrite'});
+      if(perm==='granted'){ _fileHandle=h; _updateFileStatus(); return; }
+      var req = await h.requestPermission({mode:'readwrite'});
+      if(req==='granted'){ _fileHandle=h; _updateFileStatus(); return; }
+    }catch(e){}
+  }
+  // 2. Chưa có hoặc mất quyền → tạo file mới
+  if(!window.showSaveFilePicker){ _updateFileStatus(); return; }
+  try{
+    var newH = await window.showSaveFilePicker({
+      suggestedName:'thuoclao_data.json',
+      types:[{description:'Dữ liệu Hệ thống Thuốc Lao',accept:{'application/json':['.json']}}],
+      startIn:'documents'
+    });
+    _fileHandle = newH;
+    await _saveHandle(newH);
+    await _writeToFile(buildPayload());
+    _updateFileStatus();
+    toast('✓ Đã tạo file dữ liệu: '+newH.name+' — PM sẽ tự lưu vào đây.','var(--success)');
+  }catch(e){
+    if(e.name==='AbortError') toast('⚠ Chưa chọn file. Dữ liệu chỉ lưu trong trình duyệt.','var(--warning)');
+    _updateFileStatus();
+  }
+}
+
+// ── Đổi file lưu ──────────────────────────────────────────
+async function rechoseFile(){
+  if(!window.showSaveFilePicker){ toast('Trình duyệt không hỗ trợ. Dùng Chrome/Edge.','var(--warning)'); return; }
+  try{
+    var h = await window.showSaveFilePicker({
+      suggestedName: _fileHandle ? _fileHandle.name : 'thuoclao_data.json',
+      types:[{description:'Dữ liệu Hệ thống Thuốc Lao',accept:{'application/json':['.json']}}],
+      startIn:'documents'
+    });
+    _fileHandle=h; await _saveHandle(h); await _writeToFile(buildPayload());
+    _updateFileStatus();
+    toast('✓ Đã đổi file lưu sang: '+h.name,'var(--success)');
+  }catch(e){}
+}
+
+// ── API công khai ──────────────────────────────────────────
+async function quickSaveToFile(){ await _writeToFile(buildPayload()); }
+async function saveToFile(){ await rechoseFile(); }
 
 async function loadFromFile(){
-  // Thử File System Access API
   if(window.showOpenFilePicker){
     try{
-      var [handle] = await window.showOpenFilePicker({
-        types:[{description:'Dữ liệu thuốc lao',accept:{'application/json':['.json']}}],
-        multiple: false
-      });
-      _fileHandle = handle;
-      var file = await handle.getFile();
-      var text = await file.text();
-      var p    = JSON.parse(text);
-      applyPayload(p);
-      saveLocalCache(p); // đồng bộ vào localStorage
-      toast('✓ Đã mở file: '+handle.name,'var(--success)');
+      var [h]=await window.showOpenFilePicker({types:[{description:'Dữ liệu Thuốc Lao',accept:{'application/json':['.json']}}]});
+      var text=await (await h.getFile()).text();
+      var p=JSON.parse(text);
+      applyPayload(p); saveLocalCache(p);
+      toast('✓ Đã tải dữ liệu từ: '+h.name,'var(--success)');
       return;
-    }catch(e){
-      if(e.name==='AbortError') return;
-      toast('Lỗi đọc file: '+e.message,'var(--danger)');return;
-    }
+    }catch(e){ if(e.name==='AbortError') return; toast('Lỗi: '+(e.message||e),'var(--danger)'); return; }
   }
-
-  // Fallback: input file ẩn
-  var inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = '.json';
-  inp.onchange = function(){
-    var f = inp.files[0]; if(!f) return;
-    var fr = new FileReader();
-    fr.onload = function(){
-      try{
-        var p = JSON.parse(fr.result);
-        applyPayload(p);
-        saveLocalCache(p);
-        toast('✓ Đã mở file: '+f.name,'var(--success)');
-      }catch(e){ toast('File không hợp lệ!','var(--danger)'); }
-    };
-    fr.readAsText(f);
-  };
-  inp.click();
-}
-
-// Lưu nhanh vào file đang mở (không hỏi lại vị trí)
-async function quickSaveToFile(){
-  if(!_fileHandle) return;
-  try{
-    var payload  = buildPayload();
-    var writable = await _fileHandle.createWritable();
-    await writable.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-    await writable.close();
-  }catch(e){}
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=function(){
+    var f=inp.files[0]; if(!f) return;
+    var fr=new FileReader(); fr.onload=function(){
+      try{ var p=JSON.parse(fr.result); applyPayload(p); saveLocalCache(p); toast('✓ Đã tải: '+f.name,'var(--success)'); }
+      catch(e){ toast('File không hợp lệ!','var(--danger)'); }
+    }; fr.readAsText(f);
+  }; inp.click();
 }
 
 
@@ -2905,7 +3113,7 @@ function saveLocalCache(payload){
   try{ localStorage.setItem('thuoclao_data', JSON.stringify(payload)); }catch(e){}
 }
 
-function saveBC(){
+async function saveBC(){
   var periodKey = _currentPeriodKey();
   if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--danger)'); return; }
 
@@ -2928,13 +3136,28 @@ function saveBC(){
     _createNextPeriodRows(periodKey, nextKey);
   }
 
-  // 5. Lưu
+  // 5. Lưu localStorage trước
   var payload = buildPayload();
   saveLocalCache(payload);
   if(window.electronAPI && window.electronAPI.saveData){
     window.electronAPI.saveData(payload).catch(function(){});
   }
-  quickSaveToFile();
+
+  // 6. Lưu file ổ cứng
+  var saved = await _writeToFile(payload);
+  if(!saved && !_fileHandle){
+    toast('⚠ Chưa có file lưu. Bấm [Chọn file lưu ngay] ở thanh dưới.','var(--warning)');
+  }
+
+  // 7. Đồng bộ lên Supabase (song song, không chặn UI)
+  if(_supaOnline){
+    saveToSupabase(periodKey)
+      .then(function(ok){
+        if(ok) toast('☁ Đã đồng bộ lên cloud','#27ae60');
+        else   toast('⚠ Lưu cloud thất bại — dữ liệu vẫn an toàn trên máy','orange');
+      })
+      .catch(function(e){ toast('⚠ Lỗi cloud: '+e.message,'orange'); });
+  }
 
   renderBVPH(); renderBC();
   updateSaveBtnUI();
@@ -3054,7 +3277,8 @@ function updateLockedUI(){
         if(raw){ var pld=JSON.parse(raw); if(pld.savedAt) savedAt=' lúc '+new Date(pld.savedAt).toLocaleString('vi-VN'); }
       }catch(e){}
       var msgEl = document.getElementById('report-locked-msg');
-      if(msgEl) msgEl.textContent = '🔒 Báo cáo '+_keyToLabel(_currentPeriodKey())+' đã được lưu'+savedAt+'. Bấm "Mở lại để sửa" để chỉnh sửa (chỉ Admin).';
+      var fileInfo = _fileHandle ? ' · File: <strong>'+_fileHandle.name+'</strong>' : ' · <em>Chưa lưu ra file ổ cứng</em>';
+      if(msgEl) msgEl.innerHTML = '🔒 Báo cáo '+_keyToLabel(_currentPeriodKey())+' đã được lưu'+savedAt+fileInfo+'. Bấm "Mở lại để sửa" để chỉnh sửa (chỉ Admin).';
     }
   }
 
@@ -3079,10 +3303,10 @@ function applyPayload(p){
   if(p.drugFreq)    drugFreq    = p.drugFreq;
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
-  if(p.lockedPeriods) lockedPeriods = p.lockedPeriods;
-  else if(p.reportLocked){ // backward compat với file cũ chỉ có reportLocked boolean
-    // không biết kỳ nào, thôi để trống
+  if(p.lockedPeriods && typeof p.lockedPeriods === 'object'){
+    lockedPeriods = p.lockedPeriods;
   }
+  // backward compat: file cũ chỉ có reportLocked boolean (không biết kỳ nào) → bỏ qua
   // Gọi fillDrugSelects ngay sau khi catalogData đã được gán
   fillDrugSelects();
   if(p.savedAt) toast('Đã tải dữ liệu đã lưu ('+new Date(p.savedAt).toLocaleString('vi-VN')+')','#1a5276');
@@ -3105,8 +3329,266 @@ async function loadSaved(){
 }
 
 // ============================================================
-// IN BÁO CÁO
+// XUẤT EXCEL — 4 sheet: Kho chính, 22 đơn vị, Tổng hợp TP, Danh mục
 // ============================================================
+function exportExcel(){
+  if(typeof XLSX === 'undefined'){
+    toast('Thư viện Excel chưa tải xong. Kiểm tra kết nối mạng rồi thử lại.','var(--danger)');
+    return;
+  }
+
+  var p        = getSelectedPeriod();
+  var periodLabel = p.type==='year' ? 'Ca_nam_'+p.year : 'T'+parseInt(p.val.split('-')[1])+'_'+p.year;
+  var periodTitle = p.type==='year' ? 'Cả năm '+p.year
+    : 'Tháng '+parseInt(p.val.split('-')[1])+'/'+p.year;
+
+  var wb = XLSX.utils.book_new();
+
+  // ── Màu sắc header ──
+  var HDR_BVPH  = {fgColor:{rgb:'155724'}}; // xanh lá đậm
+  var HDR_BC    = {fgColor:{rgb:'1a5276'}}; // xanh dương
+  var HDR_TP    = {fgColor:{rgb:'6f1a1a'}}; // đỏ đậm (màu bảng TP)
+  var HDR_CAT   = {fgColor:{rgb:'343a40'}}; // xám đậm
+
+  function hdrStyle(rgb){
+    return {font:{bold:true,color:{rgb:'FFFFFF'},sz:11},
+            fill:{patternType:'solid',fgColor:{rgb:rgb}},
+            alignment:{horizontal:'center',vertical:'center',wrapText:true},
+            border:{bottom:{style:'medium',color:{rgb:'CCCCCC'}}}};
+  }
+  function numStyle(){ return {alignment:{horizontal:'right'}}; }
+  function calcStyle(bold){ return {font:{bold:!!bold},alignment:{horizontal:'right'}}; }
+  function expStyle(expired){ return expired?{font:{color:{rgb:'CC0000'}}}:{}; }
+
+  // ── Helper: tạo hàng dữ liệu có style ──
+  function makeRow(cells){ return cells; }
+
+  // ===== SHEET 1: KHO CHÍNH BVPH =====
+  (function(){
+    var bvphF = bvphData.filter(matchPeriod);
+    var aoa   = []; // array of arrays
+
+    // Tiêu đề
+    aoa.push(['BÁO CÁO THUỐC LAO — KHO CHÍNH BV PHỔI HẢI PHÒNG']);
+    aoa.push(['Kỳ báo cáo: '+periodTitle]);
+    aoa.push([]);
+
+    // Header
+    aoa.push([
+      'STT','Tên thuốc','Số lô','Hạn dùng','Tồn đầu',
+      'Tỉnh cấp','Điều chuyển vào','Tổng nhập',
+      'Sử dụng','Xuất Tổ CL','Xuất tỉnh khác','Hỏng/HH','Tổng xuất',
+      'Tồn cuối'
+    ]);
+
+    // Tổng
+    var sO=0,sT=0,sDC=0,sTIN=0,sSD=0,sDC2=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
+
+    bvphF.forEach(function(r, idx){
+      var c   = calcRow(r);
+      var exp = expFmt(r.exp);
+      sO+=r.open; sT+=(r.tinh||0); sDC+=(r.dc||0); sTIN+=c.tin;
+      sSD+=(r.sd||0); sDC2+=(r.dc2||0); sDC3+=(r.dc3||0); sHH+=(r.hh||0);
+      sTOUT+=c.tout; sFin+=c.final;
+      aoa.push([
+        idx+1, r.drug, r.lot, exp, r.open,
+        r.tinh||0, r.dc||0, c.tin,
+        r.sd||0, r.dc2||0, r.dc3||0, r.hh||0, c.tout,
+        c.final
+      ]);
+    });
+
+    // Dòng tổng
+    aoa.push([
+      'TỔNG','','','', sO,
+      sT, sDC, sTIN,
+      sSD, sDC2, sDC3, sHH, sTOUT,
+      sFin
+    ]);
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Độ rộng cột
+    ws['!cols'] = [
+      {wch:5},{wch:32},{wch:14},{wch:12},{wch:10},
+      {wch:11},{wch:14},{wch:12},
+      {wch:11},{wch:12},{wch:14},{wch:11},{wch:12},
+      {wch:10}
+    ];
+
+    // Merge tiêu đề
+    ws['!merges'] = [
+      {s:{r:0,c:0},e:{r:0,c:13}},
+      {s:{r:1,c:0},e:{r:1,c:13}}
+    ];
+
+    // Style tiêu đề
+    _styleCell(ws,'A1',{font:{bold:true,sz:13},alignment:{horizontal:'center'}});
+    _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
+
+    // Style header row (row 4 = index 3)
+    var hCols = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
+    hCols.forEach(function(c){ _styleCell(ws, c+'4', hdrStyle('155724')); });
+
+    // Style dòng tổng cuối
+    var lastRow = aoa.length;
+    hCols.forEach(function(c){ _styleCell(ws, c+lastRow, {font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'D4EDDA'}}}); });
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Kho chính BVPH');
+  })();
+
+  // ===== SHEET 2: BÁO CÁO 22 ĐƠN VỊ =====
+  (function(){
+    var bcF = bcData.filter(matchPeriod);
+    var aoa = [];
+
+    aoa.push(['BÁO CÁO THUỐC LAO — 22 ĐƠN VỊ TUYẾN']);
+    aoa.push(['Kỳ báo cáo: '+periodTitle]);
+    aoa.push([]);
+    aoa.push([
+      'STT','Đơn vị','Tên thuốc','Số lô','Hạn dùng','Tồn đầu',
+      'Tỉnh cấp','Điều chuyển vào','Tổng nhập',
+      'Sử dụng','Xuất ĐC','Hỏng/HH','Tổng xuất',
+      'Tồn cuối'
+    ]);
+
+    var sO=0,sT=0,sDC=0,sTIN=0,sSD=0,sDC2=0,sHH=0,sTOUT=0,sFin=0;
+
+    bcF.forEach(function(r, idx){
+      var c = calcRow(r);
+      sO+=r.open; sT+=(r.tinh||0); sDC+=(r.dc||0); sTIN+=c.tin;
+      sSD+=(r.sd||0); sDC2+=(r.dc2||0); sHH+=(r.hh||0);
+      sTOUT+=c.tout; sFin+=c.final;
+      aoa.push([
+        idx+1, r.unit||'', r.drug, r.lot, expFmt(r.exp), r.open,
+        r.tinh||0, r.dc||0, c.tin,
+        r.sd||0, r.dc2||0, r.hh||0, c.tout,
+        c.final
+      ]);
+    });
+
+    aoa.push(['TỔNG','','','','', sO, sT, sDC, sTIN, sSD, sDC2, sHH, sTOUT, sFin]);
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [
+      {wch:5},{wch:26},{wch:30},{wch:14},{wch:12},{wch:10},
+      {wch:11},{wch:14},{wch:12},
+      {wch:11},{wch:11},{wch:11},{wch:12},{wch:10}
+    ];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:13}},{s:{r:1,c:0},e:{r:1,c:13}}];
+    _styleCell(ws,'A1',{font:{bold:true,sz:13},alignment:{horizontal:'center'}});
+    _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
+    var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
+    hCols.forEach(function(c){ _styleCell(ws,c+'4',hdrStyle('1a5276')); });
+    var lastRow=aoa.length;
+    hCols.forEach(function(c){ _styleCell(ws,c+lastRow,{font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'D1ECF1'}}}); });
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo 22 đơn vị');
+  })();
+
+  // ===== SHEET 3: TỔNG HỢP TOÀN TP =====
+  (function(){
+    var KEY = function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
+    var map  = {};
+
+    bvphData.filter(matchPeriod).forEach(function(r){
+      var k=KEY(r);
+      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0};
+      map[k].open    += (r.open||0);
+      map[k].sdAll   += (r.sd||0);
+      map[k].bvphDC3 += (r.dc3||0);
+      map[k].bvphHH  += (r.hh||0);
+    });
+    bcData.filter(matchPeriod).forEach(function(r){
+      var k=KEY(r);
+      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0};
+      map[k].open  += (r.open||0);
+      map[k].sdAll += (r.sd||0);
+    });
+
+    var keys = Object.keys(map).sort(function(a,b){
+      return map[a].drug.localeCompare(map[b].drug,'vi');
+    });
+
+    var aoa = [];
+    aoa.push(['BẢNG TỔNG HỢP THUỐC LAO TOÀN THÀNH PHỐ HẢI PHÒNG']);
+    aoa.push(['Kỳ báo cáo: '+periodTitle]);
+    aoa.push([]);
+    aoa.push([
+      'STT','Tên thuốc','Số lô','Hạn dùng','Tồn đầu',
+      'Nhập TW','Nhập tỉnh khác','Tổng nhập',
+      'Sử dụng (toàn TP)','Xuất tỉnh khác','Hỏng/HH','Tổng xuất',
+      'Tồn cuối'
+    ]);
+
+    var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
+
+    keys.forEach(function(k, idx){
+      var m   = map[k];
+      var ex  = extraTP[k] || {tw:0,dc:0};
+      var tw  = ex.tw||0, dc = ex.dc||0;
+      var dc3 = m.bvphDC3||0, hh = m.bvphHH||0;
+      var tin = tw+dc, tout = m.sdAll+dc3+hh;
+      var fin = m.open+tin-tout;
+      sO+=m.open; sTW+=tw; sDC+=dc; sTIN+=tin;
+      sSD+=m.sdAll; sDC3+=dc3; sHH+=hh; sTOUT+=tout; sFin+=fin;
+      aoa.push([
+        idx+1, m.drug, m.lot, expFmt(m.exp), m.open,
+        tw, dc, tin,
+        m.sdAll, dc3, hh, tout,
+        fin
+      ]);
+    });
+
+    aoa.push(['TỔNG','','','', sO, sTW, sDC, sTIN, sSD, sDC3, sHH, sTOUT, sFin]);
+
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [
+      {wch:5},{wch:32},{wch:14},{wch:12},{wch:10},
+      {wch:11},{wch:14},{wch:12},
+      {wch:16},{wch:14},{wch:11},{wch:12},{wch:10}
+    ];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+    _styleCell(ws,'A1',{font:{bold:true,sz:13},alignment:{horizontal:'center'}});
+    _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
+    var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M'];
+    hCols.forEach(function(c){ _styleCell(ws,c+'4',hdrStyle('6f1a1a')); });
+    var lastRow=aoa.length;
+    hCols.forEach(function(c){ _styleCell(ws,c+lastRow,{font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'F8D7DA'}}}); });
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Tổng hợp toàn TP');
+  })();
+
+  // ===== SHEET 4: DANH MỤC THUỐC =====
+  (function(){
+    var aoa = [];
+    aoa.push(['DANH MỤC THUỐC & SỐ LÔ']);
+    aoa.push([]);
+    aoa.push(['STT','Tên thuốc / Hàm lượng','Số lô','Hạn dùng','Ghi chú']);
+    catalogData.forEach(function(r, idx){
+      aoa.push([idx+1, r.drug, r.lot, expFmt(r.exp), r.note||'']);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:5},{wch:38},{wch:16},{wch:14},{wch:30}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:4}}];
+    _styleCell(ws,'A1',{font:{bold:true,sz:13},alignment:{horizontal:'center'}});
+    ['A','B','C','D','E'].forEach(function(c){ _styleCell(ws,c+'3',hdrStyle('343a40')); });
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh mục thuốc');
+  })();
+
+  // Xuất file
+  var fname = 'ThuocLao_'+periodLabel+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('✓ Đã xuất file Excel: '+fname,'#1d6f42');
+}
+
+// Helper: gán style cho 1 ô (SheetJS cần sheet style để apply)
+function _styleCell(ws, addr, style){
+  if(!ws[addr]) ws[addr] = {t:'s', v:''};
+  ws[addr].s = style;
+}
+
+
 function openPrintModal(){
   // Cập nhật label đơn vị đang xem
   var selUnit = document.getElementById('filter-unit-bc');
