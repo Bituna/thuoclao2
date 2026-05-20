@@ -1062,59 +1062,129 @@ function _updateCloudStatus(){
   }
 }
 
+// ── TỰ ĐỘNG TẢI DATA SAU KHI ĐĂNG NHẬP ─────────────────────
+async function _autoLoadOnLogin(){
+  var periodKey = _currentPeriodKey();
+  if(!periodKey || !_supaOnline) return;
+
+  var role = currentUser ? currentUser.role : '';
+  var unit = currentUser ? currentUser.unit : '';
+
+  try{
+    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=unit,drug,lot';
+
+    // Đơn vị tuyến: chỉ tải data của mình
+    if(role === 'donvi'){
+      url += '&unit=eq.'+encodeURIComponent(unit);
+    }
+    // BVPH: chỉ tải data unit bvph
+    else if(role === 'bvph'){
+      url += '&unit=eq.bvph';
+    }
+    // Admin: tải tất cả
+
+    var r = await fetch(url, {headers:_supaHdr});
+    if(!r.ok) return;
+    var rows = await r.json();
+    if(!rows.length){
+      // Kỳ mới chưa có data → giữ nguyên localStorage
+      toast('Kỳ '+periodKey+': chưa có dữ liệu trên cloud. Bắt đầu nhập mới.','#1a5276');
+      return;
+    }
+
+    // Merge vào data hiện tại (giữ kỳ khác, thay kỳ này theo unit)
+    if(role === 'donvi'){
+      bcData = bcData.filter(function(x){ return !(x.bcMonth===periodKey && x.unit===unit); })
+               .concat(rows.map(_mapRow));
+    } else if(role === 'bvph'){
+      bvphData = bvphData.filter(function(x){ return x.bcMonth!==periodKey; })
+                 .concat(rows.map(_mapRow));
+    } else {
+      // Admin: tải tất cả, ghi đè kỳ này
+      bvphData = bvphData.filter(function(x){ return x.bcMonth!==periodKey; })
+                 .concat(rows.filter(function(x){return x.unit==='bvph';}).map(_mapRow));
+      bcData   = bcData.filter(function(x){ return x.bcMonth!==periodKey; })
+                 .concat(rows.filter(function(x){return x.unit!=='bvph';}).map(_mapRow));
+    }
+
+    // Tải lockedPeriods
+    var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
+    var sv = await sr.json();
+    if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
+
+    // Tải catalog (nếu chưa có)
+    if(!catalogData.length){
+      var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+      var cd = await cr.json();
+      if(cd.length){ catalogData=cd; fillDrugSelects(); }
+    }
+
+    saveLocalCache(buildPayload());
+    renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
+    updateSaveBtnUI(); updateLockedUI();
+    toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
+  }catch(e){
+    console.warn('Auto-load error:', e);
+  }
+}
+
 // ── LƯU LÊN SUPABASE ──────────────────────────────────────
 async function saveToSupabase(periodKey){
   if(!_supaOnline) return false;
+  var role = currentUser ? currentUser.role : 'admin';
+  var unit = currentUser ? currentUser.unit : '';
   try{
-    // Gom tất cả rows của kỳ này
+    // Gom rows của kỳ này — chỉ lấy data thuộc quyền user hiện tại
     var rows = [];
-    bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-      rows.push({
-        period:periodKey, unit:r.unit||'bvph', drug:r.drug, lot:r.lot, exp:r.exp||'',
-        open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
-        dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
-        locked:!!r.locked, bc_month:periodKey
+    if(role==='bvph' || role==='admin'){
+      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+        rows.push({period:periodKey,unit:r.unit||'bvph',drug:r.drug,lot:r.lot,exp:r.exp||'',
+          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
+          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:!!r.locked,bc_month:periodKey});
       });
-    });
-    bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-      rows.push({
-        period:periodKey, unit:r.unit||'donvi', drug:r.drug, lot:r.lot, exp:r.exp||'',
-        open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
-        dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
-        locked:!!r.locked, bc_month:periodKey
+    }
+    if(role==='donvi' || role==='admin'){
+      var bcFilter = role==='donvi'
+        ? bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;})
+        : bcData.filter(function(r){return r.bcMonth===periodKey;});
+      bcFilter.forEach(function(r){
+        rows.push({period:periodKey,unit:r.unit||'donvi',drug:r.drug,lot:r.lot,exp:r.exp||'',
+          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
+          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:!!r.locked,bc_month:periodKey});
       });
-    });
-
+    }
     if(!rows.length) return true;
 
-    // Xóa data cũ của kỳ này
-    var del = await fetch(
-      SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey),
-      {method:'DELETE', headers:_supaHdr}
-    );
+    // Xóa CHỈ data của unit mình (không xóa đơn vị khác)
+    var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey);
+    if(role==='donvi') delUrl += '&unit=eq.'+encodeURIComponent(unit);
+    else if(role==='bvph') delUrl += '&unit=eq.bvph';
+    // admin: xóa tất cả kỳ này (tổng hợp lại)
+
+    var del = await fetch(delUrl,{method:'DELETE',headers:_supaHdr});
     if(!del.ok) throw new Error('Xóa thất bại: '+del.status);
 
     // Insert mới
-    var ins = await fetch(SUPA_URL+'/rest/v1/reports', {
-      method:'POST',
-      headers:_supaHdr,
-      body: JSON.stringify(rows)
+    var ins = await fetch(SUPA_URL+'/rest/v1/reports',{
+      method:'POST', headers:_supaHdr, body:JSON.stringify(rows)
     });
     if(!ins.ok) throw new Error('Insert thất bại: '+ins.status);
 
-    // Lưu catalog
-    await _saveSupaCatalog();
+    // Admin: lưu thêm catalog và lockedPeriods
+    if(role==='admin'){
+      await _saveSupaCatalog();
+    }
 
-    // Lưu lockedPeriods vào settings
-    await fetch(SUPA_URL+'/rest/v1/settings', {
+    // Lưu lockedPeriods
+    await fetch(SUPA_URL+'/rest/v1/settings',{
       method:'POST',
       headers:Object.assign({},_supaHdr,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
-      body: JSON.stringify({key:'lockedPeriods', value:lockedPeriods})
+      body:JSON.stringify({key:'lockedPeriods',value:lockedPeriods})
     });
 
     return true;
   }catch(e){
-    console.error('Supabase save error:', e);
+    console.error('Supabase save error:',e);
     return false;
   }
 }
@@ -1710,7 +1780,12 @@ function initApp(){
   setTimeout(function(){
     updateSaveBtnUI(); setupCatalog(); fillDrugSelects();
     setTimeout(initFileHandle, 500);
-    setTimeout(checkSupabase, 800); // kiểm tra kết nối cloud
+    // Kiểm tra cloud rồi tự tải data kỳ hiện tại
+    setTimeout(function(){
+      checkSupabase().then(function(){
+        if(_supaOnline) _autoLoadOnLogin();
+      });
+    }, 800);
   }, 100);
   renderTQ();renderDrugTable();renderBVPH();renderBC();renderTP();renderAccounts();
 
@@ -2481,12 +2556,12 @@ function onGlobalMonthChange(){
   renderBVPH();
   renderBC();
   renderTP();
-  // Tự động đồng bộ tháng bảng Danh sách thuốc nếu đang ở trang thuoc
   var tmEl = document.getElementById('thuoc-month');
   if(tmEl && p.type === 'month') tmEl.value = p.val;
   renderDrugTable();
-  // Cập nhật nút Lưu/Mở theo kỳ mới
   updateSaveBtnUI();
+  // Tự động tải data kỳ mới từ cloud
+  if(_supaOnline) _autoLoadOnLogin();
 }
 
 
