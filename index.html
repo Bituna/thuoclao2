@@ -1478,31 +1478,60 @@ function renderCatalog(){
     return;
   }
 
-  // Dedupe: gộp dòng cùng tên thuốc + số lô + hạn dùng thành 1
+  // Dedupe: gộp dòng trùng drug+lot+exp
   var seen={}, deduped=[], realIdx=[];
   catalogData.forEach(function(r,i){
     var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
     if(!seen[key]){ seen[key]=true; deduped.push(r); realIdx.push(i); }
   });
 
+  // Nhóm theo tên thuốc (giữ thứ tự xuất hiện)
+  var groups=[]; // [{drug, rows:[{r,i}]}]
+  var drugMap={};
   deduped.forEach(function(r,di){
-    var i=realIdx[di]; // index thực để xóa đúng
-    var st=catalogStatus(r.exp);
-    var expDisp=expToMMYYYY(r.exp);
-    var cityQty=getLotCityFinal(r.drug, r.lot, r.exp);
-    var qtyDisp = cityQty>=0 ? cityQty.toLocaleString()+' viên' : '—';
-    var qtyStyle = cityQty===0 ? 'color:var(--danger);font-weight:700' : (cityQty>0&&cityQty<threshold.low ? 'color:var(--warning);font-weight:700' : 'color:var(--success)');
-    var canDel=isAdmin();
-    var rowSt = (st.label==='Hết hạn'||cityQty===0) ? 'background:#fff8f8' : '';
-    tbody.innerHTML+='<tr style="'+rowSt+'">'
-      +'<td class="left" style="font-weight:600">'+r.drug+'</td>'
-      +'<td>'+r.lot+'</td>'
-      +'<td>'+expDisp+'</td>'
-      +'<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'
-      +'<td style="'+qtyStyle+'">'+qtyDisp+'</td>'
-      +'<td style="color:var(--muted);font-size:11px">'+r.note+'</td>'
-      +'<td class="no-print">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
-      +'</tr>';
+    var i=realIdx[di];
+    if(!drugMap[r.drug]){
+      drugMap[r.drug]=[];
+      groups.push({drug:r.drug, rows:drugMap[r.drug]});
+    }
+    drugMap[r.drug].push({r:r, i:i});
+  });
+
+  var canDel=isAdmin();
+  groups.forEach(function(g){
+    g.rows.forEach(function(item, rowInGroup){
+      var r=item.r, i=item.i;
+      var st=catalogStatus(r.exp);
+      var expDisp=expToMMYYYY(r.exp);
+      var cityQty=getLotCityFinal(r.drug, r.lot, r.exp);
+      var qtyDisp = cityQty>=0 ? cityQty.toLocaleString()+' viên' : '—';
+      var qtyStyle = cityQty===0 ? 'color:var(--danger);font-weight:700'
+                   : (cityQty>0&&cityQty<threshold.low ? 'color:var(--warning);font-weight:700'
+                   : 'color:var(--success)');
+      var rowBg = (st.label==='Hết hạn'||cityQty===0) ? 'background:#fff8f8' : '';
+
+      // Đường kẻ trên đầu mỗi nhóm
+      var groupBorder = rowInGroup===0 ? 'border-top:2px solid #dee2e6' : '';
+
+      var row = '<tr style="'+rowBg+groupBorder+'">';
+
+      // Cột tên thuốc: chỉ render ở dòng đầu mỗi nhóm với rowspan
+      if(rowInGroup===0){
+        row += '<td class="left" rowspan="'+g.rows.length+'"'
+          +' style="font-weight:700;vertical-align:middle;border-right:1px solid #dee2e6;'
+          +groupBorder+'">'+r.drug+'</td>';
+      }
+
+      row += '<td>'+r.lot+'</td>'
+           + '<td>'+expDisp+'</td>'
+           + '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'
+           + '<td style="'+qtyStyle+'">'+qtyDisp+'</td>'
+           + '<td style="color:var(--muted);font-size:11px">'+r.note+'</td>'
+           + '<td class="no-print">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
+           + '</tr>';
+
+      tbody.innerHTML += row;
+    });
   });
 }
 
@@ -1511,13 +1540,19 @@ function downloadCatalogTemplate(){
   if(typeof XLSX !== 'undefined'){
     var wb = XLSX.utils.book_new();
     var ws = XLSX.utils.aoa_to_sheet([
-      // Header
       ['Tên thuốc', 'Số lô', 'Hạn dùng', 'Ghi chú'],
-      // Dòng ví dụ
       ['Rifampicin 150mg', 'RF-L01', '12/2027', 'Chương trình DOTS'],
+      ['',                 'RF-L02', '06/2028', ''],
       ['Isoniazid 100mg',  'IN-L02', '06/2028', ''],
-      ['Pyrazinamide 500mg','PZ-L01','03/2027', 'Nhập TW tháng 3'],
+      ['Clofazimine 100mg','NCG2403A','07/2028',''],
+      ['',                 'NR5889', '10/2027', ''],
+      ['',                 'NP7466', '10/2028', ''],
     ]);
+    // Merge cột Tên thuốc cho các lô cùng thuốc (ví dụ minh họa)
+    ws['!merges'] = [
+      {s:{r:1,c:0}, e:{r:2,c:0}}, // Rifampicin: dòng 2-3
+      {s:{r:4,c:0}, e:{r:6,c:0}}, // Clofazimine: dòng 5-7
+    ];
     // Độ rộng cột
     ws['!cols'] = [{wch:35},{wch:16},{wch:14},{wch:30}];
     // Style header
@@ -1537,8 +1572,10 @@ function downloadCatalogTemplate(){
       ['• Số lô: mã lô sản xuất','','',''],
       ['• Hạn dùng: định dạng mm/yyyy (ví dụ: 06/2028)','','',''],
       ['• Ghi chú: nguồn gốc, đợt cấp... (có thể để trống)','','',''],
+      ['• Thuốc nhiều lô: để trống cột Tên thuốc ở dòng lô 2, 3...','','',''],
+      ['  (hoặc lặp lại tên thuốc — phần mềm đều hiểu)','','',''],
       ['• Xóa các dòng ví dụ trước khi upload','','',''],
-    ], {origin: 'A6'});
+    ], {origin: 'A9'});
     XLSX.utils.book_append_sheet(wb, ws, 'Danh mục thuốc');
     XLSX.writeFile(wb, 'Mau_DanhMucThuoc.xlsx');
     toast('✓ Đã tải file mẫu: Mau_DanhMucThuoc.xlsx','var(--success)');
@@ -1630,9 +1667,13 @@ function _parseCatalogCSV(csvText){
   }
 
   var added=0, skipped=0, errors=[];
+  var lastDrug = ''; // tên thuốc dòng trước (để kế thừa khi để trống)
   for(var i=1;i<lines.length;i++){
     var cols = lines[i].split(sep).map(function(c){return c.trim().replace(/^["']|["']$/g,'');});
     var drug = cols[colDrug]||'';
+    // Nếu cột tên thuốc trống → kế thừa từ dòng trên (như ảnh 2)
+    if(!drug) drug = lastDrug;
+    else lastDrug = drug;
     var lot  = cols[colLot]||'';
     var expRaw = cols[colExp]||'';
     var note = colNote>=0 ? (cols[colNote]||'') : '';
