@@ -285,22 +285,22 @@ em{font-style:normal!important}i{font-style:normal!important}
     <div class="sb-logo"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 3a1 1 0 110 2 1 1 0 010-2zm3 12H9v-1h2v-5H9v-1h4v6h2v1z"/></svg></div>
     <h3>Phòng Chỉ đạo tuyến</h3><p>BV Phổi Hải Phòng</p>
   </div>
-  <div class="sb-sec">Chính</div>
-  <button class="sb-item active" onclick="nav('tq',this)">
+  <div class="sb-sec" id="sb-sec-main">Chính</div>
+  <button id="sb-tq" class="sb-item active" onclick="nav('tq',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Tổng quan
   </button>
-  <button class="sb-item" onclick="nav('thuoc',this)">
+  <button id="sb-thuoc" class="sb-item" onclick="nav('thuoc',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>Danh sách thuốc
   </button>
   <div class="sb-sec">Báo cáo</div>
-  <button class="sb-item" onclick="nav('bc',this)">
+  <button id="sb-bc" class="sb-item" onclick="nav('bc',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Báo cáo thuốc
   </button>
-  <div class="sb-sec">Hệ thống</div>
-  <button class="sb-item" onclick="nav('tk',this)">
+  <div class="sb-sec" id="sb-sec-system">Hệ thống</div>
+  <button id="sb-tk" class="sb-item" onclick="nav('tk',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Quản lý tài khoản
   </button>
-  <button class="sb-item" onclick="nav('cd',this)">
+  <button id="sb-cd" class="sb-item" onclick="nav('cd',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Cài đặt
   </button>
   <div class="sb-footer">
@@ -693,15 +693,18 @@ em{font-style:normal!important}i{font-style:normal!important}
       </div>
     </div>
 
+    </div><!-- /bvph-zone -->
+
     <!-- FORM NHẬP CÁC ĐƠN VỊ TUYẾN -->
     <div class="input-section" id="form-donvi" style="padding:12px 14px">
       <div class="input-section-title" style="margin-bottom:10px">+ Thêm dòng — Đơn vị tuyến</div>
       <input type="hidden" id="bc-month" value="2026-05">
       <!-- Hàng 1: Định danh — tất cả ngang hàng -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
-        <div class="fg">
+        <div class="fg" id="bc-unit-wrap">
           <label>Đơn vị</label>
           <select id="bc-unit" style="width:180px" onchange="onUnitChange()"><option value="">-- Chọn đơn vị --</option></select>
+          <div id="bc-unit-fixed" style="display:none;padding:6px 10px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276;width:180px"></div>
         </div>
         <div class="fg">
           <label>Tên thuốc</label>
@@ -751,7 +754,6 @@ em{font-style:normal!important}i{font-style:normal!important}
         </div>
       </div>
     </div>
-    </div><!-- /bvph-zone -->
 
     <div id="bc-zone">
       <div class="filter-bar" style="margin-bottom:10px">
@@ -760,6 +762,7 @@ em{font-style:normal!important}i{font-style:normal!important}
           <select id="filter-unit-bc" style="width:240px" onchange="renderBC()">
             <option value="__all__">Tổng hợp tất cả đơn vị</option>
           </select>
+          <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
         </div>
         <input type="hidden" id="filter-month-bc" value="2026-05">
         <div class="fg" style="justify-content:flex-end;margin-top:auto">
@@ -1107,12 +1110,13 @@ async function _autoLoadOnLogin(){
                  .concat(rows.filter(function(x){return x.unit!=='bvph';}).map(_mapRow));
     }
 
-    // Tải lockedPeriods
+    // Tải lockedPeriods — donvi chỉ quản lý lock của mình, không bị ảnh hưởng từ admin
     var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
     var sv = await sr.json();
-    if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
-
-    // Tải catalog (nếu chưa có)
+    if(sv.length && sv[0].value){
+      if(role !== 'donvi') lockedPeriods = sv[0].value;
+      // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
+    }
     if(!catalogData.length){
       var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
       var cd = await cr.json();
@@ -1718,56 +1722,119 @@ function initApp(){
   var su=document.getElementById('sel-unit-stat');su.innerHTML='';
   UNITS.forEach(function(u){var o=document.createElement('option');o.value=u;o.textContent=u;su.appendChild(o);});
 
-  // Admin-zone TW
-  if(currentUser.role==='admin'){
-    document.getElementById('admin-zone').style.display='block';
-    var _trt=document.getElementById('tw-role-tag');if(_trt)_trt.textContent='';
-    document.getElementById('add-account-btn').style.display='block';
+  // ── Hiển thị/ẩn các vùng theo vai trò ──────────────────
+  var role = currentUser.role;
+
+  // Admin-zone TW (nhập TW)
+  var adminZone = document.getElementById('admin-zone');
+  if(adminZone) adminZone.style.display = (role==='admin') ? 'block' : 'none';
+  var addAccBtn = document.getElementById('add-account-btn');
+  if(addAccBtn) addAccBtn.style.display = (role==='admin') ? 'block' : 'none';
+
+  // Hint thêm thuốc mới (chỉ admin)
+  var hintEl = document.getElementById('bvph-drug-hint');
+  if(hintEl) hintEl.style.display = (role==='admin') ? 'inline' : 'none';
+
+  // Form nhập liệu
+  var fB = document.getElementById('form-bvph');
+  var fD = document.getElementById('form-donvi');
+
+  // Bảng kho chính BVPH (bvph-zone) + bảng tổng hợp TP (tp-zone)
+  var bvphZone = document.getElementById('bvph-zone');
+  var bcZone   = document.getElementById('bc-zone');
+  var tpZone   = document.getElementById('tp-zone');
+
+  if(role === 'admin'){
+    // Admin thấy tất cả
+    if(fB) fB.style.display='block';
+    if(fD) fD.style.display='block';
+    if(bvphZone) bvphZone.style.display='block';
+    if(bcZone)   bcZone.style.display='block';
+    if(tpZone)   tpZone.style.display='block';
+  } else if(role === 'bvph'){
+    // BVPH: chỉ thấy form + bảng kho chính, ẩn bảng 22ĐV và tổng hợp TP
+    if(fB) fB.style.display='block';
+    if(fD) fD.style.display='none';
+    if(bvphZone) bvphZone.style.display='block';
+    if(bcZone)   bcZone.style.display='none';
+    if(tpZone)   tpZone.style.display='none';
   } else {
-    document.getElementById('admin-zone').style.display='none';
-    document.getElementById('add-account-btn').style.display='none';
+    // Đơn vị tuyến: chỉ thấy form + bảng của đơn vị mình, ẩn bảng BVPH và tổng hợp TP
+    if(fB) fB.style.display='none';
+    if(fD) fD.style.display='block';
+    if(bvphZone) bvphZone.style.display='none';
+    if(bcZone)   bcZone.style.display='block';
+    if(tpZone)   tpZone.style.display='none';
   }
 
-  updateLocks();
-  // Ẩn hint thêm thuốc mới nếu không phải admin
-  var hintEl=document.getElementById('bvph-drug-hint');
-  if(hintEl) hintEl.style.display=isAdmin()?'inline':'none';
-
-  // Hiển thị form nhập theo vai trò
-  var fB=document.getElementById('form-bvph');
-  var fD=document.getElementById('form-donvi');
-  if(currentUser.role==='admin'){
-    if(fB)fB.style.display='block'; if(fD)fD.style.display='block';
-  } else if(currentUser.role==='bvph'){
-    if(fB)fB.style.display='block'; if(fD)fD.style.display='none';
+  // ── Sidebar: ẩn/hiện theo vai trò ────────────────────────
+  function _sbShow(id, show){
+    var el=document.getElementById(id);
+    if(el) el.style.display = show ? '' : 'none';
+  }
+  if(role==='admin'){
+    // Admin thấy tất cả
+    _sbShow('sb-tq',true); _sbShow('sb-thuoc',true);
+    _sbShow('sb-tk',true); _sbShow('sb-cd',true);
+    _sbShow('sb-sec-system',true);
+    // Vào trang Tổng quan
+    nav('tq', document.getElementById('sb-tq'));
+  } else if(role==='bvph'){
+    // BVPH: thấy Báo cáo + Danh sách thuốc, ẩn Tổng quan, Tài khoản, Cài đặt
+    _sbShow('sb-tq',false); _sbShow('sb-thuoc',true);
+    _sbShow('sb-tk',false); _sbShow('sb-cd',false);
+    _sbShow('sb-sec-system',false);
+    // Vào thẳng trang Báo cáo
+    nav('bc', document.getElementById('sb-bc'));
   } else {
-    if(fB)fB.style.display='none'; if(fD)fD.style.display='block';
+    // Đơn vị tuyến: chỉ thấy Báo cáo, ẩn hết còn lại
+    _sbShow('sb-tq',false); _sbShow('sb-thuoc',false);
+    _sbShow('sb-tk',false); _sbShow('sb-cd',false);
+    _sbShow('sb-sec-system',false); _sbShow('sb-sec-main',false);
+    // Vào thẳng trang Báo cáo
+    nav('bc', document.getElementById('sb-bc'));
   }
 
   // Fill bộ lọc đơn vị trong bảng báo cáo 22 đơn vị
   var fubc=document.getElementById('filter-unit-bc');
+  var fubcFixed=document.getElementById('filter-unit-bc-fixed');
   if(fubc){
-    fubc.innerHTML='<option value="__all__">-- Tổng hợp tất cả đơn vị --</option>';
-    UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
-      var o=document.createElement('option');o.value=u;o.textContent=u;fubc.appendChild(o);
-    });
-    if(currentUser.role==='donvi'){
-      for(var k=0;k<fubc.options.length;k++){
-        if(fubc.options[k].value===currentUser.unit){fubc.selectedIndex=k;break;}
-      }
+    if(role==='donvi'){
+      fubc.innerHTML='<option value="'+currentUser.unit+'">'+currentUser.unit+'</option>';
+      fubc.value = currentUser.unit;
+      fubc.style.display='none';
+      if(fubcFixed){ fubcFixed.style.display='block'; fubcFixed.textContent=currentUser.unit; }
+    } else {
+      fubc.style.display='';
+      if(fubcFixed) fubcFixed.style.display='none';
+      fubc.disabled = false;
+      fubc.style.background=''; fubc.style.color=''; fubc.style.fontWeight='';
+      fubc.innerHTML='<option value="__all__">-- Tổng hợp tất cả đơn vị --</option>';
+      UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
+        var o=document.createElement('option');o.value=u;o.textContent=u;fubc.appendChild(o);
+      });
     }
   }
   // Đảm bảo bc-unit cũng được fill đúng
   var bcUnit=document.getElementById('bc-unit');
+  var bcUnitFixed=document.getElementById('bc-unit-fixed');
   if(bcUnit){
-    bcUnit.innerHTML='<option value="">-- Chọn đơn vị --</option>';
-    UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
-      var o=document.createElement('option');o.value=u;o.textContent=u;bcUnit.appendChild(o);
-    });
-    if(currentUser.role==='donvi'){
-      for(var k=0;k<bcUnit.options.length;k++){
-        if(bcUnit.options[k].value===currentUser.unit){bcUnit.selectedIndex=k;break;}
-      }
+    if(role==='donvi'){
+      // Ẩn select, hiện text cố định
+      bcUnit.innerHTML='<option value="'+currentUser.unit+'">'+currentUser.unit+'</option>';
+      bcUnit.value = currentUser.unit;
+      bcUnit.style.display='none';
+      if(bcUnitFixed){ bcUnitFixed.style.display='block'; bcUnitFixed.textContent=currentUser.unit; }
+    } else {
+      bcUnit.style.display='';
+      if(bcUnitFixed) bcUnitFixed.style.display='none';
+      bcUnit.disabled = false;
+      bcUnit.style.background='';
+      bcUnit.style.fontWeight='';
+      bcUnit.innerHTML='<option value="">-- Chọn đơn vị --</option>';
+      UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
+        var o=document.createElement('option');o.value=u;o.textContent=u;bcUnit.appendChild(o);
+      });
     }
   }
 
@@ -1777,6 +1844,11 @@ function initApp(){
   if(_tmEl && _initPeriod.type === 'month') _tmEl.value = _initPeriod.val;
 
   loadSaved();
+  // Đơn vị tuyến: không bị ảnh hưởng bởi lockedPeriods của máy khác (admin)
+  // lockedPeriods chỉ có nghĩa khi chính đơn vị đó lưu báo cáo
+  if(role === 'donvi'){
+    lockedPeriods = {}; // reset — sẽ được load lại từ Supabase sau
+  }
   setTimeout(function(){
     updateSaveBtnUI(); setupCatalog(); fillDrugSelects();
     setTimeout(initFileHandle, 500);
@@ -3323,13 +3395,22 @@ function updateSaveBtnUI(){
 
 // Ẩn/hiện toàn bộ UI theo trạng thái khóa báo cáo
 function updateLockedUI(){
-  var locked = isCurrentPeriodLocked();
+  // Nếu chưa đăng nhập thì không làm gì
+  if(!currentUser) return;
 
-  // Form nhập liệu — ẩn hoàn toàn khi đã lưu (tất cả user, kể cả admin)
+  var locked = isCurrentPeriodLocked();
+  var role   = currentUser.role;
+
+  // Form nhập liệu — KHÔNG ẩn form ở đây
+  // Form được kiểm soát bởi initApp theo role
+  // Khi locked: các guard trong addBcRow/addBVPHRow sẽ chặn nhập
+  // Chỉ thêm visual indicator khi locked
   var fB = document.getElementById('form-bvph');
   var fD = document.getElementById('form-donvi');
-  if(fB) fB.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='bvph') ? 'block' : 'none');
-  if(fD) fD.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='donvi') ? 'block' : 'none');
+  var _formOpacity = locked ? '0.45' : '1';
+  var _formPointer = locked ? 'none' : '';
+  if(fB){ fB.style.opacity=_formOpacity; fB.style.pointerEvents=_formPointer; }
+  if(fD){ fD.style.opacity=_formOpacity; fD.style.pointerEvents=_formPointer; }
 
   // Nút Xóa dữ liệu — ẩn hoàn toàn khi đã lưu
   document.querySelectorAll('.del-dd').forEach(function(el){
@@ -3379,13 +3460,18 @@ function applyPayload(p){
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
   if(p.lockedPeriods && typeof p.lockedPeriods === 'object'){
-    lockedPeriods = p.lockedPeriods;
+    // Đơn vị tuyến không áp dụng lockedPeriods từ localStorage/file (chỉ từ Supabase)
+    if(!currentUser || currentUser.role === 'donvi'){
+      lockedPeriods = {};
+    } else {
+      lockedPeriods = p.lockedPeriods;
+    }
   }
   // backward compat: file cũ chỉ có reportLocked boolean (không biết kỳ nào) → bỏ qua
   // Gọi fillDrugSelects ngay sau khi catalogData đã được gán
   fillDrugSelects();
   if(p.savedAt) toast('Đã tải dữ liệu đã lưu ('+new Date(p.savedAt).toLocaleString('vi-VN')+')','#1a5276');
-  setTimeout(function(){ updateSaveBtnUI(); updateLockedUI(); renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); }, 150);
+  setTimeout(function(){ updateSaveBtnUI(); renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI(); }, 150);
 }
 
 async function loadSaved(){
