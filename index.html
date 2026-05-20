@@ -1087,7 +1087,17 @@ async function _autoLoadOnLogin(){
   var unit = currentUser ? currentUser.unit : '';
 
   try{
-    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=unit,drug,lot';
+    var p = getSelectedPeriod();
+    // Khi "Cả năm": tải tất cả tháng của năm đó
+    // Khi chọn tháng cụ thể: tải đúng tháng đó
+    var filterPart;
+    if(p.type === 'year'){
+      filterPart = 'period=like.' + p.year + '-*';
+    } else {
+      filterPart = 'period=eq.' + encodeURIComponent(periodKey);
+    }
+
+    var url = SUPA_URL+'/rest/v1/reports?'+filterPart+'&order=unit,drug,lot';
 
     // Đơn vị tuyến: chỉ tải data của mình
     if(role === 'donvi'){
@@ -1108,18 +1118,18 @@ async function _autoLoadOnLogin(){
       return;
     }
 
-    // Merge vào data hiện tại (giữ kỳ khác, thay kỳ này theo unit)
+    // Merge vào data hiện tại theo role
     if(role === 'donvi'){
-      bcData = bcData.filter(function(x){ return !(x.bcMonth===periodKey && x.unit===unit); })
+      bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unit); })
                .concat(rows.map(_mapRow));
     } else if(role === 'bvph'){
-      bvphData = bvphData.filter(function(x){ return x.bcMonth!==periodKey; })
+      bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
                  .concat(rows.map(_mapRow));
     } else {
-      // Admin: tải tất cả, ghi đè kỳ này
-      bvphData = bvphData.filter(function(x){ return x.bcMonth!==periodKey; })
+      // Admin
+      bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
                  .concat(rows.filter(function(x){return x.unit==='bvph';}).map(_mapRow));
-      bcData   = bcData.filter(function(x){ return x.bcMonth!==periodKey; })
+      bcData   = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
                  .concat(rows.filter(function(x){return x.unit!=='bvph';}).map(_mapRow));
     }
 
@@ -1238,9 +1248,17 @@ async function loadFromSupabase(periodKey){
   try{
     toast('Đang tải từ cloud...','#1a5276');
 
-    // Tải reports
+    // Xử lý "Cả năm" — query theo pattern
+    var p = getSelectedPeriod();
+    var filterPart;
+    if(p.type === 'year'){
+      filterPart = 'period=like.' + p.year + '-*';
+    } else {
+      filterPart = 'period=eq.' + encodeURIComponent(periodKey);
+    }
+
     var r = await fetch(
-      SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=unit,drug,lot',
+      SUPA_URL+'/rest/v1/reports?'+filterPart+'&order=unit,drug,lot',
       {headers:_supaHdr}
     );
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -1252,9 +1270,14 @@ async function loadFromSupabase(periodKey){
     var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
     var newBc   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
 
-    // Giữ data kỳ khác, thay kỳ này
-    bvphData = bvphData.filter(function(r){return r.bcMonth!==periodKey;}).concat(newBvph);
-    bcData   = bcData.filter(function(r){  return r.bcMonth!==periodKey;}).concat(newBc);
+    // Giữ data kỳ/năm khác, thay kỳ/năm này
+    if(p.type === 'year'){
+      bvphData = bvphData.filter(function(r){return !r.bcMonth||!r.bcMonth.startsWith(p.year+'-');}).concat(newBvph);
+      bcData   = bcData.filter(function(r){  return !r.bcMonth||!r.bcMonth.startsWith(p.year+'-');}).concat(newBc);
+    } else {
+      bvphData = bvphData.filter(function(r){return r.bcMonth!==periodKey;}).concat(newBvph);
+      bcData   = bcData.filter(function(r){  return r.bcMonth!==periodKey;}).concat(newBc);
+    }
 
     // Tải lockedPeriods
     var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
