@@ -1180,7 +1180,7 @@ async function saveToSupabase(periodKey){
     var rows = [];
     if(role==='bvph' || role==='admin'){
       bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-        rows.push({period:periodKey, unit:r.unit||'bvph', drug:r.drug, lot:r.lot,
+        rows.push({period:periodKey, unit:'bvph', drug:r.drug, lot:r.lot,
           exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
           dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
@@ -1307,8 +1307,10 @@ async function loadFromSupabase(periodKey){
 }
 
 function _mapRow(r){
+  // unit='bvph' trên Supabase → restore thành BVPH constant để khớp với bvphData
+  var unitVal = (r.unit === 'bvph') ? BVPH : r.unit;
   return {
-    unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp||'',
+    unit:unitVal, drug:r.drug, lot:r.lot, exp:r.exp||'',
     open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
     dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
     locked:!!r.locked, editing:false, bcMonth:r.bc_month||r.period,
