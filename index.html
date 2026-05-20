@@ -427,7 +427,9 @@ em{font-style:normal!important}i{font-style:normal!important}
           <div class="fg"><label>Số lô SX</label><input type="text" id="cat-lot" placeholder="VD: L2026-01" style="width:120px"></div>
           <div class="fg">
             <label>Hạn dùng (mm/yyyy)</label>
-            <input type="text" id="cat-exp" placeholder="07/2027" style="width:96px" maxlength="7">
+            <input type="text" id="cat-exp" placeholder="07/2027" style="width:96px" maxlength="7"
+              oninput="onExpInput(this)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addCatalog();}">
           </div>
           <div class="fg"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
           <div style="margin-top:auto"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
@@ -1685,6 +1687,41 @@ function clearAllCatalog(){
   // Đồng bộ catalog rỗng lên Supabase
   if(_supaOnline) _saveSupaCatalog().catch(function(){});
   toast('Đã xóa toàn bộ danh mục thuốc','var(--danger)');
+}
+
+// Smart input hạn dùng mm/yyyy
+// - Tự thêm "/" sau 2 số tháng
+// - Tự mở rộng năm 2 chữ số: 06/28 → 06/2028
+function onExpInput(inp){
+  var raw = inp.value;
+  var digits = raw.replace(/\D/g,'');
+
+  // Xây lại giá trị có dấu /
+  var result = '';
+  if(digits.length === 0){
+    result = '';
+  } else if(digits.length <= 2){
+    result = digits;
+  } else {
+    result = digits.slice(0,2) + '/' + digits.slice(2,6);
+  }
+
+  // Nếu người dùng vừa xóa thì không thêm /
+  if(raw.endsWith('/') && digits.length === 2){
+    result = digits + '/';
+  }
+
+  inp.value = result;
+  inp.maxLength = 7;
+
+  // Khi đủ mm/yy (6 ký tự) → mở rộng thành mm/yyyy
+  if(result.length === 5 && /^\d{2}\/\d{2}$/.test(result)){
+    var parts = result.split('/');
+    var yr2 = parseInt(parts[1]);
+    // 2 chữ số năm: 00-99 → 2000-2099
+    inp.value = parts[0] + '/20' + parts[1];
+    inp.maxLength = 7;
+  }
 }
 
 function addCatalog(){
