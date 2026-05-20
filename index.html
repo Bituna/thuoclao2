@@ -2809,6 +2809,7 @@ function delR(prefix, rowIdx){
     arr.splice(realIdx, 1);
     if(prefix==='bvph') renderBVPH(); else renderBC();
     saveLocalCache(buildPayload());
+    _syncPeriodToCloud();
     toast('Đã xóa dòng', 'var(--danger)');
   }
 }
@@ -2845,6 +2846,7 @@ function editR(prefix, rowIdx){
     }
     target.editing = false;
     saveLocalCache(buildPayload());
+    _syncPeriodToCloud();
     toast('Đã lưu: '+target.drug, 'var(--success)');
   } else {
     target.editing = true;
@@ -3201,6 +3203,8 @@ function addBVPHRow(){
   var _bp=document.getElementById('bvph-preview');if(_bp)_bp.textContent='—';
   hideAc('bvph-ac');
   renderBVPH();
+  saveLocalCache(buildPayload());
+  _syncPeriodToCloud();
   toast('Đã thêm BVPHP: '+drug+' — Lô '+lot, 'var(--success)');
 }
 
@@ -3244,6 +3248,8 @@ function addBcRow(){
   renderBC();
   // Cập nhật dc2 của bvphData (Xuất Tổ CL auto)
   renderBVPH();
+  saveLocalCache(buildPayload());
+  _syncPeriodToCloud();
   toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
 }
 function buildPayload(){
@@ -3254,6 +3260,16 @@ function buildPayload(){
     reportLocked: isCurrentPeriodLocked(), // backward compat
     savedAt: new Date().toISOString()
   };
+}
+
+// Đồng bộ kỳ hiện tại lên Supabase sau mỗi thay đổi
+function _syncPeriodToCloud(){
+  if(!_supaOnline) return;
+  var periodKey = _currentPeriodKey();
+  if(!periodKey) return;
+  saveToSupabase(periodKey).catch(function(e){
+    console.warn('Sync cloud error:', e);
+  });
 }
 
 function saveLocalCache(payload){
@@ -3833,6 +3849,7 @@ function clearRows(key){
     renderBC();
   }
   saveLocalCache(buildPayload());
+  _syncPeriodToCloud();
   toast('Đã xóa toàn bộ thuốc trong kỳ này','var(--warning)');
 }
 function clearAll(key){
@@ -3842,6 +3859,8 @@ function clearAll(key){
   if(!confirm('⚠ XÓA TẤT CẢ DỮ LIỆU?\n\nHành động này không thể hoàn tác!'))return;
   if(key==='bvph'){bvphData=[];renderBVPH();toast('Đã xóa toàn bộ dữ liệu BVPHP','var(--danger)');}
   else{bcData=[];renderBC();toast('Đã xóa toàn bộ dữ liệu 22 đơn vị','var(--danger)');}
+  saveLocalCache(buildPayload());
+  _syncPeriodToCloud();
 }
 
 // ============================================================
