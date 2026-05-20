@@ -3394,6 +3394,12 @@ function openReport(){
   delete lockedPeriods[periodKey];
   bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
   bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+  // Reset opacity form ngay lập tức
+  var fB=document.getElementById('form-bvph');
+  var fD=document.getElementById('form-donvi');
+  var _role = currentUser ? currentUser.role : '';
+  if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display=(_role==='admin'||_role==='bvph')?'block':'none'; }
+  if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display=(_role==='admin'||_role==='donvi')?'block':'none'; }
   renderBVPH(); renderBC();
   updateSaveBtnUI();
   updateLockedUI();
@@ -3417,16 +3423,11 @@ function updateLockedUI(){
   var locked = isCurrentPeriodLocked();
   var role   = currentUser.role;
 
-  // Form nhập liệu — KHÔNG ẩn form ở đây
-  // Form được kiểm soát bởi initApp theo role
-  // Khi locked: các guard trong addBcRow/addBVPHRow sẽ chặn nhập
-  // Chỉ thêm visual indicator khi locked
+  // Form nhập liệu — ẩn hoàn toàn khi đã lưu, hiện lại khi mở
   var fB = document.getElementById('form-bvph');
   var fD = document.getElementById('form-donvi');
-  var _formOpacity = locked ? '0.45' : '1';
-  var _formPointer = locked ? 'none' : '';
-  if(fB){ fB.style.opacity=_formOpacity; fB.style.pointerEvents=_formPointer; }
-  if(fD){ fD.style.opacity=_formOpacity; fD.style.pointerEvents=_formPointer; }
+  if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='bvph') ? 'block' : 'none'); }
+  if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='donvi') ? 'block' : 'none'); }
 
   // Nút Xóa dữ liệu — ẩn hoàn toàn khi đã lưu
   document.querySelectorAll('.del-dd').forEach(function(el){
