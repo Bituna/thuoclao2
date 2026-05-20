@@ -436,6 +436,7 @@ em{font-style:normal!important}i{font-style:normal!important}
           </div>
           <div style="margin-top:auto">
             <button class="btn btn-sm" style="background:#6f42c1;color:white" onclick="triggerCatalogUpload()" title="Upload file CSV/Excel danh sách thuốc">📤 Upload file</button>
+            <button class="btn btn-sm btn-outline" onclick="downloadCatalogTemplate()" title="Tải file mẫu để điền">⬇ File mẫu</button>
             <input type="file" id="catalog-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCatalogFile(this)">
           </div>
         </div>
@@ -1501,6 +1502,59 @@ function renderCatalog(){
       +'<td class="no-print">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
       +'</tr>';
   });
+}
+
+function downloadCatalogTemplate(){
+  // Tạo file Excel mẫu dùng SheetJS
+  if(typeof XLSX !== 'undefined'){
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.aoa_to_sheet([
+      // Header
+      ['Tên thuốc', 'Số lô', 'Hạn dùng', 'Ghi chú'],
+      // Dòng ví dụ
+      ['Rifampicin 150mg', 'RF-L01', '12/2027', 'Chương trình DOTS'],
+      ['Isoniazid 100mg',  'IN-L02', '06/2028', ''],
+      ['Pyrazinamide 500mg','PZ-L01','03/2027', 'Nhập TW tháng 3'],
+    ]);
+    // Độ rộng cột
+    ws['!cols'] = [{wch:35},{wch:16},{wch:14},{wch:30}];
+    // Style header
+    ['A1','B1','C1','D1'].forEach(function(addr){
+      if(!ws[addr]) return;
+      ws[addr].s = {
+        font:{bold:true,color:{rgb:'FFFFFF'}},
+        fill:{patternType:'solid',fgColor:{rgb:'155724'}},
+        alignment:{horizontal:'center'}
+      };
+    });
+    // Ghi chú hướng dẫn ở dưới
+    XLSX.utils.sheet_add_aoa(ws, [
+      [],
+      ['--- HƯỚNG DẪN ---','','',''],
+      ['• Tên thuốc: ghi đầy đủ tên + hàm lượng','','',''],
+      ['• Số lô: mã lô sản xuất','','',''],
+      ['• Hạn dùng: định dạng mm/yyyy (ví dụ: 06/2028)','','',''],
+      ['• Ghi chú: nguồn gốc, đợt cấp... (có thể để trống)','','',''],
+      ['• Xóa các dòng ví dụ trước khi upload','','',''],
+    ], {origin: 'A6'});
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh mục thuốc');
+    XLSX.writeFile(wb, 'Mau_DanhMucThuoc.xlsx');
+    toast('✓ Đã tải file mẫu: Mau_DanhMucThuoc.xlsx','var(--success)');
+  } else {
+    // Fallback: tải file CSV đơn giản
+    var csv = 'Tên thuốc,Số lô,Hạn dùng,Ghi chú\n'
+      + 'Rifampicin 150mg,RF-L01,12/2027,Chương trình DOTS\n'
+      + 'Isoniazid 100mg,IN-L02,06/2028,\n'
+      + 'Pyrazinamide 500mg,PZ-L01,03/2027,Nhập TW tháng 3\n';
+    var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Mau_DanhMucThuoc.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    toast('✓ Đã tải file mẫu CSV','var(--success)');
+  }
 }
 
 function triggerCatalogUpload(){
