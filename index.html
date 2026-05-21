@@ -205,6 +205,117 @@ tfoot tr:hover td{background:#edf2f7}
 #role-options label:has(input:checked){border-color:var(--accent);background:#eef7ff;}
 #role-options label:hover{background:#f7fafc;}
 
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (max 768px)
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 768px){
+
+  /* Layout tổng thể */
+  .app{ flex-direction:column; height:100vh; overflow:hidden; }
+
+  /* Sidebar → bottom navigation */
+  .sidebar{
+    width:100%; height:auto; flex-direction:row; order:2;
+    overflow-x:auto; overflow-y:hidden;
+    border-top:1px solid rgba(255,255,255,0.1);
+    padding:0; flex-shrink:0;
+  }
+  .sb-brand,.sb-sec{ display:none; }
+  .sb-footer{ display:none; }
+  .sb-item-logout-mobile{ display:flex !important; }
+  .sb-item{
+    flex-direction:column; gap:2px; padding:7px 12px;
+    font-size:10px; border-radius:0; margin:0;
+    width:auto; min-width:58px; white-space:nowrap;
+    border-right:1px solid rgba(255,255,255,0.06);
+  }
+  .sb-item svg{ width:20px; height:20px; }
+  .sb-item.active{ background:var(--accent); border-radius:0; }
+
+  /* Content */
+  .content{ order:1; flex:1; overflow-y:auto; overflow-x:hidden; }
+  .page-header{ padding:10px 12px 8px; }
+  .page-header h1{ font-size:15px; }
+  .page-body{ padding:8px 8px 130px; }
+
+  /* Footer cố định */
+  .footer-actions{
+    flex-wrap:wrap; gap:5px; padding:6px 8px;
+    position:fixed; bottom:52px; left:0; right:0;
+    background:white; z-index:500;
+    border-top:1px solid var(--border);
+    box-shadow:0 -2px 10px rgba(0,0,0,0.1);
+    max-height:90px; overflow:hidden;
+  }
+  .footer-actions .btn,.footer-actions button{
+    font-size:10px; padding:5px 8px;
+    flex:1; min-width:70px; text-align:center;
+  }
+  #file-status-bar,#cloud-status{ font-size:9px; width:100%; }
+
+  /* Bảng → scroll ngang */
+  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:none; }
+  .tbl-wrap table{ min-width:600px; font-size:11px; }
+  .tbl-wrap thead th{ font-size:10px; padding:5px 4px; white-space:nowrap; }
+  .tbl-wrap tbody td{ padding:4px 4px; }
+  .hdr-name{ min-width:100px !important; }
+
+  /* Form nhập liệu */
+  .input-section{ padding:10px; }
+  .input-section-title{ font-size:12px; margin-bottom:8px; }
+  .fg label{ font-size:10px; margin-bottom:3px; }
+  .fg input,.fg select{ font-size:13px !important; padding:8px 8px !important; }
+  /* Wrap các field thành 2 cột */
+  .input-section > div[style*="display:flex"],
+  .input-section > div[style*="gap"]{ flex-wrap:wrap !important; gap:8px !important; }
+  .fg{ min-width:calc(50% - 6px); flex:1; }
+
+  /* Input số — full width trên mobile */
+  .input-section input[type=number]{ width:100% !important; min-width:0; }
+
+  /* Thẻ tổng quan */
+  .tq-cards-wrap > div[style*="grid"]{ grid-template-columns:1fr 1fr !important; gap:8px !important; }
+
+  /* Filter bar */
+  .filter-bar{ flex-wrap:wrap !important; gap:6px !important; }
+  .filter-bar .fg{ flex:1; min-width:calc(50% - 6px); }
+
+  /* Toast */
+  #toast{ bottom:140px; right:8px; left:8px; font-size:12px; text-align:center; max-width:none; border-radius:10px; }
+
+  /* Modal */
+  .modal{ width:96vw !important; padding:16px !important; max-height:85vh; overflow-y:auto; }
+
+  /* Nút trong bảng */
+  .btn-xs{ font-size:10px; padding:3px 6px; }
+
+  /* Ẩn cột kém quan trọng trong bảng nhỏ */
+  .tbl-col-hide-mobile{ display:none !important; }
+
+  /* Kỳ báo cáo header */
+  .page-header > div{ flex-wrap:wrap; gap:4px; }
+
+  /* Banner locked */
+  #report-locked-banner{ margin:0 8px 10px; font-size:11px; }
+
+  /* Account cards */
+  #acc-count-admin,#acc-count-bvph,#acc-count-donvi{
+    font-size:18px !important;
+  }
+}
+
+@media (max-width: 480px){
+  .sb-item{ padding:7px 8px; min-width:50px; font-size:9px; }
+  .sb-item svg{ width:18px; height:18px; }
+  .page-header h1{ font-size:13px; }
+  .footer-actions .btn,.footer-actions button{ font-size:9px; padding:4px 6px; }
+  .tq-cards-wrap > div[style*="grid"]{ grid-template-columns:1fr !important; }
+  .input-section input[type=number],
+  .input-section input[type=text],
+  .input-section select{ font-size:16px !important; } /* Prevent iOS zoom */
+}
+
 @media print{
   .sidebar,.filter-bar,.footer-actions,.tabs-bar,.btn,.no-print,
   .del-dd,.input-section,.admin-zone,.login-screen,
@@ -313,6 +424,12 @@ em{font-style:normal!important}i{font-style:normal!important}
       Đăng xuất
     </button>
   </div>
+  <!-- Nút đăng xuất riêng cho mobile bottom nav -->
+  <button class="sb-item sb-item-logout-mobile" onclick="doLogout()"
+    style="display:none;margin-left:auto;color:#ff6b6b;border-left:1px solid rgba(255,255,255,0.06)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Ra
+  </button>
 </div>
 
 <div class="main">
@@ -1060,17 +1177,15 @@ var _supaOnline = false; // true khi kết nối thành công
 
 // Kiểm tra kết nối Supabase
 async function checkSupabase(){
-  try{
-    var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
-    var r = await fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1',
-      {headers: hdCheck, signal: AbortSignal.timeout(6000)});
-    // 200, 206, hoặc mọi 2xx đều là online
-    // 401/403 = auth lỗi → offline
-    _supaOnline = (r.status >= 200 && r.status < 300);
-  }catch(e){
-    _supaOnline = false;
-    console.warn('Supabase offline:', e.message);
-  }
+  var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
+  var timeout = new Promise(function(resolve){
+    setTimeout(function(){ resolve(null); }, 6000);
+  });
+  var fetchPr = fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1', {headers: hdCheck})
+    .then(function(r){ return r; })
+    .catch(function(){ return null; });
+  var result = await Promise.race([fetchPr, timeout]);
+  _supaOnline = !!(result && result.status >= 200 && result.status < 300);
   _updateCloudStatus();
 }
 
