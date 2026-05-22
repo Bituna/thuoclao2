@@ -1281,7 +1281,13 @@ async function _autoLoadOnLogin(){
     if(cr.ok){
       var cd = await cr.json();
       if(cd.length){
-        catalogData = cd;
+        // Dedupe khi tải về
+        var seenC={}, cleanC=[];
+        cd.forEach(function(r){
+          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+          if(!seenC[k]){ seenC[k]=true; cleanC.push(r); }
+        });
+        catalogData = cleanC;
         fillDrugSelects();
       }
     }
@@ -1371,12 +1377,18 @@ async function saveToSupabase(periodKey){
 }
 
 async function _saveSupaCatalog(){
+  // Dedupe trước khi lưu
+  var seenS={}, toSave=[];
+  catalogData.forEach(function(r){
+    var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+    if(!seenS[k]){ seenS[k]=true; toSave.push(r); }
+  });
   var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
   await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
-  if(!catalogData.length) return;
+  if(!toSave.length) return;
   await fetch(SUPA_URL+'/rest/v1/catalog', {
     method:'POST', headers:hdPost,
-    body: JSON.stringify(catalogData.map(function(r){
+    body: JSON.stringify(toSave.map(function(r){
       return {drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''};
     }))
   });
@@ -1907,14 +1919,32 @@ function addCatalog(){
   var cdw=document.getElementById('cat-drug-custom-wrap');if(cdw)cdw.style.display='none';
   renderCatalog();
   fillDrugSelects(); // cập nhật form báo cáo
+  saveLocalCache(buildPayload());
+  if(_supaOnline) _saveSupaCatalog().catch(function(){});
   toast('Đã thêm: '+drug+' — Lô '+lot,'var(--success)');
 }
 
 function delCatalog(i){
   if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}
-  if(!confirm('Xóa "'+catalogData[i].drug+' — Lô '+catalogData[i].lot+'"?'))return;
-  catalogData.splice(i,1);
+  if(i < 0 || i >= catalogData.length) return;
+  var item = catalogData[i];
+  if(!confirm('Xóa "'+item.drug+' — Lô '+item.lot+'"?')) return;
+
+  // Xóa đúng 1 dòng theo index thực
+  catalogData.splice(i, 1);
+
+  // Dedupe lại sau khi xóa để sạch
+  var seen={}, clean=[];
+  catalogData.forEach(function(r){
+    var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+    if(!seen[k]){ seen[k]=true; clean.push(r); }
+  });
+  catalogData = clean;
+
   renderCatalog();
+  fillDrugSelects();
+  saveLocalCache(buildPayload());
+  if(_supaOnline) _saveSupaCatalog().catch(function(){});
   toast('Đã xóa lô khỏi danh mục','var(--danger)');
 }
 
@@ -3662,9 +3692,11 @@ function addNoUsageRow(){
   renderTQ();
   saveLocalCache(buildPayload());
 
-  if(added > 0)
+  if(added > 0){
     toast('Đã thêm '+added+' dòng báo cáo (không sử dụng) cho "'+unit+'"','var(--success)');
-  else
+    saveLocalCache(buildPayload());
+    _syncPeriodToCloud();
+  } else
     toast('Tất cả lô đã có dữ liệu trong kỳ này rồi','var(--warning)');
 }
 
