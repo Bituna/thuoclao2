@@ -1235,8 +1235,22 @@ async function _autoLoadOnLogin(){
     if(!r.ok) return;
     var rows = await r.json();
     if(!rows.length){
-      // Kỳ mới chưa có data → giữ nguyên localStorage
-      toast('Kỳ '+periodKey+': chưa có dữ liệu trên cloud. Bắt đầu nhập mới.','#1a5276');
+      // Cloud chưa có data kỳ này
+      // Kiểm tra xem có thể tạo tồn đầu từ kỳ trước không
+      var prevKey = _prevPeriodKey(periodKey);
+      var hasPrevLocal = prevKey && (
+        bvphData.some(function(r){return r.bcMonth===prevKey;}) ||
+        bcData.some(function(r){return r.bcMonth===prevKey;})
+      );
+      if(hasPrevLocal){
+        // Tạo tồn đầu từ tồn cuối kỳ trước (nếu chưa có)
+        _createNextPeriodRows(prevKey, periodKey);
+        saveLocalCache(buildPayload());
+        renderBVPH(); renderBC(); renderTP(); renderTQ();
+        toast('Kỳ '+periodKey+': đã tạo tồn đầu từ tồn cuối kỳ trước.','#1a5276');
+      } else {
+        toast('Kỳ '+periodKey+': chưa có dữ liệu trên cloud. Bắt đầu nhập mới.','#1a5276');
+      }
       return;
     }
 
@@ -1262,10 +1276,14 @@ async function _autoLoadOnLogin(){
       if(role !== 'donvi') lockedPeriods = sv[0].value;
       // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
     }
-    if(!catalogData.length){
-      var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+    // Tải catalog từ cloud (luôn cập nhật, không check catalogData.length)
+    var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+    if(cr.ok){
       var cd = await cr.json();
-      if(cd.length){ catalogData=cd; fillDrugSelects(); }
+      if(cd.length){
+        catalogData = cd;
+        fillDrugSelects();
+      }
     }
 
     saveLocalCache(buildPayload());
@@ -1465,27 +1483,10 @@ DRUGS.forEach(function(d){drugFreq[d]=0;});
 
 var threshold={low:200,expMonths:6};
 
-// Dữ liệu BV Phổi HP
-// Công thức: Tồn cuối = Tồn đầu + Tổng nhập - Tổng xuất
-// Tổng nhập = tinh (tỉnh cấp) + dc (điều chuyển vào)
-// Tổng xuất = sd (sử dụng) + dc2 (điều chuyển ra) + hh (hỏng/hết hạn)
-var bvphData=[
-  {drug:"Levofloxacin 250mg",lot:"BVPH-L01",exp:"2026-12-30",open:2000,tinh:500,dc:0,sd:300,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {drug:"Linezolid 600mg",lot:"BVPH-LZ01",exp:"2027-08-15",open:800,tinh:200,dc:0,sd:100,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {drug:"Bedaquiline 100mg",lot:"BVPH-B99",exp:"2026-06-15",open:300,tinh:0,dc:0,sd:50,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false}
-];
+var bvphData=[];  // Dữ liệu kho chính BVPH — tải từ localStorage/cloud
+var bcData=[];    // Dữ liệu 22 đơn vị — tải từ localStorage/cloud
 
-// Dữ liệu 22 đơn vị còn lại
-// tinh = nhập từ tỉnh cấp (từ BVPHP điều chuyển xuống)
-var bcData=[
-  {unit:"Kho lẻ Bệnh viện Phổi Hải Phòng",drug:"Levofloxacin 250mg",lot:"KL-L01",exp:"2026-12-30",open:300,tinh:200,dc:0,sd:50,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {unit:"Trung tâm Y tế Hồng Bàng",drug:"Levofloxacin 250mg",lot:"HB-L01",exp:"2026-10-15",open:100,tinh:0,dc:0,sd:40,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {unit:"Trung tâm Y tế Lê Chân",drug:"Linezolid 600mg",lot:"LC-LZ01",exp:"2027-08-15",open:60,tinh:150,dc:0,sd:25,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {unit:"Trung tâm Y tế Ngô Quyền",drug:"Bedaquiline 100mg",lot:"NQ-B01",exp:"2026-06-15",open:40,tinh:0,dc:80,sd:15,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false},
-  {unit:"Trung tâm Y tế Kiến An",drug:"Cycloserine 250mg",lot:"KA-CY01",exp:"2027-03-20",open:80,tinh:0,dc:0,sd:30,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:"2026-05",openLocked:false}
-];
-
-var twData=[];  // giữ lại biến để tránh lỗi reference
+var twData=[];
 var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
 var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
@@ -3828,6 +3829,15 @@ async function saveBC(){
 }
 
 // Tính key kỳ tiếp theo: "2026-05" → "2026-06"
+function _prevPeriodKey(key){
+  if(!key || key.indexOf('-') < 0) return null;
+  var p = key.split('-');
+  var yr = parseInt(p[0]), mn = parseInt(p[1]);
+  mn--;
+  if(mn <= 0){ mn = 12; yr--; }
+  return yr+'-'+(mn<10?'0':'')+mn;
+}
+
 function _nextPeriodKey(key){
   if(!key || key.indexOf('-') < 0) return null;
   var p = key.split('-');
@@ -3847,7 +3857,6 @@ function _keyToLabel(key){
 
 // Tạo rows tồn đầu kỳ tiếp từ tồn cuối kỳ này (mỗi thuốc+lô+đơn vị)
 function _createNextPeriodRows(curKey, nextKey){
-  // Gom rows kỳ hiện tại
   var bvphCur = bvphData.filter(function(r){ return r.bcMonth===curKey; });
   var bcCur   = bcData.filter(function(r){   return r.bcMonth===curKey; });
 
@@ -3857,7 +3866,7 @@ function _createNextPeriodRows(curKey, nextKey){
       return x.bcMonth===nextKey && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
     });
     if(!exists){
-      var fin = calcRow(r).final;
+      var fin = Math.max(0, calcRow(r).final); // tồn cuối không âm
       bvphData.push({
         unit:r.unit||BVPH, drug:r.drug, lot:r.lot, exp:r.exp,
         open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
@@ -3872,14 +3881,19 @@ function _createNextPeriodRows(curKey, nextKey){
       return x.bcMonth===nextKey && x.unit===r.unit && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
     });
     if(!exists){
-      var fin = calcRow(r).final;
+      var fin = Math.max(0, calcRow(r).final);
       bcData.push({
         unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp,
-        open:fin, tinh:0, dc:0, sd:0, dc2:0, hh:0,
+        open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
         locked:false, editing:false, bcMonth:nextKey, openLocked:true
       });
     }
   });
+
+  // Đồng bộ kỳ tiếp lên cloud ngay
+  if(_supaOnline){
+    saveToSupabase(nextKey).catch(function(){});
+  }
 }
 
 // Mở lại báo cáo kỳ đang chọn (chỉ Admin)
