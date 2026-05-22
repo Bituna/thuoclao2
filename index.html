@@ -1281,13 +1281,7 @@ async function _autoLoadOnLogin(){
     if(cr.ok){
       var cd = await cr.json();
       if(cd.length){
-        // Dedupe khi tải về
-        var seenC={}, cleanC=[];
-        cd.forEach(function(r){
-          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
-          if(!seenC[k]){ seenC[k]=true; cleanC.push(r); }
-        });
-        catalogData = cleanC;
+        catalogData = cd;
         fillDrugSelects();
       }
     }
@@ -1377,18 +1371,12 @@ async function saveToSupabase(periodKey){
 }
 
 async function _saveSupaCatalog(){
-  // Dedupe trước khi lưu
-  var seenS={}, toSave=[];
-  catalogData.forEach(function(r){
-    var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
-    if(!seenS[k]){ seenS[k]=true; toSave.push(r); }
-  });
   var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
   await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
-  if(!toSave.length) return;
+  if(!catalogData.length) return;
   await fetch(SUPA_URL+'/rest/v1/catalog', {
     method:'POST', headers:hdPost,
-    body: JSON.stringify(toSave.map(function(r){
+    body: JSON.stringify(catalogData.map(function(r){
       return {drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''};
     }))
   });
@@ -1919,8 +1907,6 @@ function addCatalog(){
   var cdw=document.getElementById('cat-drug-custom-wrap');if(cdw)cdw.style.display='none';
   renderCatalog();
   fillDrugSelects(); // cập nhật form báo cáo
-  saveLocalCache(buildPayload());
-  if(_supaOnline) _saveSupaCatalog().catch(function(){});
   toast('Đã thêm: '+drug+' — Lô '+lot,'var(--success)');
 }
 
@@ -1928,24 +1914,20 @@ function delCatalog(i){
   if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}
   if(i < 0 || i >= catalogData.length) return;
   var item = catalogData[i];
-  if(!confirm('Xóa "'+item.drug+' — Lô '+item.lot+'"?')) return;
-
-  // Xóa đúng 1 dòng theo index thực
-  catalogData.splice(i, 1);
-
-  // Dedupe lại sau khi xóa để sạch
-  var seen={}, clean=[];
-  catalogData.forEach(function(r){
-    var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
-    if(!seen[k]){ seen[k]=true; clean.push(r); }
+  _confirmModal('Xóa lô khỏi danh mục?', '"'+item.drug+' — Lô '+item.lot+'"', function(){
+    catalogData.splice(i,1);
+    var seen={}, clean=[];
+    catalogData.forEach(function(r){
+      var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+      if(!seen[k]){seen[k]=true;clean.push(r);}
+    });
+    catalogData=clean;
+    renderCatalog();
+    fillDrugSelects();
+    saveLocalCache(buildPayload());
+    if(_supaOnline) _saveSupaCatalog().catch(function(){});
+    toast('Đã xóa lô khỏi danh mục','var(--danger)');
   });
-  catalogData = clean;
-
-  renderCatalog();
-  fillDrugSelects();
-  saveLocalCache(buildPayload());
-  if(_supaOnline) _saveSupaCatalog().catch(function(){});
-  toast('Đã xóa lô khỏi danh mục','var(--danger)');
 }
 
 // Lấy danh sách thuốc duy nhất từ catalogData + bvphData + bcData (union)
@@ -3333,13 +3315,13 @@ function delR(prefix, rowIdx){
   if(realIdx < 0) return;
   var target = arr[realIdx];
   if(!target) return;
-  if(confirm('Xóa dòng "'+target.drug+' — Lô '+target.lot+'"?')){
+  _confirmModal('Xóa dòng này?','"'+target.drug+' — Lô '+target.lot+'"', function(){
     arr.splice(realIdx, 1);
     if(prefix==='bvph') renderBVPH(); else renderBC();
     saveLocalCache(buildPayload());
     _syncPeriodToCloud();
     toast('Đã xóa dòng', 'var(--danger)');
-  }
+  });
 }
 function editR(prefix, rowIdx){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
@@ -3692,11 +3674,9 @@ function addNoUsageRow(){
   renderTQ();
   saveLocalCache(buildPayload());
 
-  if(added > 0){
+  if(added > 0)
     toast('Đã thêm '+added+' dòng báo cáo (không sử dụng) cho "'+unit+'"','var(--success)');
-    saveLocalCache(buildPayload());
-    _syncPeriodToCloud();
-  } else
+  else
     toast('Tất cả lô đã có dữ liệu trong kỳ này rồi','var(--warning)');
 }
 
@@ -4527,6 +4507,24 @@ function saveSettings(){
 // ============================================================
 // TOAST
 // ============================================================
+// Modal xác nhận thay thế confirm() bị chặn trên một số trình duyệt
+function _confirmModal(title, body, onOk){
+  var old=document.getElementById('_cm_ov'); if(old) old.remove();
+  var ov=document.createElement('div');
+  ov.id='_cm_ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="background:white;border-radius:12px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
+    +'<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:8px">'+title+'</div>'
+    +'<div style="font-size:13px;color:#555;margin-bottom:20px">'+body+'</div>'
+    +'<div style="display:flex;gap:10px;justify-content:flex-end">'
+    +'<button onclick="document.getElementById('_cm_ov').remove()" style="padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Hủy</button>'
+    +'<button id="_cm_ok" style="padding:8px 18px;border:none;border-radius:7px;background:#e74c3c;color:white;cursor:pointer;font-size:13px;font-weight:600">Xóa</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  document.getElementById('_cm_ok').onclick=function(){ ov.remove(); onOk(); };
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+}
+
 function toast(msg,color){
   var t=document.getElementById('toast');
   t.textContent=msg;t.style.background=color||'#1a5276';t.style.display='block';
