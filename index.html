@@ -1603,6 +1603,17 @@ function renderCatalog(){
     if(!seen[key]){ seen[key]=true; deduped.push(r); realIdx.push(i); }
   });
 
+  // Ưu tiên các lô còn hạn, đưa lô hết hạn xuống cuối danh sách
+  var paired = deduped.map(function(r,di){return {r:r, idx:realIdx[di]};});
+  paired.sort(function(a,b){
+    var ea = catalogStatus(a.r.exp).label === 'Hết hạn';
+    var eb = catalogStatus(b.r.exp).label === 'Hết hạn';
+    if(ea !== eb) return ea ? 1 : -1;
+    return 0;
+  });
+  deduped = paired.map(function(p){return p.r;});
+  realIdx = paired.map(function(p){return p.idx;});
+
   // Nhóm theo tên thuốc (giữ thứ tự xuất hiện)
   var groups=[]; // [{drug, rows:[{r,i}]}]
   var drugMap={};
@@ -1631,7 +1642,10 @@ function renderCatalog(){
       // Đường kẻ trên đầu mỗi nhóm
       var groupBorder = rowInGroup===0 ? 'border-top:2px solid #dee2e6' : '';
 
-      var row = '<tr style="'+rowBg+groupBorder+'">';
+      var expiredRow = st.label === 'Hết hạn';
+      var rowStyle = rowBg + groupBorder;
+      if(expiredRow){ rowStyle += 'opacity:.55;color:#777;'; }
+      var row = '<tr style="'+rowStyle+'">';
 
       // Cột tên thuốc: chỉ render ở dòng đầu mỗi nhóm với rowspan
       if(rowInGroup===0){
@@ -1901,6 +1915,13 @@ function addCatalog(){
       toast('Lô "'+lot+'" HSD '+expRaw+' của "'+drug+'" đã có trong danh mục!','var(--warning)');return;
     }
   }
+  var existingQty = getLotCityFinal(drug, lot, expParsed);
+  var isExpired = catalogStatus(expParsed).label === 'Hết hạn';
+  if(existingQty === 0 && !isExpired){
+    if(!confirm('⚠ Lô "'+lot+'" của thuốc "'+drug+'" đã từng có và hiện đang hết số lượng.\n\nBạn có muốn thêm số lượng vào không? Nếu có thì mới thêm.')){
+      return;
+    }
+  }
   catalogData.push({drug:drug,lot:lot,exp:expParsed,note:note||'—'});
   ['cat-lot','cat-exp','cat-note','cat-drug-custom'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var cds=document.getElementById('cat-drug');if(cds)cds.value='';
@@ -1914,6 +1935,11 @@ function delCatalog(i){
   if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}
   if(i < 0 || i >= catalogData.length) return;
   var item = catalogData[i];
+  var usedQty = getLotCityFinal(item.drug, item.lot, item.exp);
+  if(usedQty >= 0){
+    toast('Lô đang có dữ liệu báo cáo nên không thể xóa khỏi danh mục.','var(--danger)');
+    return;
+  }
   _confirmModal('Xóa lô khỏi danh mục?', '"'+item.drug+' — Lô '+item.lot+'"', function(){
     catalogData.splice(i,1);
     var seen={}, clean=[];
@@ -1993,45 +2019,64 @@ function fillLotSelect(selectId, drugName, expInputId){
     if(!seen[key]){ seen[key]=true; uniqueLots.push(r); }
   });
 
-  // Bỏ lô hết hạn khỏi danh sách gợi ý
-  var validLots = uniqueLots.filter(function(r){
-    return catalogStatus(r.exp).label !== 'Hết hạn';
+  uniqueLots.sort(function(a,b){
+    var ea = catalogStatus(a.exp).label === 'Hết hạn';
+    var eb = catalogStatus(b.exp).label === 'Hết hạn';
+    if(ea !== eb) return ea ? 1 : -1;
+    return (a.lot||'').localeCompare(b.lot||'');
   });
 
-  sel.innerHTML='<option value="">-- Chọn lô --</option>';
-  if(!validLots.length){
+  sel.innerHTML = '<option value="">-- Chọn lô --</option>';
+  if(!uniqueLots.length){
     var o0=document.createElement('option');
     o0.disabled=true;
-    o0.textContent='(Chưa có lô còn hạn — thêm tại Danh sách thuốc)';
+    o0.textContent='(Chưa có lô trong danh mục — thêm tại Danh sách thuốc)';
     sel.appendChild(o0);
   }
-  validLots.forEach(function(r){
+
+  var hasLotOption=false;
+  uniqueLots.forEach(function(r){
     var st   = catalogStatus(r.exp);
     var qty  = getLotCityFinal(drugName, r.lot, r.exp);
+    var isExpired = st.label === 'Hết hạn';
     var isZero = (qty === 0);
+    if(isExpired || isZero){
+      return; // không gợi ý lô hết hạn hoặc đã hết số lượng
+    }
+
     var opt  = document.createElement('option');
-    opt.value = r.lot;
+    opt.value = r.lot + '|' + r.exp;
     var label = r.lot+' — HSD: '+expToMMYYYY(r.exp)+' ['+st.label+']';
     if(qty >= 0) label += ' | Tồn: '+qty;
     opt.textContent = label;
-    if(isZero){ opt.disabled=true; opt.style.color='#bbb'; }
-    else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){ opt.style.color='var(--warning)'; }
+    if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){
+      opt.style.color='var(--warning)';
+    }
     sel.appendChild(opt);
+    hasLotOption=true;
   });
 
-  // Khi chọn lô: điền hạn dùng + kiểm tra cảnh báo tồn = 0
+  if(!hasLotOption && uniqueLots.length){
+    var o1=document.createElement('option');
+    o1.disabled=true;
+    o1.textContent='(Đã hết lô dùng được cho thuốc này)';
+    sel.appendChild(o1);
+  }
+
   sel.onchange=function(){
     var lotVal=this.value;
     var expEl=document.getElementById(expInputId);
     if(!expEl) return;
-    var found=catalogData.find(function(r){return r.drug===drugName&&r.lot===lotVal;});
+    var parts = lotVal.split('|');
+    var lotKey = parts[0]||'';
+    var expKey = parts.slice(1).join('|');
+    var found=catalogData.find(function(r){return r.drug===drugName && r.lot===lotKey && r.exp===expKey;});
     if(found){
       expEl.value=expToMMYYYY(found.exp);
       expEl.style.background='#eef7ff';
-      // Cảnh báo nếu lô đã hết số lượng (tồn = 0) nhưng vẫn được chọn (e.g. admin)
-      var qty2 = getLotCityFinal(drugName, lotVal, found.exp);
+      var qty2 = getLotCityFinal(drugName, lotKey, found.exp);
       if(qty2 === 0){
-        if(!confirm('⚠ Lô "'+lotVal+'" của thuốc "'+drugName+'" hiện có tồn kho = 0.\n\nBạn có chắc chắn muốn nhập thêm số lượng cho lô này không?')){
+        if(!confirm('⚠ Lô "'+lotKey+'" của thuốc "'+drugName+'" hiện đã hết số lượng.\n\nBạn có muốn thêm số lượng vào không? Nếu có thì mới thêm.')){
           sel.value='';
           expEl.value='';
           expEl.style.background='';
@@ -2625,7 +2670,7 @@ function matchTQPeriod(r){
 }
 
 function onTQPeriodChange(){
-  renderTQ();
+  syncSelectedPeriodFromTQ();
 }
 
 
@@ -3115,8 +3160,25 @@ function matchPeriod(r){
 
 function onYearChange(){ onGlobalMonthChange(); }
 
+function syncTQPeriod(p){
+  var yearEl = document.getElementById('tq-year');
+  var monthEl = document.getElementById('tq-month');
+  if(yearEl) yearEl.value = p.year;
+  if(monthEl) monthEl.value = (p.type === 'year' ? '__year__' : p.val.split('-')[1]);
+}
+
+function syncSelectedPeriodFromTQ(){
+  var tqP = getTQPeriod();
+  var selYear = document.getElementById('sel-year');
+  var selMonth = document.getElementById('sel-month');
+  if(selYear) selYear.value = tqP.year;
+  if(selMonth) selMonth.value = (tqP.type === 'year' ? '__year__' : tqP.val.split('-')[1]);
+  onGlobalMonthChange();
+}
+
 function onGlobalMonthChange(){
   var p = getSelectedPeriod();
+  syncTQPeriod(p);
   // Cập nhật label
   var labelEl = document.getElementById('bc-period-label');
   if(labelEl){
@@ -3141,6 +3203,7 @@ function onGlobalMonthChange(){
   var tmEl = document.getElementById('thuoc-month');
   if(tmEl && p.type === 'month') tmEl.value = p.val;
   renderDrugTable();
+  renderTQ();
   updateSaveBtnUI();
   // Tự động tải data kỳ mới từ cloud
   if(_supaOnline) _autoLoadOnLogin();
