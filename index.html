@@ -1325,17 +1325,27 @@ async function _autoLoadOnLogin(){
       if(role !== 'donvi') lockedPeriods = sv[0].value;
       // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
     }
-    // Tải catalog từ cloud (luôn cập nhật, không check catalogData.length)
+    // Tải catalog từ cloud
     var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
     if(cr.ok){
       var cd = await cr.json();
       if(cd.length){
-        catalogData = cd;
+        // Cloud có data → dùng cloud (dedupe)
+        var seenC={}, cleanC=[];
+        cd.forEach(function(r){
+          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+          if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
+        });
+        catalogData = cleanC;
         fillDrugSelects();
       }
+      // Cloud rỗng → GIỮ NGUYÊN catalogData từ localStorage
     }
 
-    saveLocalCache(buildPayload());
+    // Chỉ lưu localStorage khi catalog có data để không ghi đè bằng rỗng
+    if(catalogData.length){
+      saveLocalCache(buildPayload());
+    }
     renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
     updateSaveBtnUI(); updateLockedUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
@@ -1421,6 +1431,8 @@ async function saveToSupabase(periodKey){
 
 async function _saveSupaCatalog(){
   if(!catalogData.length) return; // Không xóa cloud nếu local rỗng
+  // Lưu localStorage ngay lập tức (không phụ thuộc cloud)
+  saveLocalCache(buildPayload());
   // Dedupe
   var seenS={}, toSave=[];
   catalogData.forEach(function(r){
@@ -1479,12 +1491,14 @@ async function loadFromSupabase(periodKey){
     var sv = await sr.json();
     if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
 
-    // Tải catalog
+    // Tải catalog — chỉ dùng cloud nếu có data, giữ local nếu cloud rỗng
     var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
     var cd = await cr.json();
-    if(cd.length) catalogData = cd;
-
-    saveLocalCache(buildPayload());
+    if(cd.length){
+      catalogData = cd;
+    }
+    // Chỉ lưu localStorage khi catalog có data
+    if(catalogData.length) saveLocalCache(buildPayload());
     fillDrugSelects();
     renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
     updateSaveBtnUI();
@@ -1872,7 +1886,7 @@ function _parseCatalogCSV(csvText){
 
   renderCatalog();
   fillDrugSelects();
-  saveLocalCache(buildPayload());
+  saveLocalCache(buildPayload()); // Lưu localStorage ngay lập tức
   if(_supaOnline) _saveSupaCatalog().catch(function(){});
 
   var msg = '✓ Đã thêm '+added+' thuốc vào danh mục';
@@ -3913,6 +3927,16 @@ function _syncPeriodToCloud(){
 }
 
 function saveLocalCache(payload){
+  // Không lưu nếu catalog rỗng — tránh ghi đè catalog đã có bằng rỗng
+  if(!payload) return;
+  if(payload.catalogData !== undefined && payload.catalogData.length === 0 && catalogData.length === 0){
+    // Cả payload lẫn RAM đều rỗng — có thể chưa load xong, bỏ qua
+    return;
+  }
+  // Nếu payload.catalogData rỗng nhưng RAM có data → dùng RAM
+  if(payload.catalogData !== undefined && payload.catalogData.length === 0 && catalogData.length > 0){
+    payload = Object.assign({}, payload, {catalogData: catalogData});
+  }
   try{ localStorage.setItem('thuoclao_data', JSON.stringify(payload)); }catch(e){}
 }
 
