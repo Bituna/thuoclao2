@@ -362,7 +362,7 @@ td:nth-child(8){border-left:2px solid #f5b8be}
 }
 
 @media print{
-  .sidebar,.filter-bar,.footer-actions,.tabs-bar,.btn,.no-print,
+  .sidebar,.filter-bar,.footer-actions,.tabs-bar,.btn,.no-print,.cat-act,
   .del-dd,.input-section,.admin-zone,.login-screen,
   .tabs-nav,.modal-overlay{display:none!important}
   .main{overflow:visible}
@@ -575,7 +575,7 @@ em{font-style:normal!important}i{font-style:normal!important}
       </div>
       <div id="catalog-form" style="margin-bottom:12px;padding:12px;background:#fff;border-radius:8px;border:1px solid #c8d5e3">
         <div class="input-row-form" style="flex-wrap:wrap;gap:8px">
-          <div class="fg" id="cat-drug-wrap">
+          <div class="fg" id="cat-drug-wrap" class="cat-edit-zone">
             <label>Tên thuốc / Hàm lượng</label>
             <!-- select được tạo động bởi fillCatDrugSelect() -->
             <select id="cat-drug" style="width:230px" onchange="onCatDrugChange()">
@@ -586,22 +586,23 @@ em{font-style:normal!important}i{font-style:normal!important}
             <label>Tên thuốc khác</label>
             <input type="text" id="cat-drug-custom" placeholder="Gõ tên thuốc..." style="width:200px">
           </div>
-          <div class="fg"><label>Số lô SX</label><input type="text" id="cat-lot" placeholder="VD: L2026-01" style="width:120px"></div>
-          <div class="fg">
+          <div class="fg cat-edit-zone"><label>Số lô SX</label><input type="text" id="cat-lot" placeholder="VD: L2026-01" style="width:120px"></div>
+          <div class="fg cat-edit-zone">
             <label>Hạn dùng (mm/yyyy)</label>
             <input type="text" id="cat-exp" placeholder="07/2027" style="width:96px" maxlength="7"
               oninput="onExpInput(this)"
               onkeydown="if(event.key==='Enter'){event.preventDefault();addCatalog();}">
           </div>
-          <div class="fg"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
-          <div style="margin-top:auto"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
-          <div style="margin-top:auto" id="btn-clear-catalog">
+          <div class="fg cat-edit-zone"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
+          <div style="margin-top:auto" class="cat-edit-zone"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
+          <div style="margin-top:auto" id="btn-clear-catalog" class="cat-edit-zone">
             <button class="btn btn-danger btn-sm" onclick="clearAllCatalog()" title="Xóa toàn bộ danh mục thuốc (chỉ Admin)">🗑 Xóa tất cả</button>
           </div>
           <div style="margin-top:auto">
-            <button class="btn btn-sm" style="background:#1a5276;color:white" onclick="saveCatalogNow()" title="Lưu danh mục vào bộ nhớ và đồng bộ lên cloud">💾 Lưu danh mục</button>
+            <button id="btn-save-catalog" class="btn btn-sm" style="background:#1a5276;color:white" onclick="saveCatalogNow()" title="Lưu & khóa danh mục">💾 Lưu danh mục</button>
+            <button id="btn-unlock-catalog" class="btn btn-sm" style="background:#e67e22;color:white;display:none" onclick="unlockCatalog()" title="Mở lại để chỉnh sửa">🔓 Mở lại</button>
           </div>
-          <div style="margin-top:auto">
+          <div style="margin-top:auto" class="cat-edit-zone">
             <button class="btn btn-sm" style="background:#6f42c1;color:white" onclick="triggerCatalogUpload()" title="Upload file CSV/Excel danh sách thuốc">📤 Upload file</button>
             <button class="btn btn-sm btn-outline" onclick="downloadCatalogTemplate()" title="Tải file mẫu để điền">⬇ File mẫu</button>
             <input type="file" id="catalog-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCatalogFile(this)">
@@ -618,7 +619,7 @@ em{font-style:normal!important}i{font-style:normal!important}
               <th style="background:#155724;color:#fff">Tình trạng</th>
               <th style="background:#155724;color:#fff">Tồn kho (toàn TP)</th>
               <th style="background:#155724;color:#fff">Ghi chú</th>
-              <th class="no-print" style="background:#155724;color:#fff">Thao tác</th>
+              <th class="no-print cat-act-hdr" style="background:#155724;color:#fff">Thao tác</th>
             </tr>
           </thead>
           <tbody id="catalog-body"></tbody>
@@ -1569,6 +1570,7 @@ function isCurrentPeriodLocked(){
 // Danh mục lô thuốc (admin quản lý) — nguồn chính cho chọn số lô
 // {drug, lot, exp:"YYYY-MM-DD", note}
 var catalogData=[]; // Tải từ localStorage/cloud khi khởi động
+var catalogLocked=false;  // true sau khi bấm "Lưu danh mục"
 
 // Session người dùng hiện tại
 var currentUser=null; // {name, user, unit, role}
@@ -1663,7 +1665,7 @@ function renderCatalog(){
     drugMap[r.drug].push({r:r, i:i});
   });
 
-  var canDel=isAdmin();
+  var canDel=isAdmin() && !catalogLocked;
   groups.forEach(function(g){
     g.rows.forEach(function(item, rowInGroup){
       var r=item.r, i=item.i;
@@ -1693,7 +1695,7 @@ function renderCatalog(){
            + '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'
            + '<td style="'+qtyStyle+'">'+qtyDisp+'</td>'
            + '<td style="color:var(--muted);font-size:11px">'+r.note+'</td>'
-           + '<td class="no-print">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
+           + '<td class="cat-act">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
            + '</tr>';
 
       tbody.innerHTML += row;
@@ -1887,29 +1889,55 @@ function _parseCatalogCSV(csvText){
 async function saveCatalogNow(){
   if(!isAdmin()){toast('Chỉ Admin mới lưu danh mục!','var(--danger)');return;}
   if(!catalogData.length){toast('Danh mục đang trống!','var(--warning)');return;}
-  // Dedupe trước khi lưu
+  // Dedupe
   var seen={}, clean=[];
   catalogData.forEach(function(r){
     var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
     if(!seen[k]){seen[k]=true;clean.push(r);}
   });
   catalogData = clean;
-  // Lưu localStorage
+  catalogLocked = true;
   saveLocalCache(buildPayload());
+  _updateCatalogLockUI();
   toast('Đang lưu danh mục ('+catalogData.length+' lô)...','#1a5276');
-  // Lưu lên cloud
   if(_supaOnline){
     try{
       await _saveSupaCatalog();
-      toast('✓ Đã lưu danh mục ('+catalogData.length+' lô) lên cloud!','var(--success)');
+      toast('✓ Đã lưu & khóa danh mục ('+catalogData.length+' lô). Bấm "Mở lại" để chỉnh sửa.','var(--success)');
     }catch(e){
       toast('⚠ Lưu cloud thất bại: '+e.message,'orange');
     }
   } else {
-    toast('✓ Đã lưu danh mục vào bộ nhớ (offline — cloud sẽ cập nhật khi có mạng)','var(--success)');
+    toast('✓ Đã lưu danh mục vào bộ nhớ (chưa có mạng)','var(--success)');
   }
   renderCatalog();
   fillDrugSelects();
+}
+
+function unlockCatalog(){
+  if(!isAdmin()){toast('Chỉ Admin mới mở lại danh mục!','var(--danger)');return;}
+  catalogLocked = false;
+  saveLocalCache(buildPayload());
+  _updateCatalogLockUI();
+  renderCatalog();
+  toast('Đã mở lại danh mục để chỉnh sửa','var(--warning)');
+}
+
+function _updateCatalogLockUI(){
+  var btnSave   = document.getElementById('btn-save-catalog');
+  var btnUnlock = document.getElementById('btn-unlock-catalog');
+  if(btnSave)   btnSave.style.display   = catalogLocked ? 'none' : '';
+  if(btnUnlock) btnUnlock.style.display = catalogLocked ? ''     : 'none';
+  // Ẩn form nhập và nút xóa khi đã khóa
+  document.querySelectorAll('.cat-edit-zone').forEach(function(el){
+    el.style.display = catalogLocked ? 'none' : '';
+  });
+  document.querySelectorAll('td.cat-act').forEach(function(td){
+    td.style.display = catalogLocked ? 'none' : '';
+  });
+  document.querySelectorAll('th.cat-act-hdr').forEach(function(th){
+    th.style.display = catalogLocked ? 'none' : '';
+  });
 }
 
 function clearAllCatalog(){
@@ -3843,7 +3871,7 @@ function buildPayload(){
   return {
     bvphData:bvphData, bcData:bcData, extraTP:extraTP, catalogData:catalogData,
     ACCOUNTS:ACCOUNTS, drugFreq:drugFreq, threshold:threshold,
-    lockedPeriods:lockedPeriods,
+    lockedPeriods:lockedPeriods, catalogLocked:catalogLocked,
     reportLocked: isCurrentPeriodLocked(), // backward compat
     savedAt: new Date().toISOString()
   };
@@ -4073,6 +4101,7 @@ function applyPayload(p){
   if(p.twData)      twData      = p.twData;
   if(p.ACCOUNTS)    ACCOUNTS    = p.ACCOUNTS;
   if(p.catalogData && p.catalogData.length) catalogData = p.catalogData;
+  if(typeof p.catalogLocked === 'boolean') catalogLocked = p.catalogLocked;
   if(p.drugFreq)    drugFreq    = p.drugFreq;
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
@@ -4088,7 +4117,7 @@ function applyPayload(p){
   // Gọi fillDrugSelects ngay sau khi catalogData đã được gán
   fillDrugSelects();
   if(p.savedAt) toast('Đã tải dữ liệu đã lưu ('+new Date(p.savedAt).toLocaleString('vi-VN')+')','#1a5276');
-  setTimeout(function(){ updateSaveBtnUI(); renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI(); }, 150);
+  setTimeout(function(){ updateSaveBtnUI(); renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI(); _updateCatalogLockUI(); }, 150);
 }
 
 async function loadSaved(){
