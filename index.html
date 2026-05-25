@@ -1559,13 +1559,7 @@ function isCurrentPeriodLocked(){
 
 // Danh mục lô thuốc (admin quản lý) — nguồn chính cho chọn số lô
 // {drug, lot, exp:"YYYY-MM-DD", note}
-var catalogData=[
-  {drug:"Levofloxacin 250mg",lot:"LF250-2026-01",exp:"2027-06-30",note:"Đợt cấp Q1/2026"},
-  {drug:"Levofloxacin 250mg",lot:"LF250-2026-02",exp:"2027-12-31",note:"Đợt cấp Q3/2026"},
-  {drug:"Linezolid 600mg",   lot:"LNZ-2026-01", exp:"2028-03-31",note:"Chương trình DOTS"},
-  {drug:"Bedaquiline 100mg", lot:"BDQ-2026-01", exp:"2026-06-15",note:"Chương trình DOTS"},
-  {drug:"Cycloserine 250mg", lot:"CS-2026-01",  exp:"2027-09-30",note:"Đợt cấp Q2/2026"}
-];
+var catalogData=[]; // Tải từ localStorage/cloud khi khởi động
 
 // Session người dùng hiện tại
 var currentUser=null; // {name, user, unit, role}
