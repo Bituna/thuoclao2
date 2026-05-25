@@ -2131,9 +2131,21 @@ function fillLotSelect(selectId, drugName, expInputId){
     opt.value = r.lot;
     var label = r.lot+' — HSD: '+expToMMYYYY(r.exp)+' ['+st.label+']';
     if(qty >= 0) label += ' | Tồn: '+qty;
+    if(isZero) label += ' ⚠';
     opt.textContent = label;
-    if(isZero){ opt.disabled=true; opt.style.color='#bbb'; }
-    else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){ opt.style.color='var(--warning)'; }
+    if(isZero){
+      if(isAdmin()){
+        // Admin thấy nhưng màu cam cảnh báo
+        opt.style.color='#e67e22';
+        opt.style.fontStyle='italic';
+      } else {
+        // Không phải admin → không chọn được
+        opt.disabled=true;
+        opt.style.color='#bbb';
+      }
+    } else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){
+      opt.style.color='var(--warning)';
+    }
     sel.appendChild(opt);
   });
 
@@ -2146,14 +2158,19 @@ function fillLotSelect(selectId, drugName, expInputId){
     if(found){
       expEl.value=expToMMYYYY(found.exp);
       expEl.style.background='#eef7ff';
-      // Cảnh báo nếu lô đã hết số lượng (tồn = 0) nhưng vẫn được chọn (e.g. admin)
+      // Chỉ hỏi Admin khi tồn = 0
       var qty2 = getLotCityFinal(drugName, lotVal, found.exp);
-      if(qty2 === 0){
-        if(!confirm('⚠ Lô "'+lotVal+'" của thuốc "'+drugName+'" hiện có tồn kho = 0.\n\nBạn có chắc chắn muốn nhập thêm số lượng cho lô này không?')){
-          sel.value='';
-          expEl.value='';
-          expEl.style.background='';
-        }
+      if(qty2 === 0 && isAdmin()){
+        _confirmModal(
+          '⚠ Lô này đã hết số lượng',
+          'Lô "'+lotVal+'" — Tồn kho = 0. Bạn có chắc muốn nhập thêm cho lô này không?',
+          function(){}, // OK → giữ chọn
+          function(){   // Hủy → reset
+            sel.value='';
+            expEl.value='';
+            expEl.style.background='';
+          }
+        );
       }
     } else {
       expEl.value='';
@@ -4662,7 +4679,7 @@ function saveSettings(){
 // TOAST
 // ============================================================
 // Modal xác nhận thay thế confirm() bị chặn trên một số trình duyệt
-function _confirmModal(title, body, onOk){
+function _confirmModal(title, body, onOk, onCancel){
   var old=document.getElementById('_cm_ov'); if(old) old.remove();
   var ov=document.createElement('div');
   ov.id='_cm_ov';
@@ -4674,15 +4691,15 @@ function _confirmModal(title, body, onOk){
   var r=document.createElement('div'); r.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var bc=document.createElement('button'); bc.textContent='Hủy';
   bc.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
-  bc.onclick=function(){ ov.remove(); };
-  var bo=document.createElement('button'); bo.textContent='Xóa';
+  bc.onclick=function(){ ov.remove(); if(onCancel) onCancel(); };
+  var bo=document.createElement('button'); bo.textContent= onCancel ? 'Có, tiếp tục' : 'Xóa';
   bo.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#e74c3c;color:white;cursor:pointer;font-size:13px;font-weight:600';
   bo.onclick=function(){ ov.remove(); onOk(); };
   r.appendChild(bc); r.appendChild(bo);
   box.appendChild(h); box.appendChild(b); box.appendChild(r);
   ov.appendChild(box); document.body.appendChild(ov);
-  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
-  var esc=function(e){ if(e.key==='Escape'){ ov.remove(); document.removeEventListener('keydown',esc); }};
+  ov.onclick=function(e){ if(e.target===ov){ ov.remove(); if(onCancel) onCancel(); } };
+  var esc=function(e){ if(e.key==='Escape'){ ov.remove(); if(onCancel) onCancel(); document.removeEventListener('keydown',esc); }};
   document.addEventListener('keydown',esc);
 }
 
