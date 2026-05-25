@@ -114,17 +114,62 @@ th{background:#1a5276;color:white;padding:6px 8px;text-align:center;border:1px s
 th.left{text-align:left;padding-left:10px}
 td{border:1px solid #edf2f7;padding:7px;text-align:center;color:var(--text);vertical-align:middle}
 td.left{text-align:left;font-weight:600;padding-left:10px}
-td.open-stock{background:#fffbeb;font-weight:700;color:#92400e}
+td.open-stock{background:#fff8e1;font-weight:700;color:#7c5200;border-left:3px solid #f59e0b}
 td.calc-cell{background:#eef7ff;font-weight:700;color:var(--accent2)}
-td.final-ok{font-weight:700;color:#1a6fa0;font-size:13px}
-td.final-low{font-weight:700;color:var(--danger);font-size:13px}
+td.final-ok{font-weight:800;color:#0369a1;font-size:13px;background:#f0f9ff}
+td.final-low{font-weight:800;color:var(--danger);font-size:13px;background:#fff0f0}
 tfoot td{background:#edf2f7;font-weight:700;border:1px solid #d0d8e4;color:var(--text)}
 td input[type=number]{width:54px;padding:4px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px;font-family:'Be Vietnam Pro',sans-serif;background:white}
 td input[type=number]:focus{border-color:var(--accent);outline:none;background:#f0f8ff}
-tr:hover td{background:#f4f8fe}
-tr:hover td.open-stock{background:#fef9e7}
+tr:hover td{background:#f0f5fb}
+tr:hover td.open-stock{background:#fef3c7}
 tr:hover td.calc-cell{background:#dceefb}
+tr:hover td.final-ok{background:#e0f2fe}
+tr:hover td.final-low{background:#ffe4e6}
 tfoot tr:hover td{background:#edf2f7}
+
+/* TP table header — gradient theo nhóm */
+th.hdr-name,th.hdr-lot,th.hdr-exp,th.hdr-end{
+  background:linear-gradient(135deg,#1e3a5f,#1a5276);
+  color:#fff; border-color:#1a4068;
+}
+th.hdr-in{
+  background:linear-gradient(135deg,#0d6632,#1a8a4a);
+  color:#fff; border-color:#0a5228; font-size:12px; letter-spacing:.3px;
+}
+th.hdr-in-sub{
+  background:linear-gradient(135deg,#1a7a40,#22a05a);
+  color:#fff; border-color:#0f6030; font-size:10px;
+}
+th.hdr-out{
+  background:linear-gradient(135deg,#8b1a1a,#b91c1c);
+  color:#fff; border-color:#6b1414; font-size:12px; letter-spacing:.3px;
+}
+th.hdr-out-sub{
+  background:linear-gradient(135deg,#991f1f,#c92a2a);
+  color:#fff; border-color:#7a1818; font-size:10px;
+}
+th.hdr-act{
+  background:linear-gradient(135deg,#1e3a5f,#1a5276);
+  color:#fff; border-color:#1a4068;
+}
+
+/* Cột nhập (td xanh lá nhạt), cột xuất (td đỏ nhạt) */
+td[style*="background:#d4edda"]{background:linear-gradient(135deg,#d4edda,#c3e6cb)!important}
+td[style*="background:#f8d7da"]{background:linear-gradient(135deg,#f8d7da,#f1aeb5)!important}
+
+/* Zebra stripe cho bảng TP */
+#tp-body tr:nth-child(even) td{background-color:#fafcff}
+#tp-body tr:nth-child(even) td.open-stock{background:#fef9e0}
+#tp-body tr:nth-child(even) td.final-ok{background:#e8f4fd}
+#tp-body tr:nth-child(even) td.final-low{background:#ffecee}
+#tp-body tr:nth-child(even) td.calc-cell{background:#e8f3fb}
+
+/* Đường kẻ đậm phân tách nhóm Nhập/Xuất */
+th.hdr-in{border-left:3px solid #065f30!important}
+th.hdr-out{border-left:3px solid #6b1414!important}
+td:nth-child(5){border-left:2px solid #b8e0c8}
+td:nth-child(8){border-left:2px solid #f5b8be}
 
 /* TABS */
 .tabs-bar{display:flex;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
@@ -1603,17 +1648,6 @@ function renderCatalog(){
     if(!seen[key]){ seen[key]=true; deduped.push(r); realIdx.push(i); }
   });
 
-  // Ưu tiên các lô còn hạn, đưa lô hết hạn xuống cuối danh sách
-  var paired = deduped.map(function(r,di){return {r:r, idx:realIdx[di]};});
-  paired.sort(function(a,b){
-    var ea = catalogStatus(a.r.exp).label === 'Hết hạn';
-    var eb = catalogStatus(b.r.exp).label === 'Hết hạn';
-    if(ea !== eb) return ea ? 1 : -1;
-    return 0;
-  });
-  deduped = paired.map(function(p){return p.r;});
-  realIdx = paired.map(function(p){return p.idx;});
-
   // Nhóm theo tên thuốc (giữ thứ tự xuất hiện)
   var groups=[]; // [{drug, rows:[{r,i}]}]
   var drugMap={};
@@ -1642,10 +1676,7 @@ function renderCatalog(){
       // Đường kẻ trên đầu mỗi nhóm
       var groupBorder = rowInGroup===0 ? 'border-top:2px solid #dee2e6' : '';
 
-      var expiredRow = st.label === 'Hết hạn';
-      var rowStyle = rowBg + groupBorder;
-      if(expiredRow){ rowStyle += 'opacity:.55;color:#777;'; }
-      var row = '<tr style="'+rowStyle+'">';
+      var row = '<tr style="'+rowBg+groupBorder+'">';
 
       // Cột tên thuốc: chỉ render ở dòng đầu mỗi nhóm với rowspan
       if(rowInGroup===0){
@@ -1915,13 +1946,6 @@ function addCatalog(){
       toast('Lô "'+lot+'" HSD '+expRaw+' của "'+drug+'" đã có trong danh mục!','var(--warning)');return;
     }
   }
-  var existingQty = getLotCityFinal(drug, lot, expParsed);
-  var isExpired = catalogStatus(expParsed).label === 'Hết hạn';
-  if(existingQty === 0 && !isExpired){
-    if(!confirm('⚠ Lô "'+lot+'" của thuốc "'+drug+'" đã từng có và hiện đang hết số lượng.\n\nBạn có muốn thêm số lượng vào không? Nếu có thì mới thêm.')){
-      return;
-    }
-  }
   catalogData.push({drug:drug,lot:lot,exp:expParsed,note:note||'—'});
   ['cat-lot','cat-exp','cat-note','cat-drug-custom'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var cds=document.getElementById('cat-drug');if(cds)cds.value='';
@@ -1935,11 +1959,6 @@ function delCatalog(i){
   if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}
   if(i < 0 || i >= catalogData.length) return;
   var item = catalogData[i];
-  var usedQty = getLotCityFinal(item.drug, item.lot, item.exp);
-  if(usedQty >= 0){
-    toast('Lô đang có dữ liệu báo cáo nên không thể xóa khỏi danh mục.','var(--danger)');
-    return;
-  }
   _confirmModal('Xóa lô khỏi danh mục?', '"'+item.drug+' — Lô '+item.lot+'"', function(){
     catalogData.splice(i,1);
     var seen={}, clean=[];
@@ -2019,64 +2038,45 @@ function fillLotSelect(selectId, drugName, expInputId){
     if(!seen[key]){ seen[key]=true; uniqueLots.push(r); }
   });
 
-  uniqueLots.sort(function(a,b){
-    var ea = catalogStatus(a.exp).label === 'Hết hạn';
-    var eb = catalogStatus(b.exp).label === 'Hết hạn';
-    if(ea !== eb) return ea ? 1 : -1;
-    return (a.lot||'').localeCompare(b.lot||'');
+  // Bỏ lô hết hạn khỏi danh sách gợi ý
+  var validLots = uniqueLots.filter(function(r){
+    return catalogStatus(r.exp).label !== 'Hết hạn';
   });
 
-  sel.innerHTML = '<option value="">-- Chọn lô --</option>';
-  if(!uniqueLots.length){
+  sel.innerHTML='<option value="">-- Chọn lô --</option>';
+  if(!validLots.length){
     var o0=document.createElement('option');
     o0.disabled=true;
-    o0.textContent='(Chưa có lô trong danh mục — thêm tại Danh sách thuốc)';
+    o0.textContent='(Chưa có lô còn hạn — thêm tại Danh sách thuốc)';
     sel.appendChild(o0);
   }
-
-  var hasLotOption=false;
-  uniqueLots.forEach(function(r){
+  validLots.forEach(function(r){
     var st   = catalogStatus(r.exp);
     var qty  = getLotCityFinal(drugName, r.lot, r.exp);
-    var isExpired = st.label === 'Hết hạn';
     var isZero = (qty === 0);
-    if(isExpired || isZero){
-      return; // không gợi ý lô hết hạn hoặc đã hết số lượng
-    }
-
     var opt  = document.createElement('option');
-    opt.value = r.lot + '|' + r.exp;
+    opt.value = r.lot;
     var label = r.lot+' — HSD: '+expToMMYYYY(r.exp)+' ['+st.label+']';
     if(qty >= 0) label += ' | Tồn: '+qty;
     opt.textContent = label;
-    if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){
-      opt.style.color='var(--warning)';
-    }
+    if(isZero){ opt.disabled=true; opt.style.color='#bbb'; }
+    else if(st.label.indexOf('Sắp')>=0||st.label.indexOf('Gần')>=0){ opt.style.color='var(--warning)'; }
     sel.appendChild(opt);
-    hasLotOption=true;
   });
 
-  if(!hasLotOption && uniqueLots.length){
-    var o1=document.createElement('option');
-    o1.disabled=true;
-    o1.textContent='(Đã hết lô dùng được cho thuốc này)';
-    sel.appendChild(o1);
-  }
-
+  // Khi chọn lô: điền hạn dùng + kiểm tra cảnh báo tồn = 0
   sel.onchange=function(){
     var lotVal=this.value;
     var expEl=document.getElementById(expInputId);
     if(!expEl) return;
-    var parts = lotVal.split('|');
-    var lotKey = parts[0]||'';
-    var expKey = parts.slice(1).join('|');
-    var found=catalogData.find(function(r){return r.drug===drugName && r.lot===lotKey && r.exp===expKey;});
+    var found=catalogData.find(function(r){return r.drug===drugName&&r.lot===lotVal;});
     if(found){
       expEl.value=expToMMYYYY(found.exp);
       expEl.style.background='#eef7ff';
-      var qty2 = getLotCityFinal(drugName, lotKey, found.exp);
+      // Cảnh báo nếu lô đã hết số lượng (tồn = 0) nhưng vẫn được chọn (e.g. admin)
+      var qty2 = getLotCityFinal(drugName, lotVal, found.exp);
       if(qty2 === 0){
-        if(!confirm('⚠ Lô "'+lotKey+'" của thuốc "'+drugName+'" hiện đã hết số lượng.\n\nBạn có muốn thêm số lượng vào không? Nếu có thì mới thêm.')){
+        if(!confirm('⚠ Lô "'+lotVal+'" của thuốc "'+drugName+'" hiện có tồn kho = 0.\n\nBạn có chắc chắn muốn nhập thêm số lượng cho lô này không?')){
           sel.value='';
           expEl.value='';
           expEl.style.background='';
@@ -2670,7 +2670,7 @@ function matchTQPeriod(r){
 }
 
 function onTQPeriodChange(){
-  syncSelectedPeriodFromTQ();
+  renderTQ();
 }
 
 
@@ -3160,25 +3160,8 @@ function matchPeriod(r){
 
 function onYearChange(){ onGlobalMonthChange(); }
 
-function syncTQPeriod(p){
-  var yearEl = document.getElementById('tq-year');
-  var monthEl = document.getElementById('tq-month');
-  if(yearEl) yearEl.value = p.year;
-  if(monthEl) monthEl.value = (p.type === 'year' ? '__year__' : p.val.split('-')[1]);
-}
-
-function syncSelectedPeriodFromTQ(){
-  var tqP = getTQPeriod();
-  var selYear = document.getElementById('sel-year');
-  var selMonth = document.getElementById('sel-month');
-  if(selYear) selYear.value = tqP.year;
-  if(selMonth) selMonth.value = (tqP.type === 'year' ? '__year__' : tqP.val.split('-')[1]);
-  onGlobalMonthChange();
-}
-
 function onGlobalMonthChange(){
   var p = getSelectedPeriod();
-  syncTQPeriod(p);
   // Cập nhật label
   var labelEl = document.getElementById('bc-period-label');
   if(labelEl){
@@ -3203,7 +3186,6 @@ function onGlobalMonthChange(){
   var tmEl = document.getElementById('thuoc-month');
   if(tmEl && p.type === 'month') tmEl.value = p.val;
   renderDrugTable();
-  renderTQ();
   updateSaveBtnUI();
   // Tự động tải data kỳ mới từ cloud
   if(_supaOnline) _autoLoadOnLogin();
@@ -4576,16 +4558,23 @@ function _confirmModal(title, body, onOk){
   var ov=document.createElement('div');
   ov.id='_cm_ov';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML='<div style="background:white;border-radius:12px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
-    +'<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:8px">'+title+'</div>'
-    +'<div style="font-size:13px;color:#555;margin-bottom:20px">'+body+'</div>'
-    +'<div style="display:flex;gap:10px;justify-content:flex-end">'
-    +'<button onclick="document.getElementById(\'_cm_ov\').remove()" style="padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Hủy</button>'
-    +'<button id="_cm_ok" style="padding:8px 18px;border:none;border-radius:7px;background:#e74c3c;color:white;cursor:pointer;font-size:13px;font-weight:600">Xóa</button>'
-    +'</div></div>';
-  document.body.appendChild(ov);
-  document.getElementById('_cm_ok').onclick=function(){ ov.remove(); onOk(); };
+  var box=document.createElement('div');
+  box.style.cssText='background:white;border-radius:12px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#1a2332;margin-bottom:8px'; h.textContent=title;
+  var b=document.createElement('div'); b.style.cssText='font-size:13px;color:#555;margin-bottom:20px'; b.textContent=body;
+  var r=document.createElement('div'); r.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var bc=document.createElement('button'); bc.textContent='Hủy';
+  bc.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  bc.onclick=function(){ ov.remove(); };
+  var bo=document.createElement('button'); bo.textContent='Xóa';
+  bo.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#e74c3c;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  bo.onclick=function(){ ov.remove(); onOk(); };
+  r.appendChild(bc); r.appendChild(bo);
+  box.appendChild(h); box.appendChild(b); box.appendChild(r);
+  ov.appendChild(box); document.body.appendChild(ov);
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var esc=function(e){ if(e.key==='Escape'){ ov.remove(); document.removeEventListener('keydown',esc); }};
+  document.addEventListener('keydown',esc);
 }
 
 function toast(msg,color){
