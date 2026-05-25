@@ -2148,27 +2148,25 @@ function fillLotSelect(selectId, drugName, expInputId){
   };
 }
 
-// Fill dropdown cat-drug từ DRUGS list
+// Fill dropdown cat-drug từ catalogData (tên thuốc đã có) + cho phép nhập mới
 function fillCatDrugSelect(){
   var sel=document.getElementById('cat-drug');
   if(!sel) return;
-  // Danh sách thuốc cố định cho catalog
-  var DRUG_LIST=[
-    "Levofloxacin 250mg","Levofloxacin 500mg","Moxifloxacin 400mg",
-    "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g",
-    "Cycloserine 250mg","Prothionamide 250mg","Para-aminosalicylic acid 4g",
-    "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg",
-    "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg"
-  ];
+  // Lấy tên thuốc duy nhất từ catalogData
+  var seen={}, drugs=[];
+  catalogData.forEach(function(r){
+    if(r.drug && !seen[r.drug]){ seen[r.drug]=true; drugs.push(r.drug); }
+  });
+  drugs.sort();
   sel.innerHTML='<option value="">-- Chọn thuốc --</option>';
-  DRUG_LIST.forEach(function(d){
+  drugs.forEach(function(d){
     var o=document.createElement('option');
     o.value=d; o.textContent=d;
     sel.appendChild(o);
   });
   var oKhac=document.createElement('option');
   oKhac.value='__khac__';
-  oKhac.textContent='Khác (gõ tên thuốc mới)';
+  oKhac.textContent='+ Thêm tên thuốc mới...';
   sel.appendChild(oKhac);
 }
 
@@ -2213,6 +2211,7 @@ function onBCDrugChange(){
 function fillDrugSelects(){
   var drugs = getCatalogDrugs(); // chỉ từ catalogData
 
+  // Cập nhật select nhập báo cáo (bvph-drug, bc-drug)
   ['bvph-drug','bc-drug'].forEach(function(selId){
     var sel = document.getElementById(selId);
     if(!sel) return;
@@ -2233,6 +2232,9 @@ function fillDrugSelects(){
       sel.appendChild(o);
     });
   });
+
+  // Cập nhật select thêm vào danh mục (cat-drug)
+  fillCatDrugSelect();
 }
 
 
@@ -2406,22 +2408,24 @@ function initApp(){
   if(_tmEl && _initPeriod.type === 'month') _tmEl.value = _initPeriod.val;
 
   loadSaved();
-  // Đơn vị tuyến: không bị ảnh hưởng bởi lockedPeriods của máy khác (admin)
-  // lockedPeriods chỉ có nghĩa khi chính đơn vị đó lưu báo cáo
   if(role === 'donvi'){
-    lockedPeriods = {}; // reset — sẽ được load lại từ Supabase sau
+    lockedPeriods = {};
   }
   setTimeout(function(){
-    updateSaveBtnUI(); setupCatalog(); fillDrugSelects();
-    _initYearDatalist(); // khởi tạo datalist năm từ localStorage
+    updateSaveBtnUI(); setupCatalog();
+    fillDrugSelects(); // sau loadSaved → catalogData đã restore từ localStorage
+    _initYearDatalist();
     setTimeout(initFileHandle, 500);
-    // Kiểm tra cloud rồi tự tải data kỳ hiện tại
     setTimeout(function(){
       checkSupabase().then(function(){
-        if(_supaOnline) _autoLoadOnLogin();
+        if(_supaOnline){
+          _autoLoadOnLogin().then(function(){
+            fillDrugSelects(); // gọi lại sau cloud → catalog mới nhất
+          }).catch(function(){});
+        }
       });
     }, 800);
-  }, 100);
+  }, 300); // tăng delay để loadSaved (async) kịp hoàn thành
   renderTQ();renderDrugTable();renderBVPH();renderBC();renderTP();renderAccounts();
 
   // Fill account modal unit select
@@ -2729,7 +2733,18 @@ function matchTQPeriod(r){
 }
 
 function onTQPeriodChange(){
+  // Đồng bộ sang selector của trang Báo cáo thuốc
+  var tqYear  = document.getElementById('tq-year');
+  var tqMonth = document.getElementById('tq-month');
+  var selYear  = document.getElementById('sel-year');
+  var selMonth = document.getElementById('sel-month');
+  if(tqYear && selYear)   selYear.value  = tqYear.value;
+  if(tqMonth && selMonth) selMonth.value = tqMonth.value;
+  // Cập nhật datalist năm
+  if(tqYear) _yearInput(tqYear, 'sel-year-list', null);
   renderTQ();
+  // Render lại báo cáo theo kỳ mới
+  onGlobalMonthChange();
 }
 
 
@@ -3246,6 +3261,16 @@ function onGlobalMonthChange(){
   if(tmEl && p.type === 'month') tmEl.value = p.val;
   renderDrugTable();
   updateSaveBtnUI();
+  // Đồng bộ ngược lên Tổng quan
+  var tqYear  = document.getElementById('tq-year');
+  var tqMonth = document.getElementById('tq-month');
+  var selYear = document.getElementById('sel-year');
+  if(tqYear && selYear) tqYear.value = selYear.value;
+  if(tqMonth){
+    var selMonth = document.getElementById('sel-month');
+    if(selMonth) tqMonth.value = selMonth.value;
+  }
+  renderTQ();
   // Tự động tải data kỳ mới từ cloud
   if(_supaOnline) _autoLoadOnLogin();
 }
