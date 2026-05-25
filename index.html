@@ -1419,15 +1419,21 @@ async function saveToSupabase(periodKey){
 }
 
 async function _saveSupaCatalog(){
-  var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
-  await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
-  if(!catalogData.length) return;
-  await fetch(SUPA_URL+'/rest/v1/catalog', {
-    method:'POST', headers:hdPost,
-    body: JSON.stringify(catalogData.map(function(r){
-      return {drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''};
-    }))
+  if(!catalogData.length) return; // Không xóa cloud nếu local rỗng
+  // Dedupe
+  var seenS={}, toSave=[];
+  catalogData.forEach(function(r){
+    var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+    if(!seenS[k]){ seenS[k]=true; toSave.push(r); }
   });
+  if(!toSave.length) return;
+  var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
+  var body = JSON.stringify(toSave.map(function(r){
+    return {drug:r.drug, lot:r.lot, exp:r.exp||'', note:r.note||''};
+  }));
+  // Xóa rồi insert (an toàn vì đã check catalogData có data)
+  await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
+  await fetch(SUPA_URL+'/rest/v1/catalog', {method:'POST', headers:hdPost, body:body});
 }
 
 // ── TẢI TỪ SUPABASE ───────────────────────────────────────
@@ -4066,7 +4072,7 @@ function applyPayload(p){
   if(p.bcData)      bcData      = p.bcData;
   if(p.twData)      twData      = p.twData;
   if(p.ACCOUNTS)    ACCOUNTS    = p.ACCOUNTS;
-  if(p.catalogData) catalogData = p.catalogData;
+  if(p.catalogData && p.catalogData.length) catalogData = p.catalogData;
   if(p.drugFreq)    drugFreq    = p.drugFreq;
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
