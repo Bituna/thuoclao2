@@ -1216,6 +1216,10 @@ em{font-style:normal!important}i{font-style:normal!important}
 // ============================================================
 var SUPA_URL = 'https://tgupkrzuhqwdrrlnfkpg.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndXBrcnp1aHF3ZHJybG5ma3BnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzk0MTYsImV4cCI6MjA5NDgxNTQxNn0.8XM7Dk8l-AAbpPFNB8HBnGag3g4E4PZrjI-6LqorW58';
+
+// Cloudflare Worker API (nguồn chính — không tự tắt)
+var CF_URL = 'https://thuoclao2.dukko9x.workers.dev';
+var _cfOnline = false;
 var _supaHdr = {
   'apikey': SUPA_KEY,
   'Authorization': 'Bearer ' + SUPA_KEY,
@@ -1224,35 +1228,145 @@ var _supaHdr = {
 };
 var _supaOnline = false; // true khi kết nối thành công
 
-// Kiểm tra kết nối Supabase
+// Kiểm tra kết nối — ưu tiên Cloudflare Worker
 async function checkSupabase(){
-  var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
-  var timeout = new Promise(function(resolve){
-    setTimeout(function(){ resolve(null); }, 6000);
-  });
-  var fetchPr = fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1', {headers: hdCheck})
+  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 6000); });
+
+  // Thử Cloudflare trước
+  var cfFetch = fetch(CF_URL+'/api/ping')
     .then(function(r){ return r; })
     .catch(function(){ return null; });
-  var result = await Promise.race([fetchPr, timeout]);
-  _supaOnline = !!(result && result.status >= 200 && result.status < 300);
+  var cfResult = await Promise.race([cfFetch, timeout]);
+  _cfOnline = !!(cfResult && cfResult.ok);
+
+  if(_cfOnline){
+    _supaOnline = true; // coi như online
+  } else {
+    // Fallback: thử Supabase
+    var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
+    var supaFetch = fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1', {headers: hdCheck})
+      .then(function(r){ return r; }).catch(function(){ return null; });
+    var supaResult = await Promise.race([supaFetch, timeout]);
+    _supaOnline = !!(supaResult && supaResult.status >= 200 && supaResult.status < 300);
+  }
   _updateCloudStatus();
+}
+
+// Cập nhật status bar
+function _getCloudLabel(){
+  if(_cfOnline) return '☁ Cloud: <strong>Cloudflare ✓</strong>';
+  if(_supaOnline) return '☁ Cloud: <strong>Supabase ✓</strong>';
+  return '☁ Cloud: <span style="cursor:pointer;text-decoration:underline" onclick="checkSupabase()">Offline — thử lại</span>';
 }
 
 // Cập nhật icon cloud trên UI
 function _updateCloudStatus(){
   var el = document.getElementById('cloud-status');
   if(!el) return;
-  if(_supaOnline){
-    el.innerHTML = '<span style="color:#27ae60;font-size:11px">☁ Cloud: <strong>Đã kết nối</strong></span>';
-  } else {
-    el.innerHTML = '<span style="color:#e67e22;font-size:11px">☁ Cloud: <span style="cursor:pointer;text-decoration:underline" onclick="checkSupabase()">Offline — thử lại</span></span>';
-  }
+  var online = _cfOnline || _supaOnline;
+  el.innerHTML = '<span style="color:'+( online ? '#27ae60' : '#e67e22')+';font-size:11px">'+_getCloudLabel()+'</span>';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CLOUDFLARE API — nguồn chính
+// ══════════════════════════════════════════════════════════════
+
+// Lưu reports lên Cloudflare
+async function _cfSaveReports(periodKey, unit){
+  if(!_cfOnline) return false;
+  try{
+    var role = currentUser ? currentUser.role : 'admin';
+    var rows = [];
+    if(role==='bvph'||role==='admin'){
+      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
+        rows.push({period:periodKey,unit:'bvph',drug:r.drug,lot:r.lot,exp:r.exp||'',
+          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
+          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:r.locked?1:0,bc_month:periodKey});
+      });
+    }
+    if(role==='donvi'||role==='admin'){
+      var bcF = role==='donvi'
+        ? bcData.filter(function(r){return r.bcMonth===periodKey&&r.unit===unit;})
+        : bcData.filter(function(r){return r.bcMonth===periodKey;});
+      bcF.forEach(function(r){
+        rows.push({period:periodKey,unit:r.unit,drug:r.drug,lot:r.lot,exp:r.exp||'',
+          open:r.open||0,tinh:r.tinh||0,dc:r.dc||0,sd:r.sd||0,
+          dc2:r.dc2||0,dc3:r.dc3||0,hh:r.hh||0,locked:r.locked?1:0,bc_month:periodKey});
+      });
+    }
+    var delUnit = role==='donvi' ? unit : (role==='bvph' ? 'bvph' : '__all__');
+    var res = await fetch(CF_URL+'/api/reports', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rows:rows, period:periodKey, unit:delUnit})
+    });
+    return res.ok;
+  }catch(e){ return false; }
+}
+
+// Tải reports từ Cloudflare
+async function _cfLoadReports(periodKey, role, unit){
+  if(!_cfOnline) return null;
+  try{
+    var p = getSelectedPeriod();
+    var url = CF_URL+'/api/reports?';
+    if(p.type==='year') url += 'period_like='+encodeURIComponent(p.year+'-%');
+    else url += 'period='+encodeURIComponent(periodKey);
+    if(role==='donvi') url += '&unit='+encodeURIComponent(unit);
+    else if(role==='bvph') url += '&unit=bvph';
+    var res = await fetch(url);
+    if(!res.ok) return null;
+    var data = await res.json();
+    return data.ok ? data.data : null;
+  }catch(e){ return null; }
+}
+
+// Lưu catalog lên Cloudflare
+async function _cfSaveCatalog(){
+  if(!_cfOnline || !catalogData.length) return false;
+  try{
+    var seen={}, rows=[];
+    catalogData.forEach(function(r){
+      var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+      if(!seen[k]){seen[k]=true;rows.push({drug:r.drug,lot:r.lot,exp:r.exp||'',note:r.note||''});}
+    });
+    var res = await fetch(CF_URL+'/api/catalog',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rows:rows})
+    });
+    return res.ok;
+  }catch(e){ return false; }
+}
+
+// Tải catalog từ Cloudflare
+async function _cfLoadCatalog(){
+  if(!_cfOnline) return null;
+  try{
+    var res = await fetch(CF_URL+'/api/catalog');
+    if(!res.ok) return null;
+    var data = await res.json();
+    return data.ok ? data.data : null;
+  }catch(e){ return null; }
+}
+
+// Lưu settings lên Cloudflare
+async function _cfSaveSettings(key, value){
+  if(!_cfOnline) return;
+  try{
+    await fetch(CF_URL+'/api/settings/'+key,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(value)
+    });
+  }catch(e){}
 }
 
 // ── TỰ ĐỘNG TẢI DATA SAU KHI ĐĂNG NHẬP ─────────────────────
 async function _autoLoadOnLogin(){
   var periodKey = _currentPeriodKey();
-  if(!periodKey || !_supaOnline) return;
+  if(!periodKey) return;
+  if(!_cfOnline && !_supaOnline) return;
 
   var role = currentUser ? currentUser.role : '';
   var unit = currentUser ? currentUser.unit : '';
@@ -1325,27 +1439,25 @@ async function _autoLoadOnLogin(){
       if(role !== 'donvi') lockedPeriods = sv[0].value;
       // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
     }
-    // Tải catalog từ cloud
-    var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
-    if(cr.ok){
-      var cd = await cr.json();
-      if(cd.length){
-        // Cloud có data → dùng cloud (dedupe)
-        var seenC={}, cleanC=[];
-        cd.forEach(function(r){
-          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
-          if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
-        });
-        catalogData = cleanC;
-        fillDrugSelects();
-      }
-      // Cloud rỗng → GIỮ NGUYÊN catalogData từ localStorage
+    // Tải catalog — ưu tiên CF, fallback Supabase
+    var cdRows = null;
+    if(_cfOnline){
+      cdRows = await _cfLoadCatalog();
     }
-
-    // Chỉ lưu localStorage khi catalog có data để không ghi đè bằng rỗng
-    if(catalogData.length){
-      saveLocalCache(buildPayload());
+    if(!cdRows && _supaOnline){
+      var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+      if(cr.ok){ var cd=await cr.json(); if(cd.length) cdRows=cd; }
     }
+    if(cdRows && cdRows.length){
+      var seenC={}, cleanC=[];
+      cdRows.forEach(function(r){
+        var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+        if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
+      });
+      catalogData = cleanC;
+      fillDrugSelects();
+    }
+    if(catalogData.length) saveLocalCache(buildPayload());
     renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
     updateSaveBtnUI(); updateLockedUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
@@ -1356,6 +1468,17 @@ async function _autoLoadOnLogin(){
 
 // ── LƯU LÊN SUPABASE ──────────────────────────────────────
 async function saveToSupabase(periodKey){
+  var role = currentUser ? currentUser.role : 'admin';
+  var unit = currentUser ? currentUser.unit : '';
+  // Ưu tiên Cloudflare
+  if(_cfOnline){
+    var ok = await _cfSaveReports(periodKey, unit);
+    // Lưu settings lên CF
+    await _cfSaveSettings('lockedPeriods', lockedPeriods);
+    if(role==='admin') await _cfSaveCatalog();
+    if(ok) return true;
+  }
+  // Fallback Supabase
   if(!_supaOnline) return false;
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
@@ -1430,9 +1553,11 @@ async function saveToSupabase(periodKey){
 }
 
 async function _saveSupaCatalog(){
-  if(!catalogData.length) return; // Không xóa cloud nếu local rỗng
-  // Lưu localStorage ngay lập tức (không phụ thuộc cloud)
+  if(!catalogData.length) return;
   saveLocalCache(buildPayload());
+  // Ưu tiên CF
+  if(_cfOnline){ await _cfSaveCatalog(); return; }
+  // Fallback Supabase
   // Dedupe
   var seenS={}, toSave=[];
   catalogData.forEach(function(r){
