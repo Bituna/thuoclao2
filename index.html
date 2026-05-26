@@ -1278,19 +1278,33 @@ async function _autoLoadOnLogin(){
     }
     // Admin: tải tất cả
 
+    // Tải catalog trước (độc lập với reports)
+    var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
+    if(cr.ok){
+      var cd = await cr.json();
+      if(cd.length){
+        var seenC={}, cleanC=[];
+        cd.forEach(function(r){
+          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+          if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
+        });
+        catalogData = cleanC;
+        fillDrugSelects();
+        renderDrugTable();
+      }
+    }
+
     var r = await fetch(url, {headers:_supaHdr});
     if(!r.ok) return;
     var rows = await r.json();
     if(!rows.length){
       // Cloud chưa có data kỳ này
-      // Kiểm tra xem có thể tạo tồn đầu từ kỳ trước không
       var prevKey = _prevPeriodKey(periodKey);
       var hasPrevLocal = prevKey && (
         bvphData.some(function(r){return r.bcMonth===prevKey;}) ||
         bcData.some(function(r){return r.bcMonth===prevKey;})
       );
       if(hasPrevLocal){
-        // Tạo tồn đầu từ tồn cuối kỳ trước (nếu chưa có)
         _createNextPeriodRows(prevKey, periodKey);
         saveLocalCache(buildPayload());
         renderBVPH(); renderBC(); renderTP(); renderTQ();
@@ -1322,20 +1336,6 @@ async function _autoLoadOnLogin(){
     if(sv.length && sv[0].value){
       if(role !== 'donvi') lockedPeriods = sv[0].value;
       // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
-    }
-    // Tải catalog từ Supabase
-    var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
-    if(cr.ok){
-      var cd = await cr.json();
-      if(cd.length){
-        var seenC={}, cleanC=[];
-        cd.forEach(function(r){
-          var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
-          if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
-        });
-        catalogData = cleanC;
-        fillDrugSelects();
-      }
     }
     renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
     updateSaveBtnUI(); updateLockedUI();
