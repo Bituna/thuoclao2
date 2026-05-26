@@ -1225,6 +1225,27 @@ var _supaHdr = {
 var _supaOnline = false; // true khi kết nối thành công
 
 // Kiểm tra kết nối Supabase
+// Tải catalog từ Supabase — gọi độc lập, không phụ thuộc reports
+async function loadCatalogFromCloud(){
+  if(!_supaOnline) return;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot', {headers:_supaHdr});
+    if(!r.ok) return;
+    var cd = await r.json();
+    if(!cd.length) return;
+    var seen={}, clean=[];
+    cd.forEach(function(r){
+      var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+      if(!seen[k]){seen[k]=true;clean.push(r);}
+    });
+    catalogData = clean;
+    fillDrugSelects();
+    renderDrugTable();
+    renderCatalog();
+    _updateCatalogLockUI();
+  }catch(e){ console.warn('loadCatalogFromCloud error:',e); }
+}
+
 async function checkSupabase(){
   var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 6000); });
   var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
@@ -2460,8 +2481,10 @@ function initApp(){
     setTimeout(function(){
       checkSupabase().then(function(){
         if(_supaOnline){
+          // Tải catalog ngay lập tức — không đợi _autoLoadOnLogin
+          loadCatalogFromCloud();
           _autoLoadOnLogin().then(function(){
-            fillDrugSelects(); // gọi lại sau cloud → catalog mới nhất
+            fillDrugSelects();
           }).catch(function(){});
         }
       });
