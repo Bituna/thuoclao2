@@ -278,7 +278,7 @@ em{font-style:normal!important}i{font-style:normal!important}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Quản lý tài khoản
   </button>
   <button id="sb-cd" class="sb-item" onclick="nav('cd',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Cài đặt
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Cài đặt
   </button>
   <div class="sb-footer">
     <div class="sb-user">
@@ -848,7 +848,7 @@ function _updateCloudStatus(){
 }
 
 // ============================================================
-// TẢI DỮ LIỆU TỰ ĐỘNG TỪ CLOUD (Không dùng Local Storage)
+// TẢI DỮ LIỆU TỰ ĐỘNG TỪ CLOUD (Không dùng Local Storage cho Báo Cáo)
 // ============================================================
 async function _autoLoadOnLogin(){
   var periodKey = _currentPeriodKey();
@@ -888,7 +888,7 @@ async function _autoLoadOnLogin(){
     if(!r.ok) return;
     var rows = await r.json();
     
-    // Tự động kéo dữ liệu tồn cuối kỳ trước làm tồn đầu kỳ này (Query từ Supabase)
+    // Tự động kéo dữ liệu tồn cuối kỳ trước làm tồn đầu kỳ này (Query trực tiếp từ Supabase)
     if(!rows.length){
       var prevKey = _prevPeriodKey(periodKey);
       var prevUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(prevKey);
@@ -1014,7 +1014,7 @@ async function _saveSupaCatalog(){
   }));
   
   try {
-    // Sửa lỗi PostgREST không cho DELETE rỗng - dùng điều kiện luôn đúng (drug not null)
+    // Sử dụng điều kiện not.is.null thay vì neq. để xóa mượt mà hơn
     var delRes = await fetch(SUPA_URL+'/rest/v1/catalog?drug=not.is.null', {method:'DELETE', headers:hdBase});
   } catch(e) {}
   var insRes = await fetch(SUPA_URL+'/rest/v1/catalog', {method:'POST', headers:hdPost, body:body});
@@ -1485,7 +1485,7 @@ function fillCatDrugSelect(){
 function onCatDrugChange(){
   var sel=document.getElementById('cat-drug');
   var wrap=document.getElementById('cat-drug-custom-wrap');
-  if(!sel||wrap) return;
+  if(!sel||!wrap) return;
   wrap.style.display=(sel.value==='__khac__')?'flex':'none';
   if(sel.value!=='__khac__'){var inp=document.getElementById('cat-drug-custom');if(inp)inp.value='';}
 }
@@ -2068,7 +2068,7 @@ function renderBC(){
 
 function updField(prefix,rowIdx,field,val){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
-  if(!_supaOnline){toast('⚠ Mất kết nối Cloud! Chỉnh sửa chưa được lưu.','var(--danger)');return;}
+  if(!_supaOnline){toast('⚠ Mất kết nối Cloud! Chỉnh sửa bị chặn.','var(--danger)');return;}
   var v=Math.max(0,parseInt(val)||0);var realIdx=-1;
   if(prefix==='bvph'){var bvphFiltered2=bvphData.filter(matchPeriod);if(rowIdx<bvphFiltered2.length)realIdx=bvphData.indexOf(bvphFiltered2[rowIdx]);}
   else{var filtered2=getFilteredBC();if(rowIdx<filtered2.length)realIdx=bcData.indexOf(filtered2[rowIdx]);}
@@ -2092,7 +2092,7 @@ function delR(prefix,rowIdx){
 }
 function editR(prefix,rowIdx){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
-  if(!_supaOnline){toast('⚠ Mất kết nối Cloud!','var(--danger)');return;}
+  if(!_supaOnline){toast('⚠ Mất kết nối Cloud! Chỉnh sửa bị chặn.','var(--danger)');return;}
   var realIdx=-1;
   if(prefix==='bvph'){var bvphF=bvphData.filter(matchPeriod);if(rowIdx<bvphF.length)realIdx=bvphData.indexOf(bvphF[rowIdx]);}
   else{var bcF=getFilteredBC();if(rowIdx<bcF.length)realIdx=bcData.indexOf(bcF[rowIdx]);}
@@ -2128,7 +2128,6 @@ function addNoUsageRow(){
   lots.forEach(function(r){
     var dup=bcData.find(function(d){return d.unit===unit&&d.drug===r.drug&&d.lot===r.lot&&d.exp===r.exp&&d.bcMonth===mon;});
     if(dup)return;
-    // Open stock will rely on cloud data load previously, initialized to 0 here
     var newRow={unit:unit,drug:r.drug,lot:r.lot,exp:r.exp,open:0,tinh:0,dc:0,sd:0,dc2:0,dc3:0,hh:0,locked:false,editing:false,bcMonth:mon,openLocked:false};
     bcData.push(newRow);added++;
   });
@@ -2253,10 +2252,17 @@ function editTPInline(key,btn){
   toast('Chỉnh số liệu TW/tỉnh: Hãy sửa trực tiếp trong bảng BVPHP','var(--accent)');
 }
 
+function onTPInp(key,field,val){
+  var p=getSelectedPeriod();var extraKey=p.val+'|'+key;
+  if(!extraTP[extraKey])extraTP[extraKey]={};
+  extraTP[extraKey][field]=Math.max(0,parseInt(val)||0);
+  renderTP();
+}
+
 // ============================================================
 // PAYLOAD & THIẾT LẬP
 // ============================================================
-// Đã xóa cơ chế LocalCache cho Báo Cáo và Danh Mục (Offline Storage)
+// Đã xóa hoàn toàn cơ chế LocalCache cho Báo Cáo và Danh Mục (Offline Storage)
 function saveLocalCache(){
   try{
     var toSave={ ACCOUNTS:ACCOUNTS, threshold:threshold, savedAt:new Date().toISOString() };
@@ -2457,4 +2463,153 @@ function exportExcel(){
   var wsBVPH=XLSX.utils.aoa_to_sheet(bvphRows);_styleCell(wsBVPH,2,wsBVPH[XLSX.utils.encode_cell({r:2,c:0})]);
   wsBVPH['!cols']=[{wch:30},{wch:28},{wch:14},{wch:12},{wch:9},{wch:9},{wch:10},{wch:10},{wch:9},{wch:9},{wch:9},{wch:9},{wch:10},{wch:9},{wch:18}];
   XLSX.utils.book_append_sheet(wb,wsBVPH,'Kho chính BVPHP');
-  var bcRows=[['BÁO
+  var bcRows=[['BÁO CÁO THUỐC LAO — 22 ĐƠN VỊ TUYẾN','','','','','','','','','','','','','',''],['Kỳ: '+pLabel,'','','','','','','','','','','','','',''],hdr];
+  bcData.filter(matchPeriod).forEach(function(r){var c=calcRow(r);bcRows.push([r.unit,r.drug,r.lot,expToMMYYYY(r.exp),r.open,r.tinh,r.dc,c.tin,r.sd,r.dc2,'',r.hh,c.tout,c.final,'']);});
+  var wsBC=XLSX.utils.aoa_to_sheet(bcRows);
+  wsBC['!cols']=[{wch:30},{wch:28},{wch:14},{wch:12},{wch:9},{wch:9},{wch:10},{wch:10},{wch:9},{wch:9},{wch:9},{wch:9},{wch:10},{wch:9},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,wsBC,'22 đơn vị tuyến');
+  var fname='ThuocLao_'+periodKey+'.xlsx';
+  XLSX.writeFile(wb,fname);toast('✓ Đã xuất: '+fname,'var(--success)');
+}
+function _styleCell(ws,headerRow,cell){
+  if(cell){cell.s={font:{bold:true},fill:{fgColor:{rgb:'1A5276'}},font:{color:{rgb:'FFFFFF'},bold:true}};}
+}
+
+// ============================================================
+// IN BÁO CÁO
+// ============================================================
+function openPrintModal(){
+  var selUnit=document.getElementById('filter-unit-bc');
+  var unitVal=selUnit?selUnit.value:'__all__';
+  var lbl=document.getElementById('print-unit-label');
+  if(lbl) lbl.textContent=unitVal==='__all__'?'Tổng hợp tất cả đơn vị':'Đơn vị: '+unitVal;
+  document.getElementById('modal-print').classList.add('open');
+}
+function doPrint(){
+  var choice=document.querySelector('input[name="print-choice"]:checked');var val=choice?choice.value:'unit';
+  var p=getSelectedPeriod();
+  var mNames=['','Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+  var pLabel=p.type==='year'?'Cả năm '+p.year:mNames[parseInt(p.val.split('-')[1]||0)]+'/'+p.year;
+  document.getElementById('print-period-label').textContent='Kỳ báo cáo: '+pLabel;
+  var selUnit=document.getElementById('filter-unit-bc');var unitVal=selUnit?selUnit.value:'__all__';
+  if(val==='unit'){
+    document.getElementById('print-main-title').textContent='BÁO CÁO THUỐC LAO — CÁC ĐƠN VỊ TUYẾN';
+    document.getElementById('print-sub-title').textContent=unitVal==='__all__'?'Tổng hợp 22 đơn vị tuyến':'Đơn vị: '+unitVal;
+    document.body.className='print-unit';
+  } else if(val==='bvph'){
+    document.getElementById('print-main-title').textContent='BÁO CÁO THUỐC LAO — KHO CHÍNH BV PHỔI HẢI PHÒNG';
+    document.getElementById('print-sub-title').textContent='Bệnh viện Phổi Hải Phòng';
+    document.body.className='print-bvph';
+  } else {
+    document.getElementById('print-main-title').textContent='BÁO CÁO THUỐC LAO TOÀN THÀNH PHỐ';
+    document.getElementById('print-sub-title').textContent='TP. Hải Phòng — Kho chính + 22 đơn vị tuyến';
+    document.body.className='print-all';
+  }
+  closeModal('modal-print');
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){document.body.className='';},500);
+  },200);
+}
+
+// ============================================================
+// CÀI ĐẶT
+// ============================================================
+function saveSettings(){
+  var lt=document.getElementById('threshold-low');var et=document.getElementById('threshold-exp');
+  if(lt) threshold.low=Math.max(0,parseInt(lt.value)||200);
+  if(et) threshold.expMonths=Math.max(0,parseInt(et.value)||6);
+  var cl=document.getElementById('cur-low');if(cl)cl.textContent=threshold.low;
+  var ce=document.getElementById('cur-exp');if(ce)ce.textContent=threshold.expMonths;
+  saveLocalCache();
+  toast('Đã lưu cài đặt','var(--success)');
+}
+
+// ============================================================
+// TOAST & CONFIRM MODAL
+// ============================================================
+function toast(msg,bg){
+  var t=document.getElementById('toast');if(!t)return;
+  t.textContent=msg;t.style.background=bg||'#333';t.style.display='block';
+  if(toast._timer)clearTimeout(toast._timer);
+  toast._timer=setTimeout(function(){t.style.display='none';},3200);
+}
+var _confirmCb=null;
+function _confirmModal(title,detail,cb){
+  _confirmCb=cb;
+  var html='<div class="modal-overlay open" id="confirm-overlay" style="z-index:3000">'
+    +'<div class="modal" style="width:340px">'
+    +'<h3 style="font-size:14px;color:var(--danger)">⚠ '+title+'</h3>'
+    +'<p style="font-size:12px;color:var(--muted);margin-bottom:14px">'+detail+'</p>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-outline" onclick="document.getElementById(\'confirm-overlay\').remove();_confirmCb=null;">Hủy</button>'
+    +'<button class="btn btn-danger" onclick="if(_confirmCb)_confirmCb();document.getElementById(\'confirm-overlay\').remove();_confirmCb=null;">Xác nhận</button>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+// ============================================================
+// PERIOD NAVIGATION HELPERS
+// ============================================================
+function _prevPeriodKey(key){
+  if(!key) return '';
+  if(key.indexOf('-')<0) return (parseInt(key)-1)+'';
+  var parts=key.split('-');var yr=parseInt(parts[0]);var mn=parseInt(parts[1]);
+  mn--;if(mn<=0){mn=12;yr--;}
+  return yr+'-'+(mn<10?'0':'')+mn;
+}
+function _nextPeriodKey(key){
+  if(!key) return '';
+  if(key.indexOf('-')<0) return (parseInt(key)+1)+'';
+  var parts=key.split('-');var yr=parseInt(parts[0]);var mn=parseInt(parts[1]);
+  mn++;if(mn>12){mn=1;yr++;}
+  return yr+'-'+(mn<10?'0':'')+mn;
+}
+function _keyToLabel(key){
+  if(!key) return '';
+  if(key.indexOf('-')<0) return 'Năm '+key;
+  var parts=key.split('-');return 'Tháng '+parseInt(parts[1])+'/'+parts[0];
+}
+
+// ============================================================
+// SYNC CLOUD (debounced)
+// ============================================================
+var _syncTimer=null;
+function _syncPeriodToCloud(){
+  if(!_supaOnline) return;
+  if(_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(function(){
+    var pk=_currentPeriodKey();
+    if(pk) saveToSupabase(pk).catch(function(e){console.warn('Auto-sync error:',e);});
+  },2000);
+}
+
+// ============================================================
+// CHUYỂN TAB
+// ============================================================
+function switchTab(tab,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(el) el.classList.add('active');
+  if(tab==='thongke') onFilterChange();
+}
+
+// ============================================================
+// ROLE SELECT UI
+// ============================================================
+document.addEventListener('DOMContentLoaded',function(){
+  var roleSel=document.getElementById('role-select');
+  if(roleSel){
+    roleSel.addEventListener('change',function(){
+      var desc=document.getElementById('role-desc');
+      if(desc) desc.textContent=ROLE_DESC[this.value]||'';
+    });
+  }
+  var luInp=document.getElementById('lu');var lpInp=document.getElementById('lp');
+  if(luInp) luInp.addEventListener('keydown',function(e){if(e.key==='Enter'){var lp=document.getElementById('lp');if(lp)lp.focus();}});
+  if(lpInp) lpInp.addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+});
+</script>
+</body>
+</html>
