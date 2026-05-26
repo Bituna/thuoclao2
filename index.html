@@ -1435,9 +1435,14 @@ async function _saveSupaCatalog(){
   var body = JSON.stringify(toSave.map(function(r){
     return {drug:r.drug, lot:r.lot, exp:r.exp||'', note:r.note||''};
   }));
-  // Xóa rồi insert
-  var delRes = await fetch(SUPA_URL+'/rest/v1/catalog', {method:'DELETE', headers:_supaHdr});
-  if(!delRes.ok) throw new Error('Xóa catalog thất bại: '+delRes.status);
+  // Supabase yêu cầu filter khi DELETE — dùng id > 0 để xóa tất cả
+  var delRes = await fetch(SUPA_URL+'/rest/v1/catalog?id=gt.0', {method:'DELETE', headers:_supaHdr});
+  // Nếu bảng rỗng (404/416) vẫn OK, tiếp tục insert
+  if(!delRes.ok && delRes.status !== 404 && delRes.status !== 416){
+    // Thử fallback: xóa theo drug không rỗng
+    var delRes2 = await fetch(SUPA_URL+'/rest/v1/catalog?drug=neq.NULL', {method:'DELETE', headers:_supaHdr});
+    if(!delRes2.ok && delRes2.status !== 416) throw new Error('Xóa catalog thất bại: '+delRes2.status);
+  }
   var insRes = await fetch(SUPA_URL+'/rest/v1/catalog', {method:'POST', headers:hdPost, body:body});
   if(!insRes.ok) throw new Error('Lưu catalog thất bại: '+insRes.status);
 }
