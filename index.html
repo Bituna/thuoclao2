@@ -5617,40 +5617,32 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
     +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
     +'</div></div></body></html>';
 
-  // Mở trang in qua blob URL - không bị chặn popup
-  try{
-    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    var url = URL.createObjectURL(blob);
-    var win = window.open(url, '_blank');
-    if(win){
-      win.addEventListener('load', function(){
-        win.print();
-        URL.revokeObjectURL(url);
-      });
-    } else {
-      // Fallback: dùng div overlay nếu popup bị chặn
-      var printDiv = document.getElementById('_print_overlay');
-      if(printDiv) printDiv.remove();
-      printDiv = document.createElement('div');
-      printDiv.id = '_print_overlay';
-      printDiv.innerHTML = html;
-      printDiv.style.cssText = 'display:none';
-      document.body.appendChild(printDiv);
-      var pStyle = document.getElementById('_print_style');
-      if(pStyle) pStyle.remove();
-      pStyle = document.createElement('style');
-      pStyle.id = '_print_style';
-      pStyle.textContent = '@media print{body>*:not(#_print_overlay){display:none!important}#_print_overlay{display:block!important}}';
-      document.head.appendChild(pStyle);
-      printDiv.style.display = 'block';
-      setTimeout(function(){
-        window.print();
-        setTimeout(function(){ printDiv.remove(); pStyle.remove(); }, 1000);
-      }, 300);
-    }
-  }catch(e){
-    toast('Lỗi in: '+e.message,'var(--danger)');
-  }
+  // Inject vào trang hiện tại rồi dùng window.print()
+  var pd = document.getElementById('_byt_print_div');
+  if(pd) pd.remove();
+  pd = document.createElement('div');
+  pd.id = '_byt_print_div';
+  pd.innerHTML = html;
+  document.body.appendChild(pd);
+
+  var ps = document.getElementById('_byt_print_style');
+  if(ps) ps.remove();
+  ps = document.createElement('style');
+  ps.id = '_byt_print_style';
+  ps.textContent = '@media print{'
+    + 'body > *:not(#_byt_print_div){display:none!important}'
+    + '#_byt_print_div{display:block!important;position:fixed;inset:0;background:white;z-index:99999}'
+    + '#_byt_print_div .pg{padding:20mm 10mm 10mm 15mm}'
+    + '}';
+  document.head.appendChild(ps);
+
+  setTimeout(function(){
+    window.print();
+    setTimeout(function(){
+      var el=document.getElementById('_byt_print_div'); if(el) el.remove();
+      var st=document.getElementById('_byt_print_style'); if(st) st.remove();
+    }, 1500);
+  }, 200);
 }
 
 
