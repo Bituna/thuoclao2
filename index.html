@@ -4503,16 +4503,15 @@ function onDc3Change(prefix, rowIdx, inp){
 // Áp dụng điều chuyển dc2 → dc của đơn vị nhận
 function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   var periodKey = _currentPeriodKey();
-
-  // Kiểm tra tồn đủ không (tồn đầu + nhập >= tổng xuất)
   var srcArr = prefix==='bvph' ? bvphData : bcData;
   var srcRow = srcArr[fromIdx];
+
+  // Kiểm tra tồn TRƯỚC khi cộng dc2 (dc2 đã được cộng ở ngoài rồi, cần check)
   if(srcRow){
     var calc = calcRow(srcRow);
     var maxOut = (srcRow.open||0) + calc.tin;
     if(calc.tout > maxOut){
-      toast('⚠ Tổng xuất vượt quá tồn! Tồn không được âm.','var(--danger)');
-      // Rollback dc2
+      toast('⚠ Tổng xuất ('+calc.tout+') vượt quá tồn ('+maxOut+')! Đã hoàn lại.','var(--danger)');
       srcRow.dc2 = Math.max(0, (srcRow.dc2||0) - qty);
       renderBVPH(); renderBC();
       return;
@@ -4528,8 +4527,7 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   });
 
   if(!targetRow){
-    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này. Thêm dòng đó trước!','orange');
-    // Rollback dc2
+    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này!','orange');
     if(srcRow) srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-qty);
     renderBVPH(); renderBC();
     return;
@@ -4538,17 +4536,21 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   // Cộng vào dc của đơn vị nhận
   targetRow.dc = (targetRow.dc||0) + qty;
 
-  // Lưu phiếu lên Supabase
-  if(_supaOnline){
-    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc').then(function(){
-      toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit,'#27ae60');
-    });
-  } else {
-    toast('✓ Đã điều chuyển (offline — sẽ sync khi có mạng)','#27ae60');
-  }
-
   renderBVPH(); renderBC(); renderTP();
   _syncPeriodToCloud();
+
+  // Lưu phiếu lên Supabase
+  if(_supaOnline){
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc')
+      .then(function(){
+        toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu cloud','#27ae60');
+      })
+      .catch(function(e){
+        toast('✓ Điều chuyển OK nhưng chưa lưu phiếu: '+e.message,'orange');
+      });
+  } else {
+    toast('✓ Đã điều chuyển (offline)','#27ae60');
+  }
 }
 
 function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
@@ -4584,16 +4586,20 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   // Cộng vào tinh (Tỉnh cấp) của đơn vị nhận
   targetRow.tinh = (targetRow.tinh||0) + qty;
 
+  renderBVPH(); renderBC(); renderTP();
+  _syncPeriodToCloud();
+
   if(_supaOnline){
-    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh').then(function(){
-      toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' (Tỉnh cấp đã cập nhật)','#6c3483');
-    });
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh')
+      .then(function(){
+        toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu cloud','#6c3483');
+      })
+      .catch(function(e){
+        toast('✓ Xuất OK nhưng chưa lưu phiếu: '+e.message,'orange');
+      });
   } else {
     toast('✓ Xuất Tổ CL (offline)','#6c3483');
   }
-
-  renderBVPH(); renderBC(); renderTP();
-  _syncPeriodToCloud();
 }
 
 // Hủy/Sửa phiếu điều chuyển
@@ -4667,17 +4673,20 @@ async function cancelTransferById(transferId, toUnit){
 }
 
 async function _saveTransfer(period, fromUnit, toUnit, row, qty, type){
-  try{
-    var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
-    await fetch(SUPA_URL+'/rest/v1/transfers', {
-      method:'POST', headers:hdPost,
-      body:JSON.stringify([{
-        period:period, from_unit:fromUnit, to_unit:toUnit,
-        drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
-        note: type||'dc2_to_dc'
-      }])
-    });
-  }catch(e){ console.warn('Save transfer error:',e); }
+  var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
+  var res = await fetch(SUPA_URL+'/rest/v1/transfers', {
+    method:'POST', headers:hdPost,
+    body:JSON.stringify([{
+      period:period, from_unit:fromUnit, to_unit:toUnit,
+      drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
+      note: type||'dc2_to_dc'
+    }])
+  });
+  if(!res.ok){
+    var errText = await res.text();
+    throw new Error('HTTP '+res.status+': '+errText);
+  }
+  return true;
 }
 
 // ============================================================
