@@ -3167,17 +3167,28 @@ function buildTbl(data, bodyId, prefix){
       var locked = readOnly || isLocked;
       if(isEditing && canEdit && !locked){
         // dc2 = Xuất điều chuyển → hỏi đơn vị nhận
+        // dc2 = Xuất điều chuyển
         if(field === 'dc2'){
           var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
-          var onclick = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
+          var onclick2 = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
             + ' style="width:54px;padding:4px;border:1px solid #f59e0b;border-radius:5px;text-align:center;font-size:12px;background:#fffbeb;cursor:pointer"'
-            + ' onchange="' + onch + '"'
-            + ' oninput="' + onch + '"'
-            + ' onfocus="' + onclick + '"'
-            + ' title="Click để chọn đơn vị nhận điều chuyển"'
-            + ' readonly'
+            + ' onchange="' + onch + '"' + ' oninput="' + onch + '"'
+            + ' onfocus="' + onclick2 + '"'
+            + ' title="Click để tạo phiếu điều chuyển" readonly'
+            + '>';
+        }
+        // dc3 = Xuất Tổ CL (BVPH) → rơi vào cột Tỉnh cấp của đơn vị tuyến
+        if(field === 'dc3'){
+          var onch3 = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
+          var onclick3 = 'onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)';
+          return '<input type="number" min="0" value="' + val + '"'
+            + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
+            + ' style="width:54px;padding:4px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:12px;background:#f9f0ff;cursor:pointer"'
+            + ' onchange="' + onch3 + '"' + ' oninput="' + onch3 + '"'
+            + ' onfocus="' + onclick3 + '"'
+            + ' title="Xuất Tổ CL → Tỉnh cấp của đơn vị tuyến" readonly'
             + '>';
         }
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
@@ -4386,7 +4397,8 @@ async function showDcDetail(prefix, rowIdx){
     tbl.innerHTML = '<thead><tr style="background:#1a5276;color:white">'
       +'<th style="padding:6px 8px;text-align:left">Từ đơn vị</th>'
       +'<th style="padding:6px 8px">Số lượng</th>'
-      +'<th style="padding:6px 8px">Thời gian</th>'
+      +'<th style="padding:6px 8px">Ngày</th>'
+      +'<th style="padding:6px 8px">Thao tác</th>'
       +'</tr></thead>';
     var total = 0;
     var tbody = document.createElement('tbody');
@@ -4394,9 +4406,14 @@ async function showDcDetail(prefix, rowIdx){
       var tr = document.createElement('tr');
       tr.style.background = i%2===0?'#f8f9fa':'white';
       var dt = t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—';
+      var cancelBtn = isAdmin()
+        ? '<button onclick="ov.remove();cancelTransferById(\''+t.id+'\',\''+toUnit+'\')" '
+          +'style="font-size:10px;padding:2px 7px;border:1px solid #e74c3c;border-radius:4px;background:white;color:#e74c3c;cursor:pointer">Hủy</button>'
+        : '—';
       tr.innerHTML = '<td style="padding:6px 8px">' + t.from_unit + '</td>'
         + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#27ae60">' + (t.qty||0).toLocaleString() + ' viên</td>'
-        + '<td style="padding:6px 8px;text-align:center;color:#888">' + dt + '</td>';
+        + '<td style="padding:6px 8px;text-align:center;color:#888">' + dt + '</td>'
+        + '<td style="padding:6px 8px;text-align:center">' + cancelBtn + '</td>';
       tbody.appendChild(tr);
       total += (t.qty||0);
     });
@@ -4422,13 +4439,180 @@ async function showDcDetail(prefix, rowIdx){
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
 }
 
-async function _saveTransfer(period, fromUnit, toUnit, row, qty){
+// Xuất Tổ CL (dc3) → rơi vào cột Tỉnh cấp (tinh) của đơn vị tuyến
+function onDc3Change(prefix, rowIdx, inp){
+  var arr = prefix === 'bvph' ? bvphData : bcData;
+  var realIdx = getReal(prefix, rowIdx);
+  if(realIdx < 0) return;
+  var row = arr[realIdx];
+  var fromUnit = row.unit || BVPH;
+  // dc3 chỉ áp dụng cho BVPH, đơn vị nhận là 22 đơn vị tuyến
+  var receiveUnits = UNITS.filter(function(u){ return u !== BVPH; });
+
+  var old = document.getElementById('_transfer_modal'); if(old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = '_transfer_modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+
+  var h = document.createElement('div');
+  h.style.cssText = 'font-size:15px;font-weight:700;color:#6c3483;margin-bottom:5px';
+  h.textContent = '↙ Xuất Tổ CL → Đơn vị tuyến';
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f9f0ff;border-radius:6px;line-height:1.7';
+  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ:</b> '+fromUnit+' &nbsp;→&nbsp; <b>Rơi vào: Cột Tỉnh cấp</b>';
+
+  var qtyLabel = document.createElement('div');
+  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
+  qtyLabel.textContent = 'Số lượng xuất (viên):';
+  var qtyInp = document.createElement('input');
+  qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
+  qtyInp.style.cssText = 'width:100%;padding:10px;border:2px solid #8e44ad;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box;text-align:center';
+
+  var lbl = document.createElement('div');
+  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
+  lbl.textContent = 'Chuyển đến đơn vị tuyến:';
+  var sel = document.createElement('select');
+  sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
+  var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
+  sel.appendChild(opt0);
+  receiveUnits.forEach(function(u){
+    var o = document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o);
+  });
+
+  var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var btnC = document.createElement('button');
+  btnC.textContent='Hủy';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.onclick=function(){ ov.remove(); };
+  var btnO = document.createElement('button');
+  btnO.textContent='✓ Xác nhận';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#6c3483;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.onclick=function(){
+    var qty = parseInt(qtyInp.value)||0;
+    var toUnit = sel.value;
+    if(qty<=0){ toast('Nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
+    if(!toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    ov.remove();
+    // Cộng dồn dc3
+    arr[realIdx].dc3 = (arr[realIdx].dc3||0) + qty;
+    inp.value = arr[realIdx].dc3;
+    updField(prefix, rowIdx, 'dc3', arr[realIdx].dc3);
+    // Rơi vào cột tinh (Tỉnh cấp) của đơn vị nhận
+    _applyDc3Transfer(prefix, realIdx, row, qty, fromUnit, toUnit);
+  };
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
+  box.appendChild(h); box.appendChild(sub);
+  box.appendChild(qtyLabel); box.appendChild(qtyInp);
+  box.appendChild(lbl); box.appendChild(sel);
+  box.appendChild(btnRow);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  setTimeout(function(){ qtyInp.focus(); }, 100);
+}
+
+// dc3 → cộng vào tinh (Tỉnh cấp) của đơn vị tuyến
+function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
+  var periodKey = _currentPeriodKey();
+  var targetRow = bcData.find(function(r){
+    return r.bcMonth===periodKey && r.drug===fromRow.drug
+      && r.lot===fromRow.lot && r.exp===fromRow.exp && r.unit===toUnit;
+  });
+  if(targetRow){
+    targetRow.tinh = (targetRow.tinh||0) + qty;
+    toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' (Tỉnh cấp đã cập nhật)','#6c3483');
+    if(_supaOnline) _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh');
+    renderBVPH(); renderBC(); renderTP();
+    _syncPeriodToCloud();
+  } else {
+    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này!','orange');
+    var srcArr = prefix==='bvph' ? bvphData : bcData;
+    if(srcArr[fromIdx]) srcArr[fromIdx].dc3 = Math.max(0,(srcArr[fromIdx].dc3||0)-qty);
+    renderBVPH(); renderBC();
+  }
+}
+
+// Hủy/Sửa phiếu điều chuyển
+async function cancelTransfer(transferId, prefix, rowIdx, field, qty, targetUnit, targetField){
+  _confirmModal('Hủy phiếu điều chuyển?', 'Số lượng sẽ được hoàn trả về 0.', async function(){
+    // Xóa phiếu trên Supabase
+    if(_supaOnline){
+      try{
+        await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {method:'DELETE', headers:_supaHdr});
+      }catch(e){}
+    }
+    // Reset dc2/dc3 của nguồn
+    var srcArr = prefix==='bvph' ? bvphData : bcData;
+    var realIdx = getReal(prefix, rowIdx);
+    if(realIdx >= 0 && srcArr[realIdx]){
+      srcArr[realIdx][field] = Math.max(0, (srcArr[realIdx][field]||0) - qty);
+    }
+    // Reset tinh/dc của đích
+    // (tìm theo targetUnit)
+    renderBVPH(); renderBC(); renderTP();
+    _syncPeriodToCloud();
+    toast('Đã hủy phiếu điều chuyển','var(--warning)');
+  });
+}
+
+// Hủy 1 phiếu điều chuyển theo ID
+async function cancelTransferById(transferId, toUnit){
+  _confirmModal('Hủy phiếu điều chuyển?',
+    'Số liệu nhập điều chuyển của đơn vị nhận sẽ bị trừ lại.',
+    async function(){
+      var periodKey = _currentPeriodKey();
+      // Lấy thông tin phiếu trước khi xóa
+      var t = null;
+      if(_supaOnline){
+        try{
+          var r = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {headers:_supaHdr});
+          var data = await r.json();
+          if(data.length) t = data[0];
+          // Xóa phiếu
+          await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {method:'DELETE', headers:_supaHdr});
+        }catch(e){}
+      }
+      if(t){
+        var isdc3 = t.note === 'dc3_to_tinh';
+        // Trừ lại dc2/dc3 của đơn vị xuất
+        var srcArr = (t.from_unit===BVPH||t.from_unit==='bvph') ? bvphData : bcData;
+        var srcRow = srcArr.find(function(r){
+          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
+            && (t.from_unit===BVPH||t.from_unit==='bvph' ? (r.unit===BVPH||r.unit==='bvph') : r.unit===t.from_unit);
+        });
+        if(srcRow){
+          if(isdc3) srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-(t.qty||0));
+          else      srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-(t.qty||0));
+        }
+        // Trừ lại tinh/dc của đơn vị nhận
+        var dstArr = (toUnit===BVPH) ? bvphData : bcData;
+        var dstRow = dstArr.find(function(r){
+          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
+            && (toUnit===BVPH ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
+        });
+        if(dstRow){
+          if(isdc3) dstRow.tinh = Math.max(0,(dstRow.tinh||0)-(t.qty||0));
+          else      dstRow.dc   = Math.max(0,(dstRow.dc||0)-(t.qty||0));
+        }
+        renderBVPH(); renderBC(); renderTP();
+        _syncPeriodToCloud();
+        toast('Đã hủy phiếu điều chuyển '+( t.qty||0).toLocaleString()+' viên','var(--warning)');
+      }
+    }
+  );
+}
+
+async function _saveTransfer(period, fromUnit, toUnit, row, qty, type){
   try{
     var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
     await fetch(SUPA_URL+'/rest/v1/transfers', {
       method:'POST', headers:hdPost,
-      body:JSON.stringify([{period:period, from_unit:fromUnit, to_unit:toUnit,
-        drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty}])
+      body:JSON.stringify([{
+        period:period, from_unit:fromUnit, to_unit:toUnit,
+        drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
+        note: type||'dc2_to_dc'
+      }])
     });
   }catch(e){ console.warn('Save transfer error:',e); }
 }
