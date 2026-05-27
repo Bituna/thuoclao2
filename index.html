@@ -1032,11 +1032,12 @@ em{font-style:normal!important}i{font-style:normal!important}
       <div id="cloud-status" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:160px">
         <span style="color:#999;font-size:11px">☁ Cloud: đang kiểm tra...</span>
       </div>
-      <button class="btn btn-outline" onclick="openPrintModal()">🖨 In báo cáo</button>
-      <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt Kho chính</button>
-      <button class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị: tồn cuối → tồn đầu kỳ sau" class="btn btn-xs btn-chot" style="background:#6c757d;color:white">🔒 Chốt 22 ĐV</button>
+      <button id="btn-footer-print" class="btn btn-outline" onclick="openPrintModal()">🖨 In báo cáo</button>
+      <button id="btn-footer-chot-bvph" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính">🔒 Chốt Kho chính</button>
+      <button id="btn-footer-chot-bc" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị">🔒 Chốt 22 ĐV</button>
       <button class="btn" style="background:#1d6f42;color:white" onclick="exportExcel()" title="Xuất báo cáo ra file Excel (.xlsx)">📊 Xuất Excel</button>
-            <button class="btn" style="background:#1a5276;color:white" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải dữ liệu kỳ đang chọn từ cloud">☁ Tải từ cloud</button>
+      <button class="btn" style="background:#c0392b;color:white" onclick="exportBaoCaoDonVi()" title="Xuất báo cáo theo mẫu BYT">📋 Mẫu BC BYT</button>
+      <button id="btn-footer-cloud" class="btn" style="background:#1a5276;color:white" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải dữ liệu từ cloud">☁ Tải từ cloud</button>
       <button class="btn btn-primary" id="btn-save-bc" onclick="saveBC()">💾 Lưu báo cáo</button>
       <button class="btn" id="btn-open-bc" onclick="openReport()" style="display:none;background:#e67e22;color:white">🔓 Mở lại để sửa</button>
     </div>
@@ -2506,8 +2507,9 @@ function initApp(){
   }
   setTimeout(function(){
     updateSaveBtnUI(); setupCatalog();
-    fillDrugSelects(); // sau loadSaved → catalogData đã restore từ localStorage
+    fillDrugSelects();
     _initYearDatalist();
+    updateFooterByRole(); // ẩn/hiện nút theo role
     setTimeout(initFileHandle, 500);
     setTimeout(function(){
       checkSupabase().then(function(){
@@ -4294,6 +4296,17 @@ function openReport(){
   toast('Đã mở lại báo cáo '+label+' để chỉnh sửa','var(--warning)');
 }
 
+// Ẩn/hiện nút footer theo role — chỉ Admin thấy tất cả
+function updateFooterByRole(){
+  var admin = isAdmin();
+  // Các nút chỉ Admin thấy
+  var adminOnly = ['btn-footer-print','btn-footer-chot-bvph','btn-footer-chot-bc','btn-footer-cloud'];
+  adminOnly.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = admin ? '' : 'none';
+  });
+}
+
 function updateSaveBtnUI(){
   var locked   = isCurrentPeriodLocked();
   var saveBtn  = document.getElementById('btn-save-bc');
@@ -5278,6 +5291,238 @@ async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
   }
   return true;
 }
+
+// ============================================================
+// XUẤT BÁO CÁO THEO MẪU BYT
+// ============================================================
+function exportBaoCaoDonVi(){
+  if(typeof XLSX === 'undefined'){ toast('Thư viện Excel chưa tải!','var(--danger)'); return; }
+
+  var role = currentUser ? currentUser.role : 'admin';
+  // Lấy kỳ đang xem trên PM
+  var periodKey = _currentPeriodKey();
+  var p = periodKey.split('-');
+  var month = parseInt(p[1]||'0');
+  var year  = parseInt(p[0]||'0');
+
+  // Tên đơn vị = tên tài khoản đang đăng nhập
+  var unitName;
+  var rows;
+  if(role === 'bvph'){
+    unitName = BVPH;
+    rows = bvphData.filter(function(r){ return r.bcMonth === periodKey; });
+  } else if(role === 'donvi'){
+    unitName = currentUser.unit || currentUser.username || '';
+    rows = bcData.filter(function(r){ return r.bcMonth===periodKey && r.unit===unitName; });
+  } else {
+    // admin: hỏi chọn đơn vị nào xuất
+    unitName = BVPH;
+    rows = bvphData.filter(function(r){ return r.bcMonth === periodKey; });
+  }
+
+  if(!rows.length){ toast('Không có dữ liệu kỳ '+periodKey+'!','var(--warning)'); return; }
+
+  var wb = XLSX.utils.book_new();
+  var ws_data = [];
+
+  // ── Row 1: BỘ Y TẾ ──────────────────────────────────────────
+  ws_data.push(['BỘ Y TẾ','','','','','','','','','','','','','','','','','']);
+  ws_data.push(['Chương trình Chống Lao quốc gia','','','','','','','','','','','','','','','','','']);
+  ws_data.push(['BÁO CÁO  SỬ DỤNG  THUỐC ĐIỀU TRỊ LAO KHÁNG THUỐC','','','','','','','','','','','','','','','','','']);
+  ws_data.push(['     '+unitName,'','','','','','Tỉnh: Hải Phòng','','','','Báo cáo tháng '+('0'+month).slice(-2)+' năm '+year,'','','','','','','']);
+  ws_data.push(new Array(18).fill(''));
+
+  // ── Row 6-9: Header bảng ─────────────────────────────────────
+  ws_data.push(['STT','Tên thuốc/\nhàm lượng','Đơn vị\ntính','Nguồn\nkinh phí','Lô sản xuất','Hạn sử dụng','Tồn\nđầu kỳ','Nhập trong kỳ','','','','Xuất trong kỳ','','','','','Tồn\ncuối kỳ','Ghi chú']);
+  ws_data.push(['','','','','','','','Tỉnh\ncấp','Điều chuyển/\ntrả lại','Thừa','Cộng','Xuất\nsử dụng','Điều chuyển/\ntrả lại','Hỏng,\nvỡ,\nthiếu','Thuốc quá hạn\nchờ hủy','Cộng','','']);
+  ws_data.push(new Array(18).fill(''));
+  ws_data.push(['','','','','','','','(a)','(b)','(c)','(d)=(b)+\n(c)+(d)','(f)','(g)','(h)','(i)','(j)=(f)+\n(g)+(h)+(i)','(k)=(a)+\n(j)-(k)','']);
+
+  // ── Merges ───────────────────────────────────────────────────
+  var merges = [
+    {s:{r:0,c:0},e:{r:0,c:17}},   // BỘ Y TẾ
+    {s:{r:1,c:0},e:{r:1,c:17}},   // Chương trình
+    {s:{r:2,c:0},e:{r:2,c:17}},   // Tiêu đề
+    {s:{r:3,c:0},e:{r:3,c:5}},    // Tên đơn vị
+    {s:{r:3,c:6},e:{r:3,c:9}},    // Tỉnh
+    {s:{r:3,c:10},e:{r:3,c:17}},  // Tháng
+    // Header cột
+    {s:{r:5,c:0},e:{r:8,c:0}},    // STT
+    {s:{r:5,c:1},e:{r:8,c:1}},    // Tên thuốc
+    {s:{r:5,c:2},e:{r:8,c:2}},    // ĐV
+    {s:{r:5,c:3},e:{r:8,c:3}},    // Nguồn KP
+    {s:{r:5,c:4},e:{r:8,c:4}},    // Lô
+    {s:{r:5,c:5},e:{r:8,c:5}},    // Hạn
+    {s:{r:5,c:6},e:{r:8,c:6}},    // Tồn đầu
+    {s:{r:5,c:7},e:{r:5,c:10}},   // Nhập
+    {s:{r:5,c:11},e:{r:5,c:15}},  // Xuất
+    {s:{r:5,c:16},e:{r:8,c:16}},  // Tồn cuối
+    {s:{r:5,c:17},e:{r:8,c:17}},  // Ghi chú
+    {s:{r:6,c:7},e:{r:8,c:7}},    // Tỉnh cấp
+    {s:{r:6,c:8},e:{r:8,c:8}},    // ĐC nhận
+    {s:{r:6,c:9},e:{r:8,c:9}},    // Thừa
+    {s:{r:6,c:10},e:{r:8,c:10}},  // Cộng nhập
+    {s:{r:6,c:11},e:{r:8,c:11}},  // SD
+    {s:{r:6,c:12},e:{r:8,c:12}},  // ĐC xuất
+    {s:{r:6,c:13},e:{r:8,c:13}},  // Hỏng
+    {s:{r:6,c:14},e:{r:8,c:14}},  // Quá hạn
+    {s:{r:6,c:15},e:{r:8,c:15}},  // Cộng xuất
+  ];
+
+  // ── DATA: gom nhóm theo tên thuốc ────────────────────────────
+  var groups = {}, groupOrder = [];
+  rows.forEach(function(r){
+    if(!groups[r.drug]){ groups[r.drug]=[]; groupOrder.push(r.drug); }
+    groups[r.drug].push(r);
+  });
+
+  var dataStartRow = ws_data.length;
+  var stt = 1;
+
+  groupOrder.forEach(function(drug){
+    var drugRows = groups[drug];
+    var groupStartRow = ws_data.length;
+
+    drugRows.forEach(function(r, i){
+      // Chuyển hạn dùng sang DD-MM-YYYY
+      var expDisp = '';
+      if(r.exp){
+        var ep = r.exp.split('-');
+        if(ep.length===3) expDisp = ep[2]+'-'+ep[1]+'-'+ep[0];
+        else expDisp = r.exp;
+      }
+
+      var tonDau   = r.open||0;
+      var tinhCap  = r.tinh||0;
+      var dcNhan   = r.dc||0;
+      var sd       = r.sd||0;
+      var dcXuat   = r.dc2||0;
+      var hong     = r.hh||0;
+      var congNhap = tinhCap + dcNhan;
+      var congXuat = sd + dcXuat + hong;
+      var tonCuoi  = tonDau + congNhap - congXuat;
+
+      ws_data.push([
+        i===0 ? stt : '',      // A: STT
+        i===0 ? drug : '',     // B: Tên thuốc
+        'Viên',                // C: ĐV
+        r.note||'QTC',         // D: Nguồn KP
+        r.lot||'',             // E: Lô
+        expDisp,               // F: Hạn SD
+        tonDau||'',            // G: Tồn đầu
+        tinhCap||'',           // H: Tỉnh cấp
+        dcNhan||'',            // I: ĐC nhận
+        '',                    // J: Thừa
+        congNhap||'',          // K: Cộng nhập
+        sd||'',                // L: Xuất SD
+        dcXuat||'',            // M: ĐC xuất
+        hong||'',              // N: Hỏng
+        '',                    // O: Quá hạn chờ hủy
+        congXuat||'',          // P: Cộng xuất
+        tonCuoi||'',           // Q: Tồn cuối
+        ''                     // R: Ghi chú
+      ]);
+    });
+
+    // Merge STT + tên + ĐV + Nguồn nếu nhiều lô
+    if(drugRows.length > 1){
+      var gs = groupStartRow, ge = ws_data.length-1;
+      merges.push({s:{r:gs,c:0},e:{r:ge,c:0}});  // STT
+      merges.push({s:{r:gs,c:1},e:{r:ge,c:1}});  // Tên
+      merges.push({s:{r:gs,c:2},e:{r:ge,c:2}});  // ĐV
+      merges.push({s:{r:gs,c:3},e:{r:ge,c:3}});  // Nguồn
+    }
+    stt++;
+  });
+
+  var dataEndRow = ws_data.length - 1;
+
+  // ── Dòng tổng cộng ───────────────────────────────────────────
+  var totArr = new Array(18).fill('');
+  totArr[0] = 'Tổng cộng';
+  for(var c=6; c<=16; c++){
+    var tot=0;
+    for(var ri=dataStartRow; ri<=dataEndRow; ri++){
+      tot += (parseInt(ws_data[ri][c])||0);
+    }
+    totArr[c] = tot||'';
+  }
+  ws_data.push(totArr);
+  var totRowIdx = ws_data.length-1;
+  merges.push({s:{r:totRowIdx,c:0},e:{r:totRowIdx,c:5}});
+
+  // ── Ngày ký ──────────────────────────────────────────────────
+  ws_data.push(new Array(18).fill(''));
+  var today = new Date();
+  var signDateArr = new Array(18).fill('');
+  // Lấy địa danh = từ tên đơn vị (phần sau "Y tế")
+  var diaDanh = unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'') || unitName;
+  signDateArr[10] = diaDanh+', ngày '+('0'+today.getDate()).slice(-2)+' tháng '+('0'+(today.getMonth()+1)).slice(-2)+' năm '+today.getFullYear();
+  ws_data.push(signDateArr);
+  var signDateRow = ws_data.length-1;
+  merges.push({s:{r:signDateRow,c:10},e:{r:signDateRow,c:17}});
+
+  // ── Footer ký tên ─────────────────────────────────────────────
+  ws_data.push(new Array(18).fill(''));
+  var signLblArr = new Array(18).fill('');
+  signLblArr[0]  = 'Người lập báo cáo';
+  signLblArr[4]  = 'Trưởng khoa Dược';
+  signLblArr[9]  = 'Bác sĩ phụ trách TCL';
+  signLblArr[14] = 'Thủ trưởng đơn vị';
+  ws_data.push(signLblArr);
+  var signRow = ws_data.length-1;
+  merges.push({s:{r:signRow,c:0},e:{r:signRow,c:2}});
+  merges.push({s:{r:signRow,c:4},e:{r:signRow,c:6}});
+  merges.push({s:{r:signRow,c:9},e:{r:signRow,c:12}});
+  merges.push({s:{r:signRow,c:14},e:{r:signRow,c:17}});
+
+  // Dòng ( Ký tên, đóng dấu )
+  ws_data.push(new Array(18).fill(''));
+  ws_data.push(new Array(18).fill(''));
+  var kyDauArr = new Array(18).fill('');
+  kyDauArr[14] = '( Ký tên, đóng dấu)';
+  ws_data.push(kyDauArr);
+  var kyDauRow = ws_data.length-1;
+  merges.push({s:{r:kyDauRow,c:14},e:{r:kyDauRow,c:17}});
+
+  // ── Tạo worksheet ────────────────────────────────────────────
+  var ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!merges'] = merges;
+  ws['!cols'] = [
+    {wpx:28},   // A: STT
+    {wpx:120},  // B: Tên thuốc
+    {wpx:38},   // C: ĐV
+    {wpx:42},   // D: Nguồn KP
+    {wpx:72},   // E: Lô SX
+    {wpx:72},   // F: Hạn SD
+    {wpx:45},   // G: Tồn đầu
+    {wpx:40},   // H: Tỉnh cấp
+    {wpx:45},   // I: ĐC nhận
+    {wpx:32},   // J: Thừa
+    {wpx:40},   // K: Cộng nhập
+    {wpx:48},   // L: Xuất SD
+    {wpx:45},   // M: ĐC xuất
+    {wpx:40},   // N: Hỏng
+    {wpx:50},   // O: Quá hạn
+    {wpx:40},   // P: Cộng xuất
+    {wpx:45},   // Q: Tồn cuối
+    {wpx:60}    // R: Ghi chú
+  ];
+
+  // Row heights
+  ws['!rows'] = [];
+  ws['!rows'][0] = {hpx:20};  // BỘ Y TẾ
+  ws['!rows'][2] = {hpx:24};  // Tiêu đề
+  ws['!rows'][5] = {hpx:50};  // Header bảng
+  ws['!rows'][6] = {hpx:50};
+  ws['!rows'][8] = {hpx:30};  // Ký hiệu
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
+  var fname = 'BaoCao_'+unitName.replace(/[\s/\\]/g,'_')+'_T'+('0'+month).slice(-2)+'_'+year+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('✓ Đã xuất: '+fname,'#1d6f42');
+}
+
 
 // ============================================================
 // XUẤT EXCEL — 4 sheet: Kho chính, 22 đơn vị, Tổng hợp TP, Danh mục
