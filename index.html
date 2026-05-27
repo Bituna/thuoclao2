@@ -812,8 +812,20 @@ em{font-style:normal!important}i{font-style:normal!important}
           <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
           <div style="display:flex;gap:6px">
             <div class="fg"><label>Sử dụng</label><input type="number" id="bvph-sd" placeholder="0" min="0" style="width:60px"></div>
-            <div class="fg"><label>Xuất Tổ CL</label><input type="number" id="bvph-dc2" placeholder="0" min="0" style="width:60px"></div>
-            <div class="fg"><label>Tỉnh khác</label><input type="number" id="bvph-dc3" placeholder="0" min="0" style="width:60px"></div>
+            <div class="fg">
+              <label>Xuất Tổ CL</label>
+              <input type="number" id="bvph-dc2" placeholder="0" min="0" readonly
+                style="width:60px;border:1px solid #27ae60;background:#f0fff4;cursor:pointer"
+                title="Click để tạo phiếu Xuất Tổ CL"
+                onfocus="onFormDc2BVPHChange(this)">
+            </div>
+            <div class="fg">
+              <label>Tỉnh khác</label>
+              <input type="number" id="bvph-dc3" placeholder="0" min="0" readonly
+                style="width:60px;border:1px solid #8e44ad;background:#f9f0ff;cursor:pointer"
+                title="Click để tạo phiếu Xuất tỉnh khác"
+                onfocus="onFormDc3BVPHChange(this)">
+            </div>
             <div class="fg"><label>Hỏng/HH</label><input type="number" id="bvph-hh" placeholder="0" min="0" style="width:60px"></div>
           </div>
         </div>
@@ -920,7 +932,13 @@ em{font-style:normal!important}i{font-style:normal!important}
           <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
           <div style="display:flex;gap:6px">
             <div class="fg"><label>Sử dụng</label><input type="number" id="bc-sd" placeholder="0" min="0" style="width:64px"></div>
-            <div class="fg"><label>Điều chuyển</label><input type="number" id="bc-dc2" placeholder="0" min="0" style="width:64px"></div>
+            <div class="fg">
+              <label>Điều chuyển</label>
+              <input type="number" id="bc-dc2" placeholder="0" min="0" readonly
+                style="width:64px;border:1px solid #f59e0b;background:#fffbeb;cursor:pointer"
+                title="Click để tạo phiếu điều chuyển"
+                onfocus="onFormDc2BCChange(this)">
+            </div>
             <div class="fg"><label>Hỏng/HH</label><input type="number" id="bc-hh" placeholder="0" min="0" style="width:64px"></div>
           </div>
         </div>
@@ -3165,29 +3183,31 @@ function buildTbl(data, bodyId, prefix){
     function makeCell(field, val, readOnly){
       var locked = readOnly || isLocked;
       if(isEditing && canEdit && !locked){
-        // dc2 = Xuất điều chuyển → hỏi đơn vị nhận
-        // dc2 = Xuất điều chuyển
+        // dc2: BVPH = Xuất Tổ CL → rơi vào Tỉnh cấp 22ĐV
+        //       22ĐV = Xuất điều chuyển → rơi vào dc đơn vị nhận
         if(field === 'dc2'){
           var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
-          var onclick2 = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
+          var dc2Fn = isBVPH ? 'onDc2BVPHChange' : 'onDc2Change';
+          var dc2Color = isBVPH ? '#2ecc71' : '#f59e0b';
+          var dc2Bg    = isBVPH ? '#f0fff4' : '#fffbeb';
+          var dc2Title = isBVPH ? 'Xuất Tổ CL → Tỉnh cấp đơn vị tuyến' : 'Click để tạo phiếu điều chuyển';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:54px;padding:4px;border:1px solid #f59e0b;border-radius:5px;text-align:center;font-size:12px;background:#fffbeb;cursor:pointer"'
+            + ' style="width:54px;padding:4px;border:1px solid '+dc2Color+';border-radius:5px;text-align:center;font-size:12px;background:'+dc2Bg+';cursor:pointer"'
             + ' onchange="' + onch + '"' + ' oninput="' + onch + '"'
-            + ' onfocus="' + onclick2 + '"'
-            + ' title="Click để tạo phiếu điều chuyển" readonly'
+            + ' onfocus="' + dc2Fn + '(\'' + prefix + '\',' + rowIdx + ',this)"'
+            + ' title="' + dc2Title + '" readonly'
             + '>';
         }
-        // dc3 = Xuất Tổ CL (BVPH) → rơi vào cột Tỉnh cấp của đơn vị tuyến
+        // dc3: BVPH = Tỉnh khác (gõ text tỉnh, chỉ tính xuất)
         if(field === 'dc3'){
           var onch3 = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
-          var onclick3 = 'onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
             + ' style="width:54px;padding:4px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:12px;background:#f9f0ff;cursor:pointer"'
             + ' onchange="' + onch3 + '"' + ' oninput="' + onch3 + '"'
-            + ' onfocus="' + onclick3 + '"'
-            + ' title="Xuất Tổ CL → Tỉnh cấp của đơn vị tuyến" readonly'
+            + ' onfocus="onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)"'
+            + ' title="Xuất tỉnh khác — chỉ tính vào Tổng xuất" readonly'
             + '>';
         }
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
@@ -4258,6 +4278,274 @@ async function loadSaved(){
 
 // ============================================================
 // ── ĐIỀU CHUYỂN THUỐC ────────────────────────────────────────
+// dc2 của BVPH = Xuất Tổ CL → rơi vào Tỉnh cấp (tinh) của đơn vị tuyến nhận
+// ── POPUP CHO FORM NHẬP LIỆU (chưa có dòng trong bảng) ───────
+// Lấy thông tin thuốc/lô đang chọn trong form
+function _getFormRowInfo(prefix){
+  if(prefix==='bvph'){
+    var drug = document.getElementById('bvph-drug') ? document.getElementById('bvph-drug').value : '';
+    var lot  = document.getElementById('bvph-lot-sel') ? document.getElementById('bvph-lot-sel').value : '';
+    var exp  = document.getElementById('bvph-exp') ? document.getElementById('bvph-exp').value : '';
+    var open = parseInt(document.getElementById('bvph-open') ? document.getElementById('bvph-open').value : 0)||0;
+    var sd   = parseInt(document.getElementById('bvph-sd') ? document.getElementById('bvph-sd').value : 0)||0;
+    var dc3  = parseInt(document.getElementById('bvph-dc3') ? document.getElementById('bvph-dc3').value : 0)||0;
+    var hh   = parseInt(document.getElementById('bvph-hh') ? document.getElementById('bvph-hh').value : 0)||0;
+    var tinh = parseInt(document.getElementById('bvph-tinh') ? document.getElementById('bvph-tinh').value : 0)||0;
+    var dc   = parseInt(document.getElementById('bvph-dc') ? document.getElementById('bvph-dc').value : 0)||0;
+    return {drug:drug, lot:lot, exp:parseMonthExp(exp)||exp, open:open, tinh:tinh, dc:dc, sd:sd, dc3:dc3, hh:hh, unit:BVPH};
+  } else {
+    var drug = document.getElementById('bc-drug') ? document.getElementById('bc-drug').value : '';
+    var lot  = document.getElementById('bc-lot-sel') ? document.getElementById('bc-lot-sel').value : '';
+    var exp  = document.getElementById('bc-exp') ? document.getElementById('bc-exp').value : '';
+    var open = parseInt(document.getElementById('bc-open') ? document.getElementById('bc-open').value : 0)||0;
+    var sd   = parseInt(document.getElementById('bc-sd') ? document.getElementById('bc-sd').value : 0)||0;
+    var hh   = parseInt(document.getElementById('bc-hh') ? document.getElementById('bc-hh').value : 0)||0;
+    var tinh = parseInt(document.getElementById('bc-tinh') ? document.getElementById('bc-tinh').value : 0)||0;
+    var dc   = parseInt(document.getElementById('bc-dc') ? document.getElementById('bc-dc').value : 0)||0;
+    var unit = document.getElementById('bc-unit') ? document.getElementById('bc-unit').value : '';
+    return {drug:drug, lot:lot, exp:parseMonthExp(exp)||exp, open:open, tinh:tinh, dc:dc, sd:sd, dc3:0, hh:hh, unit:unit};
+  }
+}
+
+// Form BVPH dc2 = Xuất Tổ CL → tinh 22ĐV
+function onFormDc2BVPHChange(inp){
+  var info = _getFormRowInfo('bvph');
+  if(!info.drug || !info.lot){ toast('Chọn thuốc và lô trước!','var(--warning)'); inp.blur(); return; }
+  var currentVal = parseInt(inp.value)||0;
+  var availStock = info.open + info.tinh + info.dc - info.sd - (parseInt(document.getElementById('bvph-dc3').value)||0) - info.hh;
+  var maxCan = Math.max(0, availStock);
+  var receiveUnits = UNITS.filter(function(u){ return u !== BVPH; });
+  _showFormTransferPopup({
+    title:'↙ Xuất Tổ CL → Đơn vị tuyến', color:'#27ae60', bgColor:'#f0fff4',
+    drug:info.drug, lot:info.lot, exp:expToMMYYYY(info.exp), fromUnit:BVPH,
+    note:'Rơi vào: cột Tỉnh cấp của đơn vị nhận',
+    maxCan:maxCan, currentVal:currentVal,
+    showUnitSel:true, receiveUnits:receiveUnits,
+    onConfirm:function(qty, toUnit, txDate){
+      inp.value = qty;
+      inp.readOnly = true;
+      // Lưu phiếu ngay
+      if(qty>0 && _supaOnline){
+        var txDate2=new Date(txDate);
+        var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+        var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
+        _saveTransfer(txPeriod,BVPH,toUnit,fakeRow,qty,'dc3_to_tinh',txDate)
+          .then(function(){ toast('✓ Phiếu Xuất Tổ CL đã lưu cloud','#27ae60'); })
+          .catch(function(e){ toast('Chưa lưu phiếu: '+e.message,'orange'); });
+      }
+    }
+  });
+}
+
+// Form BVPH dc3 = Tỉnh khác
+function onFormDc3BVPHChange(inp){
+  var info = _getFormRowInfo('bvph');
+  if(!info.drug || !info.lot){ toast('Chọn thuốc và lô trước!','var(--warning)'); inp.blur(); return; }
+  var currentVal = parseInt(inp.value)||0;
+  var availStock = info.open + info.tinh + info.dc - info.sd - (parseInt(document.getElementById('bvph-dc2').value)||0) - info.hh;
+  var maxCan = Math.max(0, availStock);
+  _showFormTransferPopup({
+    title:'↗ Xuất tỉnh/thành phố khác', color:'#8e44ad', bgColor:'#f9f0ff',
+    drug:info.drug, lot:info.lot, exp:expToMMYYYY(info.exp), fromUnit:BVPH,
+    note:'Chỉ tính vào Tổng xuất, không rơi vào đơn vị nào trong hệ thống',
+    maxCan:maxCan, currentVal:currentVal,
+    showProvince:true,
+    onConfirm:function(qty, province, txDate){
+      inp.value = qty;
+      if(qty>0 && _supaOnline){
+        var txDate2=new Date(txDate);
+        var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+        var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
+        _saveTransfer(txPeriod,BVPH,province,fakeRow,qty,'dc3_province',txDate)
+          .then(function(){ toast('✓ Phiếu Tỉnh khác đã lưu cloud','#8e44ad'); })
+          .catch(function(e){ toast('Chưa lưu phiếu: '+e.message,'orange'); });
+      }
+    }
+  });
+}
+
+// Form BC dc2 = Xuất điều chuyển
+function onFormDc2BCChange(inp){
+  var info = _getFormRowInfo('bc');
+  if(!info.drug || !info.lot){ toast('Chọn thuốc và lô trước!','var(--warning)'); inp.blur(); return; }
+  var currentVal = parseInt(inp.value)||0;
+  var availStock = info.open + info.tinh + info.dc - info.sd - info.hh;
+  var maxCan = Math.max(0, availStock);
+  var fromUnit = info.unit || '';
+  var allUnits = [BVPH].concat(UNITS.filter(function(u){ return u !== BVPH && u !== fromUnit; }));
+  _showFormTransferPopup({
+    title:'↗ Xuất điều chuyển', color:'#f59e0b', bgColor:'#fffbeb',
+    drug:info.drug, lot:info.lot, exp:expToMMYYYY(info.exp), fromUnit:fromUnit,
+    note:'Rơi vào: cột Nhập ĐC của đơn vị nhận',
+    maxCan:maxCan, currentVal:currentVal,
+    showUnitSel:true, receiveUnits:allUnits,
+    onConfirm:function(qty, toUnit, txDate){
+      inp.value = qty;
+      if(qty>0 && _supaOnline){
+        var txDate2=new Date(txDate);
+        var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+        var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
+        _saveTransfer(txPeriod,fromUnit,toUnit,fakeRow,qty,'dc2_to_dc',txDate)
+          .then(function(){ toast('✓ Phiếu điều chuyển đã lưu cloud','#1a5276'); })
+          .catch(function(e){ toast('Chưa lưu phiếu: '+e.message,'orange'); });
+      }
+    }
+  });
+}
+
+// Hàm popup dùng chung cho form nhập liệu
+function _showFormTransferPopup(opts){
+  var old=document.getElementById('_transfer_modal'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='_transfer_modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+
+  var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:'+opts.color+';margin-bottom:6px'; h.textContent=opts.title;
+  var sub=document.createElement('div'); sub.style.cssText='font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:'+opts.bgColor+';border-radius:6px;line-height:1.7';
+  sub.innerHTML='<b>Thuốc:</b> '+opts.drug+'<br><b>Lô:</b> '+opts.lot+' | <b>Hạn:</b> '+opts.exp
+    +'<br><b>Từ:</b> '+opts.fromUnit+'<br><span style="color:'+opts.color+'">→ '+opts.note+'</span>';
+
+  var qtyLbl=document.createElement('div'); qtyLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  qtyLbl.innerHTML='Số lượng (viên): <span style="color:#27ae60;font-weight:700">Tối đa '+opts.maxCan.toLocaleString()+'</span> <span style="font-weight:400;color:#888">(0=xóa)</span>';
+  var qtyInp=document.createElement('input'); qtyInp.type='number'; qtyInp.min='0'; qtyInp.max=opts.maxCan;
+  qtyInp.value=opts.currentVal>0?opts.currentVal:''; qtyInp.placeholder='Số lượng (tối đa '+opts.maxCan+')...';
+  qtyInp.style.cssText='width:100%;padding:9px;border:2px solid '+opts.color+';border-radius:7px;font-size:15px;font-weight:700;margin-bottom:4px;box-sizing:border-box;text-align:center';
+  var qWarn=document.createElement('div'); qWarn.style.cssText='font-size:11px;color:#e74c3c;margin-bottom:10px;display:none'; qWarn.textContent='⚠ Vượt tồn kho!';
+  qtyInp.oninput=function(){ var v=parseInt(this.value)||0; qWarn.style.display=(v>opts.maxCan)?'':'none'; };
+
+  box.appendChild(h); box.appendChild(sub); box.appendChild(qtyLbl); box.appendChild(qtyInp); box.appendChild(qWarn);
+
+  var toField = null;
+  if(opts.showUnitSel){
+    var uLbl=document.createElement('div'); uLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; uLbl.textContent='Đơn vị nhận:';
+    var uSel=document.createElement('select'); uSel.style.cssText='width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:12px';
+    var o0=document.createElement('option'); o0.value=''; o0.textContent='-- Chọn đơn vị nhận --'; uSel.appendChild(o0);
+    (opts.receiveUnits||[]).forEach(function(u){ var o=document.createElement('option'); o.value=u; o.textContent=u; uSel.appendChild(o); });
+    box.appendChild(uLbl); box.appendChild(uSel);
+    toField = uSel;
+  } else if(opts.showProvince){
+    var pLbl=document.createElement('div'); pLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; pLbl.textContent='Tỉnh/Thành phố nhận:';
+    var pInp=document.createElement('input'); pInp.type='text'; pInp.placeholder='VD: Quảng Ninh, Hải Dương...';
+    pInp.style.cssText='width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:12px;box-sizing:border-box';
+    box.appendChild(pLbl); box.appendChild(pInp);
+    toField = pInp;
+  }
+
+  var dLbl=document.createElement('div'); dLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  dLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → báo cáo tháng đó)</span>';
+  var dInp=document.createElement('input'); dInp.type='date'; dInp.value=new Date().toISOString().slice(0,10);
+  dInp.style.cssText='width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:6px;box-sizing:border-box';
+  var mNote=document.createElement('div'); mNote.style.cssText='font-size:11px;color:'+opts.color+';background:'+opts.bgColor+';padding:5px 10px;border-radius:5px;margin-bottom:14px';
+  function updMN(){ var d=new Date(dInp.value); if(!isNaN(d)) mNote.textContent='→ Vào báo cáo Tháng '+(d.getMonth()+1)+'/'+d.getFullYear(); }
+  updMN(); dInp.oninput=updMN;
+  box.appendChild(dLbl); box.appendChild(dInp); box.appendChild(mNote);
+
+  var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+  var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:'+opts.color+';color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.onclick=function(){
+    var qty=parseInt(qtyInp.value);
+    if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
+    if(qty>opts.maxCan){ toast('⚠ Vượt tồn! Tối đa: '+opts.maxCan,'var(--danger)'); qtyInp.focus(); return; }
+    var toVal = toField ? toField.value.trim() : '';
+    if(qty>0 && !toVal){ toast('Điền thông tin đơn vị/tỉnh nhận!','var(--warning)'); if(toField) toField.focus(); return; }
+    ov.remove();
+    opts.onConfirm(qty, toVal, dInp.value);
+  };
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO); box.appendChild(btnRow);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  setTimeout(function(){ qtyInp.focus(); },100);
+}
+
+function onDc2BVPHChange(prefix, rowIdx, inp){
+  var arr = bvphData;
+  var realIdx = getReal(prefix, rowIdx);
+  if(realIdx < 0) return;
+  var row = arr[realIdx];
+  var fromUnit = row.unit || BVPH;
+  var periodKey = _currentPeriodKey();
+  var receiveUnits = UNITS.filter(function(u){ return u !== BVPH; });
+
+  // Tính tồn tối đa
+  var srcRow0 = arr[realIdx];
+  var availStock = (srcRow0.open||0)+(srcRow0.tinh||0)+(srcRow0.dc||0)
+                  -(srcRow0.sd||0)-(srcRow0.dc3||0)-(srcRow0.hh||0);
+  var maxCanTransfer = Math.max(0, availStock);
+  var currentDc2 = srcRow0.dc2||0;
+
+  var old = document.getElementById('_transfer_modal'); if(old) old.remove();
+  var ov = document.createElement('div');
+  ov.id='_transfer_modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
+
+  var h = document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#27ae60;margin-bottom:5px'; h.textContent='↙ Xuất Tổ CL → Đơn vị tuyến';
+  var sub = document.createElement('div'); sub.style.cssText='font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:#f0fff4;border-radius:6px;line-height:1.7';
+  sub.innerHTML='<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' | <b>Hạn:</b> '+expToMMYYYY(row.exp)
+    +'<br><b>Từ:</b> '+fromUnit+' → <b>Rơi vào: cột Tỉnh cấp của đơn vị nhận</b>';
+  box.appendChild(h); box.appendChild(sub);
+
+  var listSection = document.createElement('div'); listSection.style.cssText='margin-bottom:14px';
+  listSection.innerHTML='<div style="font-size:12px;color:#888;font-style:italic">Đang tải...</div>';
+  box.appendChild(listSection);
+
+  var div1=document.createElement('div'); div1.style.cssText='border-top:1px solid #eee;margin:12px 0'; box.appendChild(div1);
+  var newLbl=document.createElement('div'); newLbl.style.cssText='font-size:13px;font-weight:700;color:#27ae60;margin-bottom:10px'; newLbl.textContent='+ Tạo phiếu Xuất Tổ CL mới'; box.appendChild(newLbl);
+
+  var qtyLabel=document.createElement('div'); qtyLabel.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  qtyLabel.innerHTML='Số lượng (viên): <span style="color:#27ae60;font-weight:700">Tối đa '+maxCanTransfer.toLocaleString()+'</span> <span style="font-weight:400;color:#888">(0=xóa)</span>';
+  var qtyInp=document.createElement('input'); qtyInp.type='number'; qtyInp.min='0'; qtyInp.max=maxCanTransfer;
+  qtyInp.value=currentDc2>0?currentDc2:''; qtyInp.placeholder='Nhập số lượng (tối đa '+maxCanTransfer+')...';
+  qtyInp.style.cssText='width:100%;padding:9px;border:2px solid #27ae60;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:4px;box-sizing:border-box;text-align:center';
+  var qtyWarn=document.createElement('div'); qtyWarn.style.cssText='font-size:11px;color:#e74c3c;margin-bottom:10px;display:none'; qtyWarn.textContent='⚠ Vượt tồn kho!';
+  qtyInp.oninput=function(){ var v=parseInt(this.value)||0; qtyWarn.style.display=(v>maxCanTransfer)?'':'none'; };
+
+  var lbl=document.createElement('div'); lbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; lbl.textContent='Đơn vị tuyến nhận:';
+  var sel=document.createElement('select'); sel.style.cssText='width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px';
+  var opt0=document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --'; sel.appendChild(opt0);
+  receiveUnits.forEach(function(u){ var o=document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o); });
+
+  var dateLbl=document.createElement('div'); dateLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  dateLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → báo cáo tháng đó)</span>';
+  var dateInp=document.createElement('input'); dateInp.type='date'; dateInp.value=new Date().toISOString().slice(0,10);
+  dateInp.style.cssText='width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:6px;box-sizing:border-box';
+  var mNote=document.createElement('div'); mNote.style.cssText='font-size:11px;color:#27ae60;background:#f0fff4;padding:5px 10px;border-radius:5px;margin-bottom:14px';
+  function updMN(){ var d=new Date(dateInp.value); if(!isNaN(d)) mNote.textContent='→ Vào báo cáo Tháng '+(d.getMonth()+1)+'/'+d.getFullYear(); }
+  updMN(); dateInp.oninput=updMN;
+
+  var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var btnC=document.createElement('button'); btnC.textContent='Đóng'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+  var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.onclick=function(){
+    var qty=parseInt(qtyInp.value);
+    if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
+    if(qty>maxCanTransfer){ toast('⚠ Vượt tồn! Tối đa: '+maxCanTransfer,'var(--danger)'); qtyInp.focus(); return; }
+    var toUnit=sel.value;
+    if(qty>0 && !toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    var txDate=dateInp.value;
+    var txDate2=new Date(txDate);
+    var txPeriod=isNaN(txDate2)?periodKey:txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+    ov.remove();
+    var oldDc2=arr[realIdx].dc2||0;
+    var delta=qty-oldDc2;
+    arr[realIdx].dc2=qty; inp.value=qty;
+    updField(prefix,rowIdx,'dc2',qty);
+    if(qty===0){ toast('Đã xóa Xuất Tổ CL','var(--warning)'); renderBVPH(); renderBC(); _syncPeriodToCloud(); return; }
+    _applyDc3Transfer(prefix,realIdx,row,delta,fromUnit,toUnit,txPeriod,txDate);
+  };
+  box.appendChild(qtyLabel); box.appendChild(qtyInp); box.appendChild(qtyWarn);
+  box.appendChild(lbl); box.appendChild(sel);
+  box.appendChild(dateLbl); box.appendChild(dateInp); box.appendChild(mNote);
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO); box.appendChild(btnRow);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  setTimeout(function(){ qtyInp.focus(); },100);
+  _loadTransferList(listSection, periodKey, fromUnit, row, inp, arr, realIdx, prefix, rowIdx, 'dc2_bvph', ov);
+}
+
 function onDc2Change(prefix, rowIdx, inp){
   var arr = prefix === 'bvph' ? bvphData : bcData;
   var realIdx = getReal(prefix, rowIdx);
@@ -4341,6 +4629,27 @@ function onDc2Change(prefix, rowIdx, inp){
     var o = document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o);
   });
 
+  // Ô chọn ngày điều chuyển
+  var dateLbl = document.createElement('div');
+  dateLbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  dateLbl.innerHTML = 'Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → vào báo cáo tháng đó)</span>';
+  var dateInp = document.createElement('input');
+  dateInp.type = 'date';
+  var today = new Date();
+  dateInp.value = today.toISOString().slice(0,10);
+  dateInp.style.cssText = 'width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px;box-sizing:border-box';
+
+  // Hiển thị tháng báo cáo tương ứng
+  var monthNote = document.createElement('div');
+  monthNote.style.cssText = 'font-size:11px;color:#1a5276;background:#eef7ff;padding:5px 10px;border-radius:5px;margin-top:-10px;margin-bottom:12px';
+  function updateMonthNote(){
+    var d = new Date(dateInp.value);
+    if(isNaN(d)) return;
+    monthNote.textContent = '→ Sẽ vào báo cáo Tháng '+(d.getMonth()+1)+'/'+d.getFullYear();
+  }
+  updateMonthNote();
+  dateInp.oninput = updateMonthNote;
+
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button');
   btnC.textContent='Đóng';
@@ -4355,25 +4664,29 @@ function onDc2Change(prefix, rowIdx, inp){
     if(qty>maxCanTransfer){ toast('⚠ Vượt quá tồn kho! Tối đa: '+maxCanTransfer+' viên','var(--danger)'); qtyInp.focus(); return; }
     var toUnit=sel.value;
     if(qty>0 && !toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+
+    // Xác định kỳ báo cáo từ ngày điều chuyển
+    var txDate = new Date(dateInp.value);
+    var txPeriod = isNaN(txDate) ? periodKey
+      : txDate.getFullYear()+'-'+(txDate.getMonth()<9?'0':'')+(txDate.getMonth()+1);
+
     ov.remove();
-    // Tính delta: so sánh dc2 mới với dc2 cũ
     var oldDc2 = arr[realIdx].dc2||0;
-    var delta = qty - oldDc2; // có thể âm (giảm) hoặc dương (tăng)
-    arr[realIdx].dc2 = qty; // set tuyệt đối
+    var delta = qty - oldDc2;
+    arr[realIdx].dc2 = qty;
     inp.value = qty;
     updField(prefix,rowIdx,'dc2',qty);
     if(qty===0){
-      // Xóa phiếu nếu có
       if(oldDc2>0) toast('Đã xóa xuất điều chuyển','var(--warning)');
       renderBVPH(); renderBC(); _syncPeriodToCloud();
       return;
     }
-    // Áp dụng delta vào đơn vị nhận
-    _applyTransfer(prefix,realIdx,row,delta,fromUnit,toUnit);
+    _applyTransfer(prefix,realIdx,row,delta,fromUnit,toUnit,txPeriod,dateInp.value);
   };
 
   box.appendChild(qtyLabel); box.appendChild(qtyInp); box.appendChild(qtyWarn);
   box.appendChild(lbl); box.appendChild(sel);
+  box.appendChild(dateLbl); box.appendChild(dateInp); box.appendChild(monthNote);
   btnRow.appendChild(btnC); btnRow.appendChild(btnO);
   box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
@@ -4451,7 +4764,13 @@ function onDc3Change(prefix, rowIdx, inp){
   var row = arr[realIdx];
   var fromUnit = row.unit || BVPH;
   var periodKey = _currentPeriodKey();
-  var receiveUnits = UNITS.filter(function(u){ return u !== BVPH; });
+
+  // Tính tồn tối đa có thể xuất
+  var srcRow0 = arr[realIdx];
+  var availStock = (srcRow0.open||0)+(srcRow0.tinh||0)+(srcRow0.dc||0)
+                  -(srcRow0.sd||0)-(srcRow0.dc2||0)-(srcRow0.hh||0);
+  var maxCanTransfer = Math.max(0, availStock);
+  var currentDc3 = srcRow0.dc3||0;
 
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov = document.createElement('div');
@@ -4461,68 +4780,92 @@ function onDc3Change(prefix, rowIdx, inp){
   box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
   var h = document.createElement('div');
-  h.style.cssText = 'font-size:15px;font-weight:700;color:#6c3483;margin-bottom:5px';
-  h.textContent = '↙ Xuất Tổ CL → Đơn vị tuyến';
+  h.style.cssText = 'font-size:15px;font-weight:700;color:#8e44ad;margin-bottom:5px';
+  h.textContent = '↗ Xuất tỉnh/thành phố khác';
   var sub = document.createElement('div');
   sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:#f9f0ff;border-radius:6px;line-height:1.7';
-  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ:</b> '+fromUnit+' → <b>Rơi vào: Tỉnh cấp đơn vị nhận</b>';
+  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)
+    +'<br><b>Từ:</b> '+fromUnit
+    +'<br><span style="color:#8e44ad">⚠ Số xuất này chỉ tính vào Tổng xuất, không rơi vào báo cáo đơn vị nào trong hệ thống.</span>';
   box.appendChild(h); box.appendChild(sub);
 
   // Danh sách phiếu đã có
   var listSection = document.createElement('div');
-  listSection.id = '_tm_list';
   listSection.style.cssText = 'margin-bottom:14px';
   listSection.innerHTML = '<div style="font-size:12px;color:#888;font-style:italic">Đang tải...</div>';
   box.appendChild(listSection);
 
-  var div1 = document.createElement('div');
-  div1.style.cssText = 'border-top:1px solid #eee;margin:12px 0';
-  box.appendChild(div1);
+  var div1 = document.createElement('div'); div1.style.cssText='border-top:1px solid #eee;margin:12px 0'; box.appendChild(div1);
+  var newLabel = document.createElement('div'); newLabel.style.cssText='font-size:13px;font-weight:700;color:#8e44ad;margin-bottom:10px'; newLabel.textContent='+ Tạo phiếu xuất mới'; box.appendChild(newLabel);
 
-  var newLabel = document.createElement('div');
-  newLabel.style.cssText = 'font-size:13px;font-weight:700;color:#6c3483;margin-bottom:10px';
-  newLabel.textContent = '+ Tạo phiếu xuất Tổ CL mới';
-  box.appendChild(newLabel);
-
-  var qtyLabel = document.createElement('div');
-  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
-  qtyLabel.textContent = 'Số lượng (viên):';
+  // Số lượng
+  var qtyLabel = document.createElement('div'); qtyLabel.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  qtyLabel.innerHTML = 'Số lượng (viên): <span style="color:#27ae60;font-weight:700">Tối đa '+maxCanTransfer.toLocaleString()+'</span> <span style="font-weight:400;color:#888">(0=xóa)</span>';
   var qtyInp = document.createElement('input');
-  qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
-  qtyInp.style.cssText = 'width:100%;padding:9px;border:2px solid #8e44ad;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:12px;box-sizing:border-box;text-align:center';
+  qtyInp.type='number'; qtyInp.min='0'; qtyInp.max=maxCanTransfer;
+  qtyInp.value = currentDc3 > 0 ? currentDc3 : '';
+  qtyInp.placeholder='Nhập số lượng (tối đa '+maxCanTransfer+')...';
+  qtyInp.style.cssText='width:100%;padding:9px;border:2px solid #8e44ad;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:4px;box-sizing:border-box;text-align:center';
+  var qtyWarn = document.createElement('div'); qtyWarn.style.cssText='font-size:11px;color:#e74c3c;margin-bottom:10px;display:none'; qtyWarn.textContent='⚠ Vượt tồn kho!';
+  qtyInp.oninput=function(){ var v=parseInt(this.value)||0; qtyWarn.style.display=(v>maxCanTransfer)?'':'none'; this.style.borderColor=(v>maxCanTransfer)?'#e74c3c':'#8e44ad'; };
 
-  var lbl = document.createElement('div');
-  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
-  lbl.textContent = 'Đơn vị tuyến nhận:';
-  var sel = document.createElement('select');
-  sel.style.cssText = 'width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px';
-  var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
-  sel.appendChild(opt0);
-  receiveUnits.forEach(function(u){
-    var o = document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o);
-  });
+  // Ô gõ tên tỉnh nhận — TEXT tự do
+  var provLbl = document.createElement('div'); provLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; provLbl.textContent='Tỉnh/Thành phố nhận:';
+  var provInp = document.createElement('input');
+  provInp.type='text'; provInp.placeholder='VD: Quảng Ninh, Hải Dương, ...';
+  provInp.style.cssText='width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px;box-sizing:border-box';
+
+  // Ngày điều chuyển
+  var dateLbl = document.createElement('div'); dateLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  dateLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → vào báo cáo tháng đó)</span>';
+  var dateInp = document.createElement('input'); dateInp.type='date';
+  dateInp.value = new Date().toISOString().slice(0,10);
+  dateInp.style.cssText='width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:6px;box-sizing:border-box';
+  var monthNote = document.createElement('div'); monthNote.style.cssText='font-size:11px;color:#8e44ad;background:#f9f0ff;padding:5px 10px;border-radius:5px;margin-bottom:14px';
+  function updateMN(){ var d=new Date(dateInp.value); if(!isNaN(d)) monthNote.textContent='→ Sẽ vào báo cáo Tháng '+(d.getMonth()+1)+'/'+d.getFullYear(); }
+  updateMN(); dateInp.oninput=updateMN;
 
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
-  var btnC = document.createElement('button');
-  btnC.textContent='Đóng';
+  var btnC = document.createElement('button'); btnC.textContent='Đóng';
   btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
-  var btnO = document.createElement('button');
-  btnO.textContent='✓ Xác nhận';
-  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#6c3483;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  var btnO = document.createElement('button'); btnO.textContent='✓ Xác nhận';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var qty=parseInt(qtyInp.value)||0;
-    var toUnit=sel.value;
-    if(qty<=0){ toast('Nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
-    if(!toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    var qty=parseInt(qtyInp.value);
+    if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
+    if(qty>maxCanTransfer){ toast('⚠ Vượt tồn! Tối đa: '+maxCanTransfer,'var(--danger)'); qtyInp.focus(); return; }
+    var province = provInp.value.trim();
+    if(qty>0 && !province){ toast('Nhập tên tỉnh/thành phố nhận!','var(--warning)'); provInp.focus(); return; }
+    var txDate = dateInp.value;
+    var txDate2 = new Date(txDate);
+    var txPeriod = isNaN(txDate2) ? periodKey : txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
     ov.remove();
-    arr[realIdx].dc3=(arr[realIdx].dc3||0)+qty;
-    inp.value=arr[realIdx].dc3;
-    updField(prefix,rowIdx,'dc3',arr[realIdx].dc3);
-    _applyDc3Transfer(prefix,realIdx,row,qty,fromUnit,toUnit);
+    // Set dc3 tuyệt đối
+    arr[realIdx].dc3 = qty;
+    inp.value = qty;
+    updField(prefix,rowIdx,'dc3',qty);
+    if(qty===0){
+      toast('Đã xóa xuất tỉnh khác','var(--warning)');
+      renderBVPH(); renderBC(); _syncPeriodToCloud();
+      return;
+    }
+    // CHỈ cộng vào tổng xuất, KHÔNG rơi vào đơn vị nào
+    renderBVPH(); renderBC(); renderTP();
+    _syncPeriodToCloud();
+    // Lưu phiếu với to_unit = tên tỉnh (để ghi hồ sơ)
+    if(_supaOnline){
+      _saveTransfer(txPeriod, fromUnit, province, row, qty, 'dc3_province', txDate)
+        .then(function(){ toast('✓ Đã xuất '+qty.toLocaleString()+' viên → '+province+' | Phiếu đã lưu','#8e44ad'); })
+        .catch(function(e){ toast('✓ Xuất OK nhưng chưa lưu phiếu: '+e.message,'orange'); });
+    } else {
+      toast('✓ Đã xuất tỉnh khác (offline)','#8e44ad');
+    }
   };
-  box.appendChild(qtyLabel); box.appendChild(qtyInp);
-  box.appendChild(lbl); box.appendChild(sel);
+
+  box.appendChild(qtyLabel); box.appendChild(qtyInp); box.appendChild(qtyWarn);
+  box.appendChild(provLbl); box.appendChild(provInp);
+  box.appendChild(dateLbl); box.appendChild(dateInp); box.appendChild(monthNote);
   btnRow.appendChild(btnC); btnRow.appendChild(btnO);
   box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
@@ -4534,8 +4877,8 @@ function onDc3Change(prefix, rowIdx, inp){
 
 
 // Áp dụng điều chuyển dc2 → dc của đơn vị nhận
-function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
-  var periodKey = _currentPeriodKey();
+function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPeriod, txDate){
+  var periodKey = txPeriod || _currentPeriodKey();
   var srcArr = prefix==='bvph' ? bvphData : bcData;
   var srcRow = srcArr[fromIdx];
 
@@ -4580,7 +4923,7 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
 
   // Lưu phiếu lên Supabase (chỉ khi delta > 0)
   if(qty > 0 && _supaOnline){
-    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc')
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc', txDate)
       .then(function(){
         toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu','#27ae60');
       })
@@ -4594,8 +4937,8 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   }
 }
 
-function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
-  var periodKey = _currentPeriodKey();
+function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPeriod, txDate){
+  var periodKey = txPeriod || _currentPeriodKey();
   var srcArr = prefix==='bvph' ? bvphData : bcData;
   var srcRow = srcArr[fromIdx];
 
@@ -4636,7 +4979,7 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   _syncPeriodToCloud();
 
   if(_supaOnline){
-    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh')
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh', txDate)
       .then(function(){
         toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu cloud','#6c3483');
       })
@@ -4721,7 +5064,9 @@ async function showDcDetail(prefix, rowIdx){
     var total=0;
     transfers.forEach(function(t,i){
       var tr=document.createElement('tr'); tr.style.background=i%2===0?'#f8f9fa':'white';
-      var dt=t.created_at?new Date(t.created_at).toLocaleDateString('vi-VN'):'—';
+      var dt = t.transfer_date
+        ? new Date(t.transfer_date).toLocaleDateString('vi-VN')
+        : (t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—');
       var tdU=document.createElement('td'); tdU.style.cssText='padding:6px 8px'; tdU.textContent=t.from_unit;
       var tdQ=document.createElement('td'); tdQ.style.cssText='padding:6px 8px;text-align:center;font-weight:700;color:#27ae60'; tdQ.textContent=(t.qty||0).toLocaleString()+' viên';
       var tdD=document.createElement('td'); tdD.style.cssText='padding:6px 8px;text-align:center;color:#888'; tdD.textContent=dt;
@@ -4797,15 +5142,17 @@ async function cancelTransferById(transferId, toUnit){
   );
 }
 
-async function _saveTransfer(period, fromUnit, toUnit, row, qty, type){
+async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
   var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
+  var payload = {
+    period:period, from_unit:fromUnit, to_unit:toUnit,
+    drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
+    type: type||'dc2_to_dc'
+  };
+  if(txDate) payload.transfer_date = txDate;
   var res = await fetch(SUPA_URL+'/rest/v1/transfers', {
     method:'POST', headers:hdPost,
-    body:JSON.stringify([{
-      period:period, from_unit:fromUnit, to_unit:toUnit,
-      drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
-      type: type||'dc2_to_dc'
-    }])
+    body:JSON.stringify([payload])
   });
   if(!res.ok){
     var errText = await res.text();
