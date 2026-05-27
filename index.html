@@ -5429,38 +5429,27 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
   var diaDanh=unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'').replace(/bv\s*/i,'').trim()||unitName;
   var ngayKy=diaDanh+', ngày '+('0'+printDate.getDate()).slice(-2)+' tháng '+(printDate.getMonth()+1)+' năm '+printDate.getFullYear();
 
-  // Mở cửa sổ NGAY (trong user gesture) trước khi fetch async
-  var win=window.open('','_blank','width=1100,height=750');
-  if(!win){ toast('Trình duyệt chặn popup! Cho phép popup cho trang này rồi thử lại.','var(--danger)'); return; }
-  win.document.write('<html><body style="font-family:sans-serif;padding:30px;color:#555">⏳ Đang chuẩn bị báo cáo...</body></html>');
-  win.document.close();
+  // Ghi chú điều chuyển từ data đã có trong bộ nhớ
+  var ghiChuMap={};
+  var allRows=(bvphData||[]).concat(bcData||[]).filter(function(r){return r.bcMonth===periodKey;});
+  rows.forEach(function(r){
+    if(!((r.dc2||0)>0)) return;
+    var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
+    var notes=[];
+    allRows.forEach(function(other){
+      if(other===r) return;
+      if(other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
+      if((other.dc||0)>0) notes.push((other.unit||'?')+': '+(other.dc||0)+' viên');
+      if((other.tinh||0)>0&&isBVPH) notes.push((other.unit||'?')+': '+(other.tinh||0)+' viên');
+    });
+    if(notes.length) ghiChuMap[key]=notes.join(', ');
+  });
 
-  // Tải phiếu điều chuyển từ Supabase
-  var ghiChuMap = {};
-  var doRender = function(){
-    _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap,win);
-  };
-
-  if(_supaOnline){
-    fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
-      +'&from_unit=eq.'+encodeURIComponent(unitName)
-      +'&order=created_at.asc', {headers:_supaHdr})
-    .then(function(r){ return r.ok?r.json():[]; })
-    .then(function(transfers){
-      transfers.forEach(function(t){
-        var key=t.drug+'|'+t.lot+'|'+(t.exp||'');
-        if(!ghiChuMap[key]) ghiChuMap[key]=[];
-        ghiChuMap[key].push(t.to_unit+': '+(t.qty||0)+' viên');
-      });
-      doRender();
-    })
-    .catch(function(){ doRender(); });
-  } else {
-    doRender();
-  }
+  // In luôn — không có async
+  _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap);
 }
 
-function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap,win){
+function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap){
 
   var tableRows='';
   var stt=1;
@@ -5595,6 +5584,8 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
     +'<script>window.onload=function(){window.print();}<\/script>'
     +'</body></html>';
 
+  var win=window.open('','_blank');
+  if(!win){ toast('Trình duyệt chặn popup! Vào Settings → cho phép popup rồi thử lại.','var(--danger)'); return; }
   win.document.open();
   win.document.write(html);
   win.document.close();
