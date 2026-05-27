@@ -5432,17 +5432,42 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
   // Ghi chú điều chuyển từ data đã có trong bộ nhớ
   var ghiChuMap={};
   var allRows=(bvphData||[]).concat(bcData||[]).filter(function(r){return r.bcMonth===periodKey;});
+
   rows.forEach(function(r){
-    if(!((r.dc2||0)>0)) return;
     var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
-    var notes=[];
-    allRows.forEach(function(other){
-      if(other===r) return;
-      if(other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
-      if((other.dc||0)>0) notes.push((other.unit||'?')+': '+(other.dc||0)+' viên');
-      if((other.tinh||0)>0&&isBVPH) notes.push((other.unit||'?')+': '+(other.tinh||0)+' viên');
-    });
-    if(notes.length) ghiChuMap[key]=notes.join(', ');
+
+    // Ghi chú XUẤT: đơn vị này xuất cho ai
+    if((r.dc2||0)>0){
+      var notes=[];
+      allRows.forEach(function(other){
+        if(other===r||other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
+        var otherUnit=other.unit||BVPH;
+        var myUnit=r.unit||BVPH;
+        if(otherUnit===myUnit) return;
+        // Đơn vị nhận có dc tăng hoặc tinh tăng
+        if((other.dc||0)>0) notes.push(otherUnit+': '+(other.dc)+' viên');
+        else if(isBVPH&&(other.tinh||0)>0) notes.push(otherUnit+': '+(other.tinh)+' viên');
+      });
+      if(notes.length && !ghiChuMap[key]) ghiChuMap[key]=notes.join(', ');
+    }
+
+    // Ghi chú NHẬN: đơn vị này nhận từ ai
+    if((r.dc||0)>0||(r.tinh||0)>0){
+      var myUnit=r.unit||BVPH;
+      var fromNotes=[];
+      allRows.forEach(function(other){
+        if(other===r||other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
+        var otherUnit=other.unit||BVPH;
+        if(otherUnit===myUnit) return;
+        // Đơn vị kia có dc2 > 0 = đã xuất
+        if((other.dc2||0)>0) fromNotes.push(otherUnit+': '+(other.dc2)+' viên');
+      });
+      if(fromNotes.length){
+        var existing=ghiChuMap[key]||'';
+        var prefix=existing?existing+'; ':'';
+        ghiChuMap[key]=prefix+'Nhận từ: '+fromNotes.join(', ');
+      }
+    }
   });
 
   // In luôn — không có async
@@ -5505,7 +5530,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
 
   var css='*{box-sizing:border-box}'
     +'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0}'
-    +'.pg{padding:30mm 10mm 10mm 15mm}'
+    +'.pg{padding:20mm 10mm 10mm 15mm}'
     +'.hl{width:55%;text-align:center}'
     +'.byt{font-size:12pt;font-weight:bold;margin:0}'
     +'.ctlao{font-size:10pt;margin:0}'
@@ -5529,7 +5554,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
     +'  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'  .pg{padding:30mm 10mm 10mm 15mm;width:100%}'
+    +'  .pg{padding:20mm 10mm 10mm 15mm;width:100%}'
     +'}';
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BC '+unitName+'</title>'
