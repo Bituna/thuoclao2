@@ -5450,9 +5450,14 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
 }
 
 function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap){
-
   var tableRows='';
   var stt=1;
+  var groups={}, groupOrder=[];
+  rows.forEach(function(r){
+    if(!groups[r.drug]){ groups[r.drug]=[]; groupOrder.push(r.drug); }
+    groups[r.drug].push(r);
+  });
+
   groupOrder.forEach(function(drug){
     var drugRows=groups[drug];
     drugRows.forEach(function(r,i){
@@ -5463,31 +5468,28 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
       var nhap=tinh+dc, xuat=sd+dc2+hh, tonCuoi=tonDau+nhap-xuat;
       var rowspan=drugRows.length;
       var fc=i===0
-        ?'<td rowspan="'+rowspan+'" class="center bold">'+stt+'</td>'
-         +'<td rowspan="'+rowspan+'" class="left bold">'+drug+'</td>'
-         +'<td rowspan="'+rowspan+'" class="center">Viên</td>'
-         +'<td rowspan="'+rowspan+'" class="center">'+(r.note||'QTC')+'</td>'
+        ?'<td rowspan="'+rowspan+'" class="c b">'+stt+'</td>'
+         +'<td rowspan="'+rowspan+'" class="l b">'+drug+'</td>'
+         +'<td rowspan="'+rowspan+'" class="c">Viên</td>'
+         +'<td rowspan="'+rowspan+'" class="c">'+(r.note||'QTC')+'</td>'
         :'';
-
-      // Ghi chú: hiện thông tin điều chuyển
       var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
-      var ghiChu = (ghiChuMap[key]||[]).join(', ');
-
+      var gc=ghiChuMap[key]||'';
       tableRows+='<tr>'+fc
-        +'<td class="center">'+r.lot+'</td>'
-        +'<td class="center">'+expDisp+'</td>'
-        +'<td class="num">'+(tonDau||'')+'</td>'
-        +'<td class="num">'+(tinh||'')+'</td>'
-        +'<td class="num">'+(dc||'')+'</td>'
-        +'<td class="num"></td>'
-        +'<td class="num">'+(nhap||'')+'</td>'
-        +'<td class="num">'+(sd||'')+'</td>'
-        +'<td class="num">'+(dc2||'')+'</td>'
-        +'<td class="num">'+(hh||'')+'</td>'
-        +(isBVPH?'<td class="num"></td>':'')
-        +'<td class="num">'+(xuat||'')+'</td>'
-        +'<td class="num">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
-        +'<td class="left gc">'+ghiChu+'</td>'
+        +'<td class="c">'+r.lot+'</td>'
+        +'<td class="c">'+expDisp+'</td>'
+        +'<td class="n">'+(tonDau||'')+'</td>'
+        +'<td class="n">'+(tinh||'')+'</td>'
+        +'<td class="n">'+(dc||'')+'</td>'
+        +'<td class="n"></td>'
+        +'<td class="n">'+(nhap||'')+'</td>'
+        +'<td class="n">'+(sd||'')+'</td>'
+        +'<td class="n">'+(dc2||'')+'</td>'
+        +'<td class="n">'+(hh||'')+'</td>'
+        +(isBVPH?'<td class="n"></td>':'')
+        +'<td class="n">'+(xuat||'')+'</td>'
+        +'<td class="n">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
+        +'<td class="l gc">'+gc+'</td>'
         +'</tr>';
     });
     stt++;
@@ -5495,100 +5497,94 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
 
   var xCol=isBVPH?5:4;
   var xHdr=isBVPH
-    ?'<th class="nx" style="width:38px">Xuất sử dụng</th>'
-     +'<th class="nx" style="width:38px">Điều chuyển/<br>trả lại</th>'
-     +'<th class="nx" style="width:30px">Hỏng,<br>vỡ,<br>thiếu</th>'
-     +'<th class="nx" style="width:42px">Thuốc quá hạn<br>chờ hủy</th>'
-     +'<th class="nx" style="width:30px">Cộng</th>'
-    :'<th class="nx" style="width:42px">Xuất sử dụng</th>'
-     +'<th class="nx" style="width:42px">Điều chuyển/<br>trả lại</th>'
-     +'<th class="nx" style="width:38px">Hỏng,<br>vỡ,<br>thiếu</th>'
-     +'<th class="nx" style="width:38px">Cộng</th>';
+    ?'<th style="width:38px">Xuất sử dụng</th><th style="width:38px">Điều chuyển/<br>trả lại</th><th style="width:30px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:42px">Thuốc quá hạn<br>chờ hủy</th><th style="width:30px">Cộng</th>'
+    :'<th style="width:44px">Xuất sử dụng</th><th style="width:44px">Điều chuyển/<br>trả lại</th><th style="width:38px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:38px">Cộng</th>';
   var xKy=isBVPH
-    ?'<th class="k nx">(f)</th><th class="k nx">(g)</th><th class="k nx">(h)</th><th class="k nx">(i)</th><th class="k nx">(j)=(f)+(g)+(h)+(i)</th>'
-    :'<th class="k nx">(f)</th><th class="k nx">(g)</th><th class="k nx">(h)</th><th class="k nx">(j)=(f)+(g)+(h)</th>';
+    ?'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(i)</th><th class="k">(j)=(f)+(g)+(h)+(i)</th>'
+    :'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(j)=(f)+(g)+(h)</th>';
 
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Báo cáo '+unitName+'</title>'
-    +'<style>'
-    +'*{box-sizing:border-box}'
-    +'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0;padding:0}'
-    +'.page{width:277mm;margin:0 auto;padding:30mm 10mm 10mm 15mm}'
-    +'.header-left{width:55%;text-align:center}'
+  var css='*{box-sizing:border-box}'
+    +'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0}'
+    +'.pg{padding:30mm 10mm 10mm 15mm}'
+    +'.hl{width:55%;text-align:center}'
     +'.byt{font-size:12pt;font-weight:bold;margin:0}'
     +'.ctlao{font-size:10pt;margin:0}'
-    +'.tieude{text-align:center;font-size:13pt;font-weight:bold;margin:8px 0 4px}'
-    +'.irow{display:flex;justify-content:space-between;font-size:10pt;font-weight:bold;margin:3px 0 5px}'
-    +'.irow span{flex:1;text-align:center}'
-    +'.irow span:first-child{text-align:left}'
-    +'.irow span:last-child{text-align:right}'
+    +'.td{text-align:center;font-size:13pt;font-weight:bold;margin:8px 0 4px}'
+    +'.ir{display:flex;justify-content:space-between;font-size:10pt;font-weight:bold;margin:3px 0 5px}'
+    +'.ir span{flex:1;text-align:center}'
+    +'.ir span:first-child{text-align:left}'
+    +'.ir span:last-child{text-align:right}'
     +'table{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:3px}'
-    +'th,td{border:0.3pt solid #000;padding:1px 2px;vertical-align:middle;line-height:1.15}'
+    +'th,td{border:0.3pt solid #000;padding:1px 2px;vertical-align:middle;line-height:1.2}'
     +'th{font-weight:bold;text-align:center}'
-    +'.center{text-align:center}.left{text-align:left;padding-left:3px}.bold{font-weight:bold}'
-    +'.num{text-align:center}'
-    +'.hdr-nhap{background:#e8f5e9}.nx{background:#fce4d6}.hdr-main{background:#ddeeff}'
+    +'.c{text-align:center}.l{text-align:left;padding-left:2px}.b{font-weight:bold}.n{text-align:center}'
+    +'.hn{background:#e8f5e9}.xn{background:#fce4d6}.mn{background:#ddeeff}'
     +'.k{font-size:6pt}'
     +'.gc{font-size:6.5pt;line-height:1.2}'
-    +'.ngay-ky{text-align:right;font-style:italic;font-size:9pt;margin:5px 0 3px}'
-    +'.sign-row{display:flex;justify-content:space-between;margin-top:4px;font-size:9pt}'
-    +'.sign-col{text-align:center;flex:1}'
-    +'.sign-col b{display:block}'
-    +'.sign-col i{font-size:8pt}'
+    +'.nk{text-align:right;font-style:italic;font-size:9pt;margin:5px 0 3px}'
+    +'.sr{display:flex;justify-content:space-between;margin-top:4px;font-size:9pt}'
+    +'.sc{text-align:center;flex:1}'
+    +'.sc b{display:block}'
+    +'.sc i{font-size:8pt}'
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
     +'  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'  .page{width:100%;padding:30mm 10mm 10mm 15mm}'
-    +'  button{display:none!important}'
-    +'}'
-    +'</style>'
-    +'<script>if(window.chrome){var s=document.createElement("style");s.textContent="@page{margin:0}";document.head.appendChild(s);}<\/script>'
-    +'</head><body><div class="page">'
-    +'<div class="header-left"><div class="byt">BỘ Y TẾ</div><div class="ctlao">Chương trình Chống Lao quốc gia</div></div>'
-    +'<div class="tieude">BÁO CÁO  SỬ DỤNG  THUỐC ĐIỀU TRỊ LAO KHÁNG THUỐC</div>'
-    +'<div class="irow"><span>Đơn vị: <b>'+unitName+'</b></span><span>Thành phố Hải Phòng</span><span>Báo cáo tháng '+month+' năm '+year+'</span></div>'
+    +'  .pg{padding:30mm 10mm 10mm 15mm;width:100%}'
+    +'}';
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BC '+unitName+'</title>'
+    +'<style>'+css+'</style></head><body>'
+    +'<div class="pg">'
+    +'<div class="hl"><div class="byt">BỘ Y TẾ</div><div class="ctlao">Chương trình Chống Lao quốc gia</div></div>'
+    +'<div class="td">BÁO CÁO  SỬ DỤNG  THUỐC ĐIỀU TRỊ LAO KHÁNG THUỐC</div>'
+    +'<div class="ir"><span>Đơn vị: <b>'+unitName+'</b></span><span>Thành phố Hải Phòng</span><span>Báo cáo tháng '+month+' năm '+year+'</span></div>'
     +'<table><thead>'
     +'<tr>'
-    +'<th rowspan="3" class="hdr-main" style="width:18px">STT</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:108px">Tên thuốc/hàm lượng</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:24px">Đơn vị tính</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:32px">Nguồn kinh phí</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:56px">Lô sản xuất</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:42px">Hạn sử dụng</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:30px">Tồn đầu kỳ</th>'
-    +'<th colspan="4" class="hdr-nhap">Nhập trong kỳ</th>'
-    +'<th colspan="'+xCol+'" class="nx">Xuất trong kỳ</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:30px">Tồn cuối kỳ</th>'
-    +'<th rowspan="3" class="hdr-main" style="width:55px">Ghi chú</th>'
+    +'<th rowspan="3" class="mn" style="width:18px">STT</th>'
+    +'<th rowspan="3" class="mn" style="width:108px">Tên thuốc/hàm lượng</th>'
+    +'<th rowspan="3" class="mn" style="width:24px">Đơn vị tính</th>'
+    +'<th rowspan="3" class="mn" style="width:32px">Nguồn kinh phí</th>'
+    +'<th rowspan="3" class="mn" style="width:56px">Lô sản xuất</th>'
+    +'<th rowspan="3" class="mn" style="width:42px">Hạn sử dụng</th>'
+    +'<th rowspan="3" class="mn" style="width:30px">Tồn đầu kỳ</th>'
+    +'<th colspan="4" class="hn">Nhập trong kỳ</th>'
+    +'<th colspan="'+xCol+'" class="xn">Xuất trong kỳ</th>'
+    +'<th rowspan="3" class="mn" style="width:30px">Tồn cuối kỳ</th>'
+    +'<th rowspan="3" class="mn" style="width:55px">Ghi chú</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="hdr-nhap" style="width:28px">Tỉnh cấp</th>'
-    +'<th class="hdr-nhap" style="width:36px">Điều chuyển/<br>trả lại</th>'
-    +'<th class="hdr-nhap" style="width:24px">Thừa</th>'
-    +'<th class="hdr-nhap" style="width:28px">Cộng</th>'
+    +'<th class="hn" style="width:28px">Tỉnh cấp</th>'
+    +'<th class="hn" style="width:36px">Điều chuyển/<br>trả lại</th>'
+    +'<th class="hn" style="width:24px">Thừa</th>'
+    +'<th class="hn" style="width:28px">Cộng</th>'
     +xHdr
     +'</tr>'
     +'<tr>'
-    +'<th class="hdr-nhap k">(a)</th><th class="hdr-nhap k">(b)</th>'
-    +'<th class="hdr-nhap k">(c)</th><th class="hdr-nhap k">(d)=(b)+(c)+(d)</th>'
+    +'<th class="hn k">(a)</th><th class="hn k">(b)</th><th class="hn k">(c)</th><th class="hn k">(d)=(b)+(c)+(d)</th>'
     +xKy
     +'</tr>'
     +'</thead><tbody>'+tableRows+'</tbody></table>'
-    +'<div class="ngay-ky">'+ngayKy+'</div>'
-    +'<div class="sign-row">'
-    +'<div class="sign-col"><b>Người lập báo cáo</b></div>'
-    +'<div class="sign-col"><b>Trưởng khoa Dược</b></div>'
-    +'<div class="sign-col"><b>Bác sĩ phụ trách TCL</b></div>'
-    +'<div class="sign-col"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
-    +'</div>'
-    +'</div>'
-    +'<script>window.onload=function(){window.print();}<\/script>'
-    +'</body></html>';
+    +'<div class="nk">'+ngayKy+'</div>'
+    +'<div class="sr">'
+    +'<div class="sc"><b>Người lập báo cáo</b></div>'
+    +'<div class="sc"><b>Trưởng khoa Dược</b></div>'
+    +'<div class="sc"><b>Bác sĩ phụ trách TCL</b></div>'
+    +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
+    +'</div></div></body></html>';
 
-  var win=window.open('','_blank');
-  if(!win){ toast('Trình duyệt chặn popup! Vào Settings → cho phép popup rồi thử lại.','var(--danger)'); return; }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  // Dùng iframe để in — tránh bị chặn popup
+  var old=document.getElementById('_print_iframe');
+  if(old) old.remove();
+  var iframe=document.createElement('iframe');
+  iframe.id='_print_iframe';
+  iframe.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0';
+  document.body.appendChild(iframe);
+  var doc=iframe.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  setTimeout(function(){
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }, 600);
 }
 
 
