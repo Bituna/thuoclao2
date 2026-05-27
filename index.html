@@ -1644,6 +1644,12 @@ var currentUser=null; // {name, user, unit, role}
 // ============================================================
 // FORMULAS — Tất cả công thức tính toán tập trung tại đây
 // ============================================================
+// Format số có dấu chấm ngăn cách hàng nghìn
+function fmtNum(n){
+  if(!n || n===0) return '';
+  return Number(n).toLocaleString('vi-VN');
+}
+
 function calcRow(r){
   // Tổng nhập  = Tỉnh cấp + Điều chuyển vào
   var totalIn  = (r.tinh||0) + (r.dc||0);
@@ -3141,7 +3147,7 @@ function renderDrugTable(){
       +'<td class="open-stock">'+r.open+'</td>'
       +'<td style="color:var(--success);font-weight:700">'+c.tin+'</td>'
       +'<td style="color:var(--danger);font-weight:700">'+c.tout+'</td>'
-      +'<td class="'+fcls+'">'+c.final+'</td>'
+      +'<td class="'+fcls+'">'+fmtNum(c.final)+'</td>'
       +'<td>'+st+'</td>'
       +'</tr>';
   });
@@ -3152,10 +3158,10 @@ function renderDrugTable(){
   if(q && q.value.trim()) filterDrugTable();
 }
 function setDrugTotals(o,i,x,f){
-  document.getElementById('dt-fo').textContent=o;
-  document.getElementById('dt-tnhap').textContent=i;
-  document.getElementById('dt-txuat').textContent=x;
-  document.getElementById('dt-ff').textContent=f;
+  document.getElementById('dt-fo').textContent=fmtNum(o);
+  document.getElementById('dt-tnhap').textContent=fmtNum(i);
+  document.getElementById('dt-txuat').textContent=fmtNum(x);
+  document.getElementById('dt-ff').textContent=fmtNum(f);
 }
 function filterDrugTable(){
   var q = (document.getElementById('search-drug').value||'').toLowerCase().trim();
@@ -3340,7 +3346,7 @@ function buildTbl(data, bodyId, prefix){
           + '>';
       }
       var style = readOnly && !isAdmin() ? 'color:var(--muted)' : '';
-      return '<span style="' + style + '">' + val + '</span>';
+      return '<span style="' + style + '">' + fmtNum(val) + '</span>';
     }
 
     var expDisp   = expToMMYYYY(row.exp);
@@ -3372,7 +3378,7 @@ function buildTbl(data, bodyId, prefix){
     }
     tr += '<td>'+makeCell('hh',  row.hh||0,  false)+'</td>';
     tr += '<td class="calc-cell"><strong>'+res.tout+'</strong></td>';
-    tr += '<td class="'+finalCls+'">'+res.final+'</td>';
+    tr += '<td class="'+finalCls+'">'+fmtNum(res.final)+'</td>';
     tr += '<td class="no-print" style="white-space:nowrap">'+btns+'</td>';
     tr += '</tr>';
     tbody.innerHTML += tr;
@@ -5519,17 +5525,17 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
       tableRows+='<tr>'+fc
         +'<td class="c">'+r.lot+'</td>'
         +'<td class="c">'+expDisp+'</td>'
-        +'<td class="n">'+(tonDau||'')+'</td>'
-        +'<td class="n">'+(tinh||'')+'</td>'
-        +'<td class="n">'+(dc||'')+'</td>'
+        +'<td class="n">'+fmtNum(tonDau)+'</td>'
+        +'<td class="n">'+fmtNum(tinh)+'</td>'
+        +'<td class="n">'+fmtNum(dc)+'</td>'
         +'<td class="n"></td>'
-        +'<td class="n">'+(nhap||'')+'</td>'
-        +'<td class="n">'+(sd||'')+'</td>'
-        +'<td class="n">'+(dc2||'')+'</td>'
-        +'<td class="n">'+(hh||'')+'</td>'
+        +'<td class="n">'+fmtNum(nhap)+'</td>'
+        +'<td class="n">'+fmtNum(sd)+'</td>'
+        +'<td class="n">'+fmtNum(dc2)+'</td>'
+        +'<td class="n">'+fmtNum(hh)+'</td>'
         +(isBVPH?'<td class="n"></td>':'')
-        +'<td class="n">'+(xuat||'')+'</td>'
-        +'<td class="n">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
+        +'<td class="n">'+fmtNum(xuat)+'</td>'
+        +'<td class="n">'+(tonCuoi===0?'-':fmtNum(tonCuoi))+'</td>'
         +'<td class="l gc">'+gc+'</td>'
         +'</tr>';
     });
@@ -5546,7 +5552,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
 
   var css='*{box-sizing:border-box}'
     +'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0}'
-    +'.pg{padding:20mm 10mm 10mm 15mm}'
+    +'.pg{padding:20mm 10mm 10mm 10mm;width:277mm;box-sizing:border-box}'
     +'.hl{width:55%;text-align:center}'
     +'.byt{font-size:12pt;font-weight:bold;margin:0}'
     +'.ctlao{font-size:10pt;margin:0}'
@@ -5570,7 +5576,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
     +'  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    +'  .pg{padding:20mm 10mm 10mm 15mm;width:100%}'
+    +'  .pg{padding:20mm 10mm 10mm 10mm!important;width:100%!important;box-sizing:border-box}'
     +'}';
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BC '+unitName+'</title>'
@@ -5628,7 +5634,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
   ps.textContent = '@media print{'
     + 'body > *:not(#_byt_print_div){display:none!important}'
     + '#_byt_print_div{display:block!important;position:fixed;inset:0;background:white;z-index:99999}'
-    + '#_byt_print_div .pg{padding:20mm 10mm 10mm 15mm}'
+    + '#_byt_print_div{box-sizing:border-box}#_byt_print_div .pg{padding:20mm 10mm 10mm 10mm;box-sizing:border-box}'
     + '}';
   document.head.appendChild(ps);
 
