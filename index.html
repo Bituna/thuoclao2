@@ -1286,6 +1286,9 @@ async function checkSupabase(){
   var result = await Promise.race([fetchPr, timeout]);
   _supaOnline = !!(result && result.status >= 200 && result.status < 300);
   _updateCloudStatus();
+  if(_supaOnline && currentUser && currentUser.role==='donvi'){
+    setTimeout(checkPendingTransfers, 500);
+  }
 }
 
 // Cập nhật icon cloud trên UI
@@ -2525,8 +2528,10 @@ function initApp(){
           loadCatalogFromCloud();
           _autoLoadOnLogin().then(function(){
             fillDrugSelects();
-            // Kiểm tra phiếu điều chuyển chờ xác nhận
-            setTimeout(checkPendingTransfers, 1500);
+            // Kiểm tra phiếu điều chuyển chờ xác nhận (chỉ với 22 đơn vị)
+            if(currentUser && currentUser.role==='donvi'){
+              setTimeout(checkPendingTransfers, 2000);
+            }
           }).catch(function(){});
         }
       });
@@ -3910,21 +3915,27 @@ async function rechoseFile(){
 async function checkPendingTransfers(){
   if(!_supaOnline || !currentUser) return;
   var myUnit = currentUser.unit || (currentUser.role==='bvph' ? BVPH : '');
-  if(!myUnit) return;
+  if(!myUnit || myUnit===BVPH) return; // BVPH không cần nhận xác nhận
   var periodKey = _currentPeriodKey();
+  if(!periodKey) return;
   try{
+    // Tải tất cả transfers đến đơn vị này trong kỳ
     var r = await fetch(
       SUPA_URL+'/rest/v1/transfers?to_unit=eq.'+encodeURIComponent(myUnit)
-      +'&status=eq.pending&period=eq.'+encodeURIComponent(periodKey)
+      +'&period=eq.'+encodeURIComponent(periodKey)
       +'&order=created_at.desc',
       {headers:_supaHdr}
     );
     if(!r.ok) return;
-    var pending = await r.json();
+    var all = await r.json();
+    // Lọc pending ở client: status=pending hoặc chưa có status
+    var pending = all.filter(function(t){
+      return !t.status || t.status==='pending';
+    });
     if(pending.length > 0){
       _showPendingTransferPopup(pending, myUnit, periodKey);
     }
-  }catch(e){}
+  }catch(e){ console.warn('checkPendingTransfers error:', e); }
 }
 
 // Popup thông báo phiếu điều chuyển chờ xác nhận
