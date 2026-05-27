@@ -1445,22 +1445,22 @@ async function saveToSupabase(periodKey){
 
 async function _saveSupaCatalog(){
   if(!catalogData.length) return;
-  // Dedupe
+  // Dedupe local trước
   var seenS={}, toSave=[];
   catalogData.forEach(function(r){
     var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
     if(!seenS[k]){ seenS[k]=true; toSave.push(r); }
   });
   if(!toSave.length) return;
+  catalogData = toSave; // cập nhật local đã dedupe
+
   var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
   var body = JSON.stringify(toSave.map(function(r){
     return {drug:r.drug, lot:r.lot, exp:r.exp||'', note:r.note||''};
   }));
-  // Supabase yêu cầu filter khi DELETE — dùng id > 0 để xóa tất cả
+  // Xóa toàn bộ rồi insert lại (tránh trùng)
   var delRes = await fetch(SUPA_URL+'/rest/v1/catalog?id=gt.0', {method:'DELETE', headers:_supaHdr});
-  // Nếu bảng rỗng (404/416) vẫn OK, tiếp tục insert
   if(!delRes.ok && delRes.status !== 404 && delRes.status !== 416){
-    // Thử fallback: xóa theo drug không rỗng
     var delRes2 = await fetch(SUPA_URL+'/rest/v1/catalog?drug=neq.NULL', {method:'DELETE', headers:_supaHdr});
     if(!delRes2.ok && delRes2.status !== 416) throw new Error('Xóa catalog thất bại: '+delRes2.status);
   }
@@ -3166,6 +3166,19 @@ function buildTbl(data, bodyId, prefix){
     function makeCell(field, val, readOnly){
       var locked = readOnly || isLocked;
       if(isEditing && canEdit && !locked){
+        // dc2 = Xuất điều chuyển → hỏi đơn vị nhận
+        if(field === 'dc2'){
+          var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
+          var onblur = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
+          return '<input type="number" min="0" value="' + val + '"'
+            + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
+            + ' style="width:54px;padding:4px;border:1px solid #f59e0b;border-radius:5px;text-align:center;font-size:12px;background:#fffbeb"'
+            + ' onchange="' + onch + '"'
+            + ' oninput="' + onch + '"'
+            + ' onblur="' + onblur + '"'
+            + ' title="Xuất điều chuyển — nhập xong sẽ hỏi đơn vị nhận"'
+            + '>';
+        }
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
         return '<input type="number" min="0" value="' + val + '"'
           + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
@@ -4207,6 +4220,99 @@ async function loadSaved(){
     }
   }catch(e){}
   // Catalog và data báo cáo sẽ tải từ cloud sau khi checkSupabase xong
+}
+
+// ============================================================
+// ── ĐIỀU CHUYỂN THUỐC ────────────────────────────────────────
+function onDc2Change(prefix, rowIdx, inp){
+  var qty = parseInt(inp.value) || 0;
+  if(qty <= 0) return;
+  var arr = prefix === 'bvph' ? bvphData : bcData;
+  var realIdx = getReal(prefix, rowIdx);
+  if(realIdx < 0) return;
+  var row = arr[realIdx];
+  var fromUnit = row.unit || BVPH;
+  var allUnits = [BVPH].concat(UNITS.filter(function(u){ return u !== BVPH; }));
+  var receiveUnits = allUnits.filter(function(u){ return u !== fromUnit; });
+
+  var old = document.getElementById('_transfer_modal'); if(old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = '_transfer_modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+
+  var h = document.createElement('div');
+  h.style.cssText = 'font-size:15px;font-weight:700;color:#1a2332;margin-bottom:5px';
+  h.textContent = '↗ Xuất điều chuyển ' + qty.toLocaleString() + ' viên';
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:#666;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px';
+  sub.textContent = row.drug + ' — Lô ' + row.lot + ' | Từ: ' + fromUnit;
+
+  var lbl = document.createElement('div');
+  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:6px';
+  lbl.textContent = 'Chuyển đến đơn vị:';
+
+  var sel = document.createElement('select');
+  sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
+  var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
+  sel.appendChild(opt0);
+  receiveUnits.forEach(function(u){
+    var o = document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o);
+  });
+
+  var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var btnC = document.createElement('button');
+  btnC.textContent='Hủy (xóa số)';
+  btnC.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.onclick=function(){ ov.remove(); inp.value=0; updField(prefix,rowIdx,'dc2',0); };
+  var btnO = document.createElement('button');
+  btnO.textContent='✓ Xác nhận';
+  btnO.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.onclick=function(){
+    var toUnit=sel.value;
+    if(!toUnit){ toast('Vui lòng chọn đơn vị nhận!','var(--warning)'); return; }
+    ov.remove();
+    _applyTransfer(prefix, realIdx, row, qty, fromUnit, toUnit);
+  };
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
+  box.appendChild(h); box.appendChild(sub); box.appendChild(lbl); box.appendChild(sel); box.appendChild(btnRow);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov){ ov.remove(); inp.value=0; updField(prefix,rowIdx,'dc2',0); } };
+  setTimeout(function(){ sel.focus(); }, 100);
+}
+
+function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
+  var periodKey = _currentPeriodKey();
+  var targetArr = (toUnit === BVPH) ? bvphData : bcData;
+  var targetRow = targetArr.find(function(r){
+    return r.bcMonth===periodKey && r.drug===fromRow.drug && r.lot===fromRow.lot && r.exp===fromRow.exp
+      && (toUnit===BVPH ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
+  });
+  if(targetRow){
+    targetRow.dc = (targetRow.dc||0) + qty;
+    toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+'. Nhập điều chuyển đã cập nhật!','#27ae60');
+    if(_supaOnline) _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty);
+    renderBVPH(); renderBC(); renderTP();
+    _syncPeriodToCloud();
+  } else {
+    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này.\nVui lòng thêm dòng đó trước rồi điều chuyển lại!','orange');
+    // Reset dc2 về 0 vì chưa áp dụng được
+    var srcArr = prefix==='bvph' ? bvphData : bcData;
+    if(srcArr[fromIdx]) srcArr[fromIdx].dc2 = 0;
+    renderBVPH(); renderBC();
+  }
+}
+
+async function _saveTransfer(period, fromUnit, toUnit, row, qty){
+  try{
+    var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=minimal'});
+    await fetch(SUPA_URL+'/rest/v1/transfers', {
+      method:'POST', headers:hdPost,
+      body:JSON.stringify([{period:period, from_unit:fromUnit, to_unit:toUnit,
+        drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty}])
+    });
+  }catch(e){ console.warn('Save transfer error:',e); }
 }
 
 // ============================================================
