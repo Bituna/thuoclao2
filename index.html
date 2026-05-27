@@ -4250,38 +4250,56 @@ function onDc2Change(prefix, rowIdx, inp){
   if(realIdx < 0) return;
   var row = arr[realIdx];
   var fromUnit = row.unit || BVPH;
-  var allUnits = [BVPH].concat(UNITS.filter(function(u){ return u !== BVPH; }));
-  var receiveUnits = allUnits.filter(function(u){ return u !== fromUnit; });
+  var periodKey = _currentPeriodKey();
+  var receiveUnits = [BVPH].concat(UNITS.filter(function(u){ return u !== BVPH && u !== fromUnit; }))
+    .filter(function(u){ return u !== fromUnit; });
 
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov = document.createElement('div');
   ov.id = '_transfer_modal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   var box = document.createElement('div');
-  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
+  // Header
   var h = document.createElement('div');
   h.style.cssText = 'font-size:15px;font-weight:700;color:#1a2332;margin-bottom:5px';
-  h.textContent = '↗ Tạo phiếu xuất điều chuyển';
-
+  h.textContent = '↗ Xuất điều chuyển';
   var sub = document.createElement('div');
-  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px;line-height:1.7';
+  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:#f8f9fa;border-radius:6px;line-height:1.7';
   sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ đơn vị:</b> '+fromUnit;
+  box.appendChild(h); box.appendChild(sub);
 
-  // Ô nhập số lượng
+  // === Phần danh sách phiếu đã có (tải từ Supabase) ===
+  var listSection = document.createElement('div');
+  listSection.id = '_tm_list';
+  listSection.style.cssText = 'margin-bottom:14px';
+  listSection.innerHTML = '<div style="font-size:12px;color:#888;font-style:italic">Đang tải phiếu đã có...</div>';
+  box.appendChild(listSection);
+
+  // === Divider ===
+  var div1 = document.createElement('div');
+  div1.style.cssText = 'border-top:1px solid #eee;margin:12px 0 12px';
+  box.appendChild(div1);
+
+  // === Form tạo phiếu mới ===
+  var newLabel = document.createElement('div');
+  newLabel.style.cssText = 'font-size:13px;font-weight:700;color:#1a5276;margin-bottom:10px';
+  newLabel.textContent = '+ Tạo phiếu điều chuyển mới';
+  box.appendChild(newLabel);
+
   var qtyLabel = document.createElement('div');
-  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
-  qtyLabel.textContent = 'Số lượng điều chuyển (viên):';
+  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  qtyLabel.textContent = 'Số lượng (viên):';
   var qtyInp = document.createElement('input');
   qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
-  qtyInp.style.cssText = 'width:100%;padding:10px;border:2px solid #f59e0b;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box;text-align:center';
+  qtyInp.style.cssText = 'width:100%;padding:9px;border:2px solid #f59e0b;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:12px;box-sizing:border-box;text-align:center';
 
-  // Chọn đơn vị nhận
   var lbl = document.createElement('div');
-  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
+  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
   lbl.textContent = 'Chuyển đến đơn vị:';
   var sel = document.createElement('select');
-  sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
+  sel.style.cssText = 'width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px';
   var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
   sel.appendChild(opt0);
   receiveUnits.forEach(function(u){
@@ -4290,163 +4308,86 @@ function onDc2Change(prefix, rowIdx, inp){
 
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button');
-  btnC.textContent='Hủy';
+  btnC.textContent='Đóng';
   btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
   var btnO = document.createElement('button');
-  btnO.textContent='✓ Xác nhận điều chuyển';
+  btnO.textContent='✓ Xác nhận';
   btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var qty = parseInt(qtyInp.value)||0;
-    var toUnit = sel.value;
-    if(qty <= 0){ toast('Vui lòng nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
-    if(!toUnit){ toast('Vui lòng chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    var qty=parseInt(qtyInp.value)||0;
+    var toUnit=sel.value;
+    if(qty<=0){ toast('Nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
+    if(!toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
     ov.remove();
-    // Cộng dồn vào dc2 của dòng nguồn
-    arr[realIdx].dc2 = (arr[realIdx].dc2||0) + qty;
-    inp.value = arr[realIdx].dc2;
-    updField(prefix, rowIdx, 'dc2', arr[realIdx].dc2);
-    _applyTransfer(prefix, realIdx, row, qty, fromUnit, toUnit);
+    arr[realIdx].dc2=(arr[realIdx].dc2||0)+qty;
+    inp.value=arr[realIdx].dc2;
+    updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
+    _applyTransfer(prefix,realIdx,row,qty,fromUnit,toUnit);
   };
-  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
-  box.appendChild(h); box.appendChild(sub);
+
   box.appendChild(qtyLabel); box.appendChild(qtyInp);
   box.appendChild(lbl); box.appendChild(sel);
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
   box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   setTimeout(function(){ qtyInp.focus(); }, 100);
+
+  // Tải danh sách phiếu đã có
+  _loadTransferList(listSection, periodKey, fromUnit, row, inp, arr, realIdx, prefix, rowIdx, 'dc2', ov);
 }
 
-
-function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
-  var periodKey = _currentPeriodKey();
-  var targetArr = (toUnit === BVPH) ? bvphData : bcData;
-  var targetRow = targetArr.find(function(r){
-    return r.bcMonth===periodKey && r.drug===fromRow.drug && r.lot===fromRow.lot && r.exp===fromRow.exp
-      && (toUnit===BVPH ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
-  });
-  if(targetRow){
-    targetRow.dc = (targetRow.dc||0) + qty;
-    toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+'. Nhập điều chuyển đã cập nhật!','#27ae60');
-    if(_supaOnline) _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty);
-    renderBVPH(); renderBC(); renderTP();
-    _syncPeriodToCloud();
-  } else {
-    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này.\nVui lòng thêm dòng đó trước rồi điều chuyển lại!','orange');
-    // Reset dc2 về 0 vì chưa áp dụng được
-    var srcArr = prefix==='bvph' ? bvphData : bcData;
-    if(srcArr[fromIdx]) srcArr[fromIdx].dc2 = 0;
-    renderBVPH(); renderBC();
-  }
-}
-
-// Hiện chi tiết nhập điều chuyển của 1 dòng
-async function showDcDetail(prefix, rowIdx){
-  var arr = prefix === 'bvph' ? bvphData : bcData;
-  var realIdx = getReal(prefix, rowIdx);
-  if(realIdx < 0) return;
-  var row = arr[realIdx];
-  var toUnit = row.unit || BVPH;
-  var periodKey = _currentPeriodKey();
-
-  // Tải lịch sử từ Supabase
-  var transfers = [];
-  if(_supaOnline){
-    try{
-      var r = await fetch(
-        SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
-        +'&to_unit=eq.'+encodeURIComponent(toUnit)
-        +'&drug=eq.'+encodeURIComponent(row.drug)
-        +'&lot=eq.'+encodeURIComponent(row.lot)
-        +'&order=created_at.asc',
-        {headers:_supaHdr}
-      );
-      if(r.ok) transfers = await r.json();
-    }catch(e){}
-  }
-
-  var old = document.getElementById('_dc_detail_modal'); if(old) old.remove();
-  var ov = document.createElement('div');
-  ov.id = '_dc_detail_modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
-  var box = document.createElement('div');
-  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:500px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
-
-  var h = document.createElement('div');
-  h.style.cssText = 'font-size:15px;font-weight:700;color:#1a2332;margin-bottom:5px';
-  h.textContent = '↙ Chi tiết Nhập điều chuyển';
-
-  var sub = document.createElement('div');
-  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px;line-height:1.7';
-  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Đơn vị nhận:</b> '+toUnit;
-
-  var totalDC = row.dc || 0;
-  var totalEl = document.createElement('div');
-  totalEl.style.cssText = 'font-size:13px;font-weight:700;color:#1a5276;margin-bottom:10px;padding:6px 10px;background:#eef7ff;border-radius:6px';
-  totalEl.textContent = 'Tổng nhập điều chuyển: ' + totalDC.toLocaleString() + ' viên';
-
-  var listEl = document.createElement('div');
-  if(transfers.length === 0){
-    listEl.style.cssText = 'color:#888;font-size:12px;font-style:italic;margin-bottom:14px';
-    listEl.textContent = 'Chưa có phiếu điều chuyển nào được ghi nhận trong kỳ này.';
-  } else {
-    // Bảng danh sách
-    var tbl = document.createElement('table');
-    tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px';
-    tbl.innerHTML = '<thead><tr style="background:#1a5276;color:white">'
-      +'<th style="padding:6px 8px;text-align:left">Từ đơn vị</th>'
-      +'<th style="padding:6px 8px">Số lượng</th>'
-      +'<th style="padding:6px 8px">Ngày</th>'
-      +'<th style="padding:6px 8px">Thao tác</th>'
-      +'</tr></thead>';
-    var total = 0;
-    var tbody = document.createElement('tbody');
-    transfers.forEach(function(t, i){
-      var tr = document.createElement('tr');
-      tr.style.background = i%2===0?'#f8f9fa':'white';
+// Tải và render danh sách phiếu điều chuyển đã có trong popup
+async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx, prefix, rowIdx, field, ov){
+  if(!_supaOnline){ el.innerHTML='<div style="font-size:12px;color:#e67e22">Offline — không thể tải lịch sử</div>'; return; }
+  try{
+    var r = await fetch(
+      SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
+      +'&from_unit=eq.'+encodeURIComponent(fromUnit)
+      +'&drug=eq.'+encodeURIComponent(row.drug)
+      +'&lot=eq.'+encodeURIComponent(row.lot)
+      +'&order=created_at.asc',
+      {headers:_supaHdr}
+    );
+    var transfers = r.ok ? await r.json() : [];
+    if(!transfers.length){
+      el.innerHTML='<div style="font-size:12px;color:#888;font-style:italic">Chưa có phiếu nào trong kỳ này.</div>';
+      return;
+    }
+    var html='<div style="font-size:12px;font-weight:700;color:#333;margin-bottom:6px">Phiếu đã tạo:</div>';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr style="background:#f0f4f8"><th style="padding:5px 7px;text-align:left">Đến đơn vị</th><th style="padding:5px 7px">SL</th><th style="padding:5px 7px">Ngày</th><th style="padding:5px 7px">Thao tác</th></tr>';
+    transfers.forEach(function(t){
       var dt = t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—';
-      var cancelBtn = isAdmin()
-        ? '<button onclick="ov.remove();cancelTransferById(\''+t.id+'\',\''+toUnit+'\')" '
-          +'style="font-size:10px;padding:2px 7px;border:1px solid #e74c3c;border-radius:4px;background:white;color:#e74c3c;cursor:pointer">Hủy</button>'
-        : '—';
-      tr.innerHTML = '<td style="padding:6px 8px">' + t.from_unit + '</td>'
-        + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#27ae60">' + (t.qty||0).toLocaleString() + ' viên</td>'
-        + '<td style="padding:6px 8px;text-align:center;color:#888">' + dt + '</td>'
-        + '<td style="padding:6px 8px;text-align:center">' + cancelBtn + '</td>';
-      tbody.appendChild(tr);
-      total += (t.qty||0);
+      html+='<tr style="border-bottom:1px solid #eee">'
+        +'<td style="padding:5px 7px">'+t.to_unit+'</td>'
+        +'<td style="padding:5px 7px;text-align:center;font-weight:700;color:#27ae60">'+t.qty+'</td>'
+        +'<td style="padding:5px 7px;text-align:center;color:#888">'+dt+'</td>'
+        +'<td style="padding:5px 7px;text-align:center">'
+        +'<button onclick="ov.remove();_cancelAndRefresh(''+t.id+'',''+t.to_unit+'',''+field+'')" '
+        +'style="font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer;margin-right:3px">✕ Hủy</button>'
+        +'</td>'
+        +'</tr>';
     });
-    // Dòng tổng
-    var tfr = document.createElement('tr');
-    tfr.style.background='#eef7ff';
-    tfr.innerHTML = '<td style="padding:6px 8px;font-weight:700">Tổng cộng</td>'
-      +'<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a5276">'+total.toLocaleString()+' viên</td>'
-      +'<td></td>';
-    tbody.appendChild(tfr);
-    tbl.appendChild(tbody);
-    listEl.appendChild(tbl);
-  }
-
-  var btnClose = document.createElement('button');
-  btnClose.textContent = 'Đóng';
-  btnClose.style.cssText = 'padding:8px 22px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px;float:right';
-  btnClose.onclick = function(){ ov.remove(); };
-
-  box.appendChild(h); box.appendChild(sub); box.appendChild(totalEl);
-  box.appendChild(listEl); box.appendChild(btnClose);
-  ov.appendChild(box); document.body.appendChild(ov);
-  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    html+='</table>';
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML='<div style="font-size:12px;color:red">Lỗi tải: '+e.message+'</div>'; }
 }
 
-// Xuất Tổ CL (dc3) → rơi vào cột Tỉnh cấp (tinh) của đơn vị tuyến
+// Hủy phiếu và cập nhật số liệu
+async function _cancelAndRefresh(transferId, toUnit, field){
+  await cancelTransferById(transferId, toUnit);
+}
+
+
 function onDc3Change(prefix, rowIdx, inp){
   var arr = prefix === 'bvph' ? bvphData : bcData;
   var realIdx = getReal(prefix, rowIdx);
   if(realIdx < 0) return;
   var row = arr[realIdx];
   var fromUnit = row.unit || BVPH;
-  // dc3 chỉ áp dụng cho BVPH, đơn vị nhận là 22 đơn vị tuyến
+  var periodKey = _currentPeriodKey();
   var receiveUnits = UNITS.filter(function(u){ return u !== BVPH; });
 
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
@@ -4454,27 +4395,44 @@ function onDc3Change(prefix, rowIdx, inp){
   ov.id = '_transfer_modal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
   var box = document.createElement('div');
-  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
   var h = document.createElement('div');
   h.style.cssText = 'font-size:15px;font-weight:700;color:#6c3483;margin-bottom:5px';
   h.textContent = '↙ Xuất Tổ CL → Đơn vị tuyến';
   var sub = document.createElement('div');
-  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f9f0ff;border-radius:6px;line-height:1.7';
-  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ:</b> '+fromUnit+' &nbsp;→&nbsp; <b>Rơi vào: Cột Tỉnh cấp</b>';
+  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:#f9f0ff;border-radius:6px;line-height:1.7';
+  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ:</b> '+fromUnit+' → <b>Rơi vào: Tỉnh cấp đơn vị nhận</b>';
+  box.appendChild(h); box.appendChild(sub);
+
+  // Danh sách phiếu đã có
+  var listSection = document.createElement('div');
+  listSection.id = '_tm_list';
+  listSection.style.cssText = 'margin-bottom:14px';
+  listSection.innerHTML = '<div style="font-size:12px;color:#888;font-style:italic">Đang tải...</div>';
+  box.appendChild(listSection);
+
+  var div1 = document.createElement('div');
+  div1.style.cssText = 'border-top:1px solid #eee;margin:12px 0';
+  box.appendChild(div1);
+
+  var newLabel = document.createElement('div');
+  newLabel.style.cssText = 'font-size:13px;font-weight:700;color:#6c3483;margin-bottom:10px';
+  newLabel.textContent = '+ Tạo phiếu xuất Tổ CL mới';
+  box.appendChild(newLabel);
 
   var qtyLabel = document.createElement('div');
-  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
-  qtyLabel.textContent = 'Số lượng xuất (viên):';
+  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  qtyLabel.textContent = 'Số lượng (viên):';
   var qtyInp = document.createElement('input');
   qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
-  qtyInp.style.cssText = 'width:100%;padding:10px;border:2px solid #8e44ad;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box;text-align:center';
+  qtyInp.style.cssText = 'width:100%;padding:9px;border:2px solid #8e44ad;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:12px;box-sizing:border-box;text-align:center';
 
   var lbl = document.createElement('div');
-  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
-  lbl.textContent = 'Chuyển đến đơn vị tuyến:';
+  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+  lbl.textContent = 'Đơn vị tuyến nhận:';
   var sel = document.createElement('select');
-  sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
+  sel.style.cssText = 'width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px';
   var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
   sel.appendChild(opt0);
   receiveUnits.forEach(function(u){
@@ -4483,36 +4441,35 @@ function onDc3Change(prefix, rowIdx, inp){
 
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button');
-  btnC.textContent='Hủy';
+  btnC.textContent='Đóng';
   btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
   var btnO = document.createElement('button');
   btnO.textContent='✓ Xác nhận';
   btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#6c3483;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var qty = parseInt(qtyInp.value)||0;
-    var toUnit = sel.value;
+    var qty=parseInt(qtyInp.value)||0;
+    var toUnit=sel.value;
     if(qty<=0){ toast('Nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
     if(!toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
     ov.remove();
-    // Cộng dồn dc3
-    arr[realIdx].dc3 = (arr[realIdx].dc3||0) + qty;
-    inp.value = arr[realIdx].dc3;
-    updField(prefix, rowIdx, 'dc3', arr[realIdx].dc3);
-    // Rơi vào cột tinh (Tỉnh cấp) của đơn vị nhận
-    _applyDc3Transfer(prefix, realIdx, row, qty, fromUnit, toUnit);
+    arr[realIdx].dc3=(arr[realIdx].dc3||0)+qty;
+    inp.value=arr[realIdx].dc3;
+    updField(prefix,rowIdx,'dc3',arr[realIdx].dc3);
+    _applyDc3Transfer(prefix,realIdx,row,qty,fromUnit,toUnit);
   };
-  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
-  box.appendChild(h); box.appendChild(sub);
   box.appendChild(qtyLabel); box.appendChild(qtyInp);
   box.appendChild(lbl); box.appendChild(sel);
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
   box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   setTimeout(function(){ qtyInp.focus(); }, 100);
+
+  _loadTransferList(listSection, periodKey, fromUnit, row, inp, arr, realIdx, prefix, rowIdx, 'dc3', ov);
 }
 
-// dc3 → cộng vào tinh (Tỉnh cấp) của đơn vị tuyến
+
 function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   var periodKey = _currentPeriodKey();
   var targetRow = bcData.find(function(r){
