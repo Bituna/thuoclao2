@@ -3517,11 +3517,26 @@ function updField(prefix, rowIdx, field, val){
       realIdx = bcData.indexOf(filtered2[rowIdx]);
   }
 
-  if(realIdx < 0) return; // không tìm thấy dòng
+  if(realIdx < 0) return;
 
   var arr = prefix==='bvph' ? bvphData : bcData;
-  arr[realIdx][field] = v;
+  var row = arr[realIdx];
 
+  // Kiểm tra tồn không âm với các cột xuất
+  var outFields = ['sd','dc2','dc3','hh'];
+  if(outFields.indexOf(field) >= 0){
+    var testRow = Object.assign({}, row);
+    testRow[field] = v;
+    var calc = calcRow(testRow);
+    var maxOut = (testRow.open||0) + calc.tin;
+    if(calc.tout > maxOut){
+      var allowed = Math.max(0, v - (calc.tout - maxOut));
+      toast('⚠ Số xuất vượt tồn! Tối đa: '+(maxOut - (calc.tout - v)).toLocaleString()+' viên. Đã điều chỉnh.','orange');
+      v = Math.max(0, allowed);
+    }
+  }
+
+  row[field] = v;
   if(prefix==='bvph') renderBVPH(); else renderBC();
   saveLocalCache(buildPayload());
 }
@@ -4485,24 +4500,100 @@ function onDc3Change(prefix, rowIdx, inp){
 }
 
 
+// Áp dụng điều chuyển dc2 → dc của đơn vị nhận
+function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
+  var periodKey = _currentPeriodKey();
+
+  // Kiểm tra tồn đủ không (tồn đầu + nhập >= tổng xuất)
+  var srcArr = prefix==='bvph' ? bvphData : bcData;
+  var srcRow = srcArr[fromIdx];
+  if(srcRow){
+    var calc = calcRow(srcRow);
+    var maxOut = (srcRow.open||0) + calc.tin;
+    if(calc.tout > maxOut){
+      toast('⚠ Tổng xuất vượt quá tồn! Tồn không được âm.','var(--danger)');
+      // Rollback dc2
+      srcRow.dc2 = Math.max(0, (srcRow.dc2||0) - qty);
+      renderBVPH(); renderBC();
+      return;
+    }
+  }
+
+  // Tìm dòng đơn vị nhận
+  var targetArr = (toUnit===BVPH) ? bvphData : bcData;
+  var targetRow = targetArr.find(function(r){
+    return r.bcMonth===periodKey && r.drug===fromRow.drug
+      && r.lot===fromRow.lot && r.exp===fromRow.exp
+      && (toUnit===BVPH ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
+  });
+
+  if(!targetRow){
+    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này. Thêm dòng đó trước!','orange');
+    // Rollback dc2
+    if(srcRow) srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-qty);
+    renderBVPH(); renderBC();
+    return;
+  }
+
+  // Cộng vào dc của đơn vị nhận
+  targetRow.dc = (targetRow.dc||0) + qty;
+
+  // Lưu phiếu lên Supabase
+  if(_supaOnline){
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc').then(function(){
+      toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit,'#27ae60');
+    });
+  } else {
+    toast('✓ Đã điều chuyển (offline — sẽ sync khi có mạng)','#27ae60');
+  }
+
+  renderBVPH(); renderBC(); renderTP();
+  _syncPeriodToCloud();
+}
+
 function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   var periodKey = _currentPeriodKey();
+  var srcArr = prefix==='bvph' ? bvphData : bcData;
+  var srcRow = srcArr[fromIdx];
+
+  // Kiểm tra tồn không âm
+  if(srcRow){
+    var calc = calcRow(srcRow);
+    var maxOut = (srcRow.open||0) + calc.tin;
+    if(calc.tout > maxOut){
+      toast('⚠ Tổng xuất vượt quá tồn! Tồn không được âm.','var(--danger)');
+      srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-qty);
+      renderBVPH(); renderBC();
+      return;
+    }
+  }
+
+  // Tìm dòng đơn vị nhận
   var targetRow = bcData.find(function(r){
     return r.bcMonth===periodKey && r.drug===fromRow.drug
       && r.lot===fromRow.lot && r.exp===fromRow.exp && r.unit===toUnit;
   });
-  if(targetRow){
-    targetRow.tinh = (targetRow.tinh||0) + qty;
-    toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' (Tỉnh cấp đã cập nhật)','#6c3483');
-    if(_supaOnline) _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh');
-    renderBVPH(); renderBC(); renderTP();
-    _syncPeriodToCloud();
-  } else {
+
+  if(!targetRow){
     toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này!','orange');
-    var srcArr = prefix==='bvph' ? bvphData : bcData;
-    if(srcArr[fromIdx]) srcArr[fromIdx].dc3 = Math.max(0,(srcArr[fromIdx].dc3||0)-qty);
+    if(srcRow) srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-qty);
     renderBVPH(); renderBC();
+    return;
   }
+
+  // Cộng vào tinh (Tỉnh cấp) của đơn vị nhận
+  targetRow.tinh = (targetRow.tinh||0) + qty;
+
+  if(_supaOnline){
+    _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh').then(function(){
+      toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' (Tỉnh cấp đã cập nhật)','#6c3483');
+    });
+  } else {
+    toast('✓ Xuất Tổ CL (offline)','#6c3483');
+  }
+
+  renderBVPH(); renderBC(); renderTP();
+  _syncPeriodToCloud();
 }
 
 // Hủy/Sửa phiếu điều chuyển
