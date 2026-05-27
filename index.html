@@ -5377,14 +5377,10 @@ function _doPrint(unitName, rows, periodKey){
   var p=periodKey.split('-');
   var month=parseInt(p[1]||'0');
   var year=parseInt(p[0]||'0');
-
   var today=new Date();
-  // Hạn nộp = ngày 5 tháng sau kỳ báo cáo
-  var deadline=new Date(year, month, 5); // month là 0-indexed, tháng kỳ báo cáo = month-1, tháng sau = month
+  var deadline=new Date(year, month, 5);
   var isLate = today > deadline;
-
   if(isLate){
-    // Popup cảnh báo trễ hạn
     _confirmPrintDate(unitName, rows, periodKey, month, year, today, function(printDate){
       _renderPrint(unitName, rows, periodKey, month, year, printDate);
     });
