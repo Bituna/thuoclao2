@@ -5429,8 +5429,18 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
   var diaDanh=unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'').replace(/bv\s*/i,'').trim()||unitName;
   var ngayKy=diaDanh+', ngày '+('0'+printDate.getDate()).slice(-2)+' tháng '+(printDate.getMonth()+1)+' năm '+printDate.getFullYear();
 
-  // Tải phiếu điều chuyển từ Supabase để ghi chú chính xác
+  // Mở cửa sổ NGAY (trong user gesture) trước khi fetch async
+  var win=window.open('','_blank','width=1100,height=750');
+  if(!win){ toast('Trình duyệt chặn popup! Cho phép popup cho trang này rồi thử lại.','var(--danger)'); return; }
+  win.document.write('<html><body style="font-family:sans-serif;padding:30px;color:#555">⏳ Đang chuẩn bị báo cáo...</body></html>');
+  win.document.close();
+
+  // Tải phiếu điều chuyển từ Supabase
   var ghiChuMap = {};
+  var doRender = function(){
+    _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap,win);
+  };
+
   if(_supaOnline){
     fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
       +'&from_unit=eq.'+encodeURIComponent(unitName)
@@ -5442,15 +5452,15 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
         if(!ghiChuMap[key]) ghiChuMap[key]=[];
         ghiChuMap[key].push(t.to_unit+': '+(t.qty||0)+' viên');
       });
-      _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap);
+      doRender();
     })
-    .catch(function(){ _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap); });
+    .catch(function(){ doRender(); });
   } else {
-    _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap);
+    doRender();
   }
 }
 
-function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap){
+function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuMap,win){
 
   var tableRows='';
   var stt=1;
@@ -5585,7 +5595,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
     +'<script>window.onload=function(){window.print();}<\/script>'
     +'</body></html>';
 
-  var win=window.open('','_blank','width=1100,height=750');
+  win.document.open();
   win.document.write(html);
   win.document.close();
 }
