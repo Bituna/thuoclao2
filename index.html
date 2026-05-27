@@ -5420,154 +5420,145 @@ function _confirmPrintDate(unitName, rows, periodKey, month, year, today, onConf
 }
 
 function _renderPrint(unitName, rows, periodKey, month, year, printDate){
-  // Gom nhóm theo tên thuốc
+  var isBVPH = (unitName===BVPH);
   var groups={}, groupOrder=[];
   rows.forEach(function(r){
     if(!groups[r.drug]){ groups[r.drug]=[]; groupOrder.push(r.drug); }
     groups[r.drug].push(r);
   });
-
   var diaDanh=unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'').replace(/bv\s*/i,'').trim()||unitName;
   var ngayKy=diaDanh+', ngày '+('0'+printDate.getDate()).slice(-2)+' tháng '+(printDate.getMonth()+1)+' năm '+printDate.getFullYear();
-
   var tableRows='';
   var stt=1;
-
   groupOrder.forEach(function(drug){
     var drugRows=groups[drug];
     drugRows.forEach(function(r,i){
       var expDisp='';
-      if(r.exp){
-        var ep=r.exp.split('-');
-        if(ep.length>=2) expDisp=ep[1]+'/'+ep[0];
-        else expDisp=r.exp;
-      }
+      if(r.exp){ var ep=r.exp.split('-'); if(ep.length>=2) expDisp=ep[1]+'/'+ep[0]; else expDisp=r.exp; }
       var tonDau=r.open||0, tinh=r.tinh||0, dc=r.dc||0;
       var sd=r.sd||0, dc2=r.dc2||0, hh=r.hh||0;
-      var nhap=tinh+dc, xuat=sd+dc2+hh;
-      var tonCuoi=tonDau+nhap-xuat;
-
+      var nhap=tinh+dc, xuat=sd+dc2+hh, tonCuoi=tonDau+nhap-xuat;
       var rowspan=drugRows.length;
-      var firstCells=i===0
+      var fc=i===0
         ?'<td rowspan="'+rowspan+'" class="center bold">'+stt+'</td>'
          +'<td rowspan="'+rowspan+'" class="left bold">'+drug+'</td>'
          +'<td rowspan="'+rowspan+'" class="center">Viên</td>'
          +'<td rowspan="'+rowspan+'" class="center">'+(r.note||'QTC')+'</td>'
         :'';
-
-      tableRows+='<tr>'
-        +firstCells
+      tableRows+='<tr>'+fc
         +'<td class="center">'+r.lot+'</td>'
         +'<td class="center">'+expDisp+'</td>'
-        +'<td class="center num">'+(tonDau||'')+'</td>'
-        +'<td class="center num">'+(tinh||'')+'</td>'
-        +'<td class="center num">'+(dc||'')+'</td>'
-        +'<td class="center num"></td>'
-        +'<td class="center num">'+(nhap||'')+'</td>'
-        +'<td class="center num">'+(sd||'')+'</td>'
-        +'<td class="center num">'+(dc2||'')+'</td>'
-        +'<td class="center num">'+(hh||'')+'</td>'
-        +'<td class="center num"></td>'
-        +'<td class="center num">'+(xuat||'')+'</td>'
-        +'<td class="center num">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
-        +'<td class="center"></td>'
+        +'<td class="num">'+(tonDau||'')+'</td>'
+        +'<td class="num">'+(tinh||'')+'</td>'
+        +'<td class="num">'+(dc||'')+'</td>'
+        +'<td class="num"></td>'
+        +'<td class="num">'+(nhap||'')+'</td>'
+        +'<td class="num">'+(sd||'')+'</td>'
+        +'<td class="num">'+(dc2||'')+'</td>'
+        +'<td class="num">'+(hh||'')+'</td>'
+        +(isBVPH?'<td class="num"></td>':'')
+        +'<td class="num">'+(xuat||'')+'</td>'
+        +'<td class="num">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
+        +'<td></td>'
         +'</tr>';
     });
     stt++;
   });
 
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    +'<title>Báo cáo '+unitName+'</title>'
+  var xCol = isBVPH ? 5 : 4;
+  var xHdr = isBVPH
+    ?'<th class="hdr-xuat" style="width:40px">Xuất sử dụng</th>'
+     +'<th class="hdr-xuat" style="width:40px">Điều chuyển/<br>trả lại</th>'
+     +'<th class="hdr-xuat" style="width:32px">Hỏng,<br>vỡ,<br>thiếu</th>'
+     +'<th class="hdr-xuat" style="width:44px">Thuốc quá hạn<br>chờ hủy</th>'
+     +'<th class="hdr-xuat" style="width:32px">Cộng</th>'
+    :'<th class="hdr-xuat" style="width:44px">Xuất sử dụng</th>'
+     +'<th class="hdr-xuat" style="width:44px">Điều chuyển/<br>trả lại</th>'
+     +'<th class="hdr-xuat" style="width:40px">Hỏng,<br>vỡ,<br>thiếu</th>'
+     +'<th class="hdr-xuat" style="width:40px">Cộng</th>';
+  var xKy = isBVPH
+    ?'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(i)</th><th class="k">(j)=(f)+(g)+(h)+(i)</th>'
+    :'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(j)=(f)+(g)+(h)</th>';
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Báo cáo '+unitName+'</title>'
     +'<style>'
     +'*{box-sizing:border-box}'
     +'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0;padding:0}'
     +'.page{width:277mm;margin:0 auto;padding:30mm 10mm 10mm 15mm}'
-    +'.header-left{width:50%;text-align:center;margin-bottom:2px}'
-    +'.byt{font-size:12pt;font-weight:bold;margin:0;text-align:center}'
-    +'.ctlao{font-size:10pt;font-weight:normal;margin:0;text-align:center}'
-    +'.tieude{text-align:center;font-size:13pt;font-weight:bold;margin:10px 0 6px}'
-    +'.info-row{display:flex;justify-content:space-between;font-size:10pt;font-weight:bold;margin:4px 0 8px}'
-    +'.info-row span{flex:1;text-align:center}'
-    +'.info-row span:first-child{text-align:left}'
-    +'.info-row span:last-child{text-align:right}'
-    +'table{width:100%;border-collapse:collapse;font-size:8pt;margin-top:4px}'
-    +'th,td{border:1px solid #000;padding:2px 3px;vertical-align:middle}'
+    +'.header-left{width:55%;text-align:center}'
+    +'.byt{font-size:12pt;font-weight:bold;margin:0}'
+    +'.ctlao{font-size:10pt;margin:0}'
+    +'.tieude{text-align:center;font-size:13pt;font-weight:bold;margin:8px 0 4px}'
+    +'.irow{display:flex;justify-content:space-between;font-size:10pt;font-weight:bold;margin:3px 0 5px}'
+    +'.irow span{flex:1;text-align:center}'
+    +'.irow span:first-child{text-align:left}'
+    +'.irow span:last-child{text-align:right}'
+    +'table{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:3px}'
+    +'th,td{border:1px solid #000;padding:1px 2px;vertical-align:middle;line-height:1.15}'
     +'th{font-weight:bold;text-align:center}'
-    +'.center{text-align:center}.left{text-align:left;padding-left:4px}.bold{font-weight:bold}.num{text-align:center}'
+    +'.center{text-align:center}.left{text-align:left;padding-left:3px}.bold{font-weight:bold}'
+    +'.num{text-align:center}'
     +'.hdr-nhap{background:#e8f5e9}.hdr-xuat{background:#fce4d6}.hdr-main{background:#ddeeff}'
-    +'.ngay-ky{text-align:right;font-style:italic;font-size:9.5pt;margin:8px 0 4px}'
-    +'.sign-row{display:flex;justify-content:space-between;margin-top:6px;font-size:9.5pt}'
-    +'.sign-col{text-align:center;flex:1;padding:0 4px}'
-    +'.sign-col .stitle{font-weight:bold}'
-    +'.sign-col .ssub{font-style:italic;font-size:8.5pt}'
+    +'.k{font-size:6pt}'
+    +'.ngay-ky{text-align:right;font-style:italic;font-size:9pt;margin:5px 0 3px}'
+    +'.sign-row{display:flex;justify-content:space-between;margin-top:4px;font-size:9pt}'
+    +'.sign-col{text-align:center;flex:1}'
+    +'.sign-col b{display:block}'
+    +'.sign-col i{font-size:8pt}'
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
-    +'  html{-webkit-print-color-adjust:exact}'
-    +'  body{margin:0}'
-    +'  .page{width:100%;padding:25mm 10mm 10mm 15mm}'
+    +'  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    +'  .page{width:100%;padding:30mm 10mm 10mm 15mm}'
     +'  button{display:none!important}'
     +'}'
     +'</style>'
-    
-    +'<script>if(window.chrome){var s=document.createElement("style");s.textContent="@page{margin:0}body{margin:25mm 10mm 10mm 15mm}";document.head.appendChild(s);}<\/script>'
-    +'</head><body>'
-    +'<div class="page">'
+    +'<script>if(window.chrome){var s=document.createElement("style");s.textContent="@page{margin:0}";document.head.appendChild(s);}<\/script>'
+    +'</head><body><div class="page">'
     +'<div class="header-left"><div class="byt">BỘ Y TẾ</div><div class="ctlao">Chương trình Chống Lao quốc gia</div></div>'
     +'<div class="tieude">BÁO CÁO  SỬ DỤNG  THUỐC ĐIỀU TRỊ LAO KHÁNG THUỐC</div>'
-    +'<div class="info-row">'
-    +'<span>Đơn vị: <b>'+unitName+'</b></span>'
-    +'<span>Thành phố Hải Phòng</span>'
-    +'<span>Báo cáo tháng '+month+' năm '+year+'</span>'
-    +'</div>'
+    +'<div class="irow"><span>Đơn vị: <b>'+unitName+'</b></span><span>Thành phố Hải Phòng</span><span>Báo cáo tháng '+month+' năm '+year+'</span></div>'
     +'<table><thead>'
     +'<tr>'
-    +'<th rowspan="4" style="width:22px" class="hdr-main">STT</th>'
-    +'<th rowspan="4" style="width:115px" class="hdr-main">Tên thuốc/hàm lượng</th>'
-    +'<th rowspan="4" style="width:32px" class="hdr-main">Đơn vị tính</th>'
-    +'<th rowspan="4" style="width:40px" class="hdr-main">Nguồn kinh phí</th>'
-    +'<th rowspan="4" style="width:68px" class="hdr-main">Lô sản xuất</th>'
-    +'<th rowspan="4" style="width:52px" class="hdr-main">Hạn sử dụng</th>'
-    +'<th rowspan="4" style="width:36px" class="hdr-main">Tồn đầu kỳ</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:18px">STT</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:105px">Tên thuốc/hàm lượng</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:26px">Đơn vị tính</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:34px">Nguồn kinh phí</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:58px">Lô sản xuất</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:44px">Hạn sử dụng</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:32px">Tồn đầu kỳ</th>'
     +'<th colspan="4" class="hdr-nhap">Nhập trong kỳ</th>'
-    +'<th colspan="5" class="hdr-xuat">Xuất trong kỳ</th>'
-    +'<th rowspan="4" style="width:36px" class="hdr-main">Tồn cuối kỳ</th>'
-    +'<th rowspan="4" style="width:40px" class="hdr-main">Ghi chú</th>'
+    +'<th colspan="'+xCol+'" class="hdr-xuat">Xuất trong kỳ</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:32px">Tồn cuối kỳ</th>'
+    +'<th rowspan="3" class="hdr-main" style="width:36px">Ghi chú</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="hdr-nhap" style="width:36px">Tỉnh cấp</th>'
-    +'<th class="hdr-nhap" style="width:44px">Điều chuyển/<br>trả lại</th>'
-    +'<th class="hdr-nhap" style="width:32px">Thừa</th>'
-    +'<th class="hdr-nhap" style="width:36px">Cộng</th>'
-    +'<th class="hdr-xuat" style="width:44px">Xuất sử dụng</th>'
-    +'<th class="hdr-xuat" style="width:44px">Điều chuyển/<br>trả lại</th>'
-    +'<th class="hdr-xuat" style="width:36px">Hỏng,<br>vỡ,<br>thiếu</th>'
-    +'<th class="hdr-xuat" style="width:50px">Thuốc quá hạn<br>chờ hủy</th>'
-    +'<th class="hdr-xuat" style="width:36px">Cộng</th>'
+    +'<th class="hdr-nhap" style="width:30px">Tỉnh cấp</th>'
+    +'<th class="hdr-nhap" style="width:38px">Điều chuyển/<br>trả lại</th>'
+    +'<th class="hdr-nhap" style="width:26px">Thừa</th>'
+    +'<th class="hdr-nhap" style="width:30px">Cộng</th>'
+    +xHdr
     +'</tr>'
-    +'<tr><th class="hdr-nhap" colspan="4"></th><th class="hdr-xuat" colspan="5"></th></tr>'
     +'<tr>'
-    +'<th class="hdr-nhap">(a)</th><th class="hdr-nhap">(b)</th><th class="hdr-nhap">(c)</th>'
-    +'<th class="hdr-nhap">(d)=(b)+(c)+(d)</th>'
-    +'<th class="hdr-xuat">(f)</th><th class="hdr-xuat">(g)</th><th class="hdr-xuat">(h)</th>'
-    +'<th class="hdr-xuat">(i)</th><th class="hdr-xuat">(j)=(f)+(g)+(h)+(i)</th>'
+    +'<th class="hdr-nhap k">(a)</th><th class="hdr-nhap k">(b)</th>'
+    +'<th class="hdr-nhap k">(c)</th><th class="hdr-nhap k">(d)=(b)+(c)+(d)</th>'
+    +xKy
     +'</tr>'
     +'</thead><tbody>'+tableRows+'</tbody></table>'
     +'<div class="ngay-ky">'+ngayKy+'</div>'
     +'<div class="sign-row">'
-    +'<div class="sign-col"><div class="stitle">Người lập báo cáo</div></div>'
-    +'<div class="sign-col"><div class="stitle">Trưởng khoa Dược</div></div>'
-    +'<div class="sign-col"><div class="stitle">Bác sĩ phụ trách TCL</div></div>'
-    +'<div class="sign-col"><div class="stitle">Thủ trưởng đơn vị</div><div class="ssub">( Ký tên, đóng dấu)</div></div>'
+    +'<div class="sign-col"><b>Người lập báo cáo</b></div>'
+    +'<div class="sign-col"><b>Trưởng khoa Dược</b></div>'
+    +'<div class="sign-col"><b>Bác sĩ phụ trách TCL</b></div>'
+    +'<div class="sign-col"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
     +'</div>'
     +'</div>'
     +'<script>window.onload=function(){window.print();}<\/script>'
     +'</body></html>';
 
-  var win=window.open('','_blank','width=1100,height=800');
+  var win=window.open('','_blank','width=900,height=700');
   win.document.write(html);
   win.document.close();
 }
-
 
 // ============================================================
 // XUẤT BÁO CÁO THEO MẪU BYT
