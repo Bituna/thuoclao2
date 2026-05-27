@@ -559,6 +559,20 @@ em{font-style:normal!important}i{font-style:normal!important}
         <ul class="list" id="tq-explist"></ul>
       </div>
     </div>
+
+    <!-- BẢNG ĐIỀU CHUYỂN TRONG KỲ -->
+    <div style="margin-top:16px;background:white;border-radius:10px;border:1px solid var(--border);padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;color:#1a2332;display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+          Điều chuyển thuốc trong kỳ
+        </div>
+        <button onclick="renderTQTransfers()" style="font-size:11px;padding:4px 12px;border:1px solid #cbd5e0;border-radius:6px;background:white;cursor:pointer;color:#555">↻ Cập nhật</button>
+      </div>
+      <div id="tq-transfer-table">
+        <div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:12px">Đang tải...</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2830,12 +2844,22 @@ function onTQPeriodChange(){
 
 
 function getSubmittedUnits(){
-  // Chỉ tính đơn vị có dữ liệu trong KỲ đang chọn ở Tổng quan
+  // Đã nộp thực sự = có ít nhất 1 dòng locked=true trong kỳ
+  // (locked=true chỉ khi đơn vị bấm "Lưu báo cáo")
+  // Tồn đầu tự động tạo có locked=false → không tính là đã nộp
   var set={};
   var bvphFiltered = bvphData.filter(matchTQPeriod);
   var bcFiltered   = bcData.filter(matchTQPeriod);
-  if(bvphFiltered.length > 0) set[BVPH] = true;
-  bcFiltered.forEach(function(r){ if(r.unit) set[r.unit] = true; });
+
+  // BVPH: có dòng locked=true
+  var bvphLocked = bvphFiltered.some(function(r){ return r.locked === true; });
+  if(bvphLocked) set[BVPH] = true;
+
+  // 22 đơn vị: có dòng locked=true
+  bcFiltered.forEach(function(r){
+    if(r.unit && r.locked === true) set[r.unit] = true;
+  });
+
   return Object.keys(set);
 }
 
@@ -2912,6 +2936,83 @@ function renderTQ(){
   }
 
   updateAlerts();
+  // Tải bảng điều chuyển
+  setTimeout(renderTQTransfers, 100);
+}
+
+// Bảng điều chuyển trong kỳ — hiển thị trên Tổng quan
+async function renderTQTransfers(){
+  var el = document.getElementById('tq-transfer-table');
+  if(!el) return;
+  var periodKey = _currentPeriodKey();
+  var p = getSelectedPeriod();
+
+  if(!_supaOnline){
+    el.innerHTML='<div style="color:#e67e22;font-size:12px;text-align:center;padding:10px">Offline — không thể tải dữ liệu điều chuyển</div>';
+    return;
+  }
+
+  el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Đang tải...</div>';
+
+  try{
+    var filterPart = p.type==='year'
+      ? 'period=like.'+p.year+'-%'
+      : 'period=eq.'+encodeURIComponent(periodKey);
+
+    var r = await fetch(SUPA_URL+'/rest/v1/transfers?'+filterPart+'&order=transfer_date.desc,created_at.desc', {headers:_supaHdr});
+    var transfers = r.ok ? await r.json() : [];
+
+    if(!transfers.length){
+      el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Chưa có phiếu điều chuyển nào trong kỳ này.</div>';
+      return;
+    }
+
+    var dc2List = transfers.filter(function(t){ return t.type==='dc2_to_dc'||t.type==='dc3_to_tinh'; });
+    var dc3List = transfers.filter(function(t){ return t.type==='dc3_province'; });
+    var html='';
+
+    function makeTable(list, headerColor, typeLabel){
+      var t='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">';
+      t+='<thead><tr style="background:'+headerColor+';color:white">'
+        +'<th style="padding:7px 10px;text-align:left">Đơn vị xuất</th>'
+        +'<th style="padding:7px 10px;text-align:left">Đơn vị nhận</th>'
+        +'<th style="padding:7px 10px;text-align:left">Thuốc</th>'
+        +'<th style="padding:7px 10px;text-align:center">Số lô</th>'
+        +'<th style="padding:7px 10px;text-align:center">Hạn</th>'
+        +'<th style="padding:7px 10px;text-align:center">Số lượng</th>'
+        +'<th style="padding:7px 10px;text-align:center">Ngày ĐC</th>'
+        +'</tr></thead><tbody>';
+      list.forEach(function(tx,i){
+        var bg=i%2===0?'#f8f9fa':'white';
+        var dt=tx.transfer_date?new Date(tx.transfer_date).toLocaleDateString('vi-VN'):(tx.created_at?new Date(tx.created_at).toLocaleDateString('vi-VN'):'—');
+        var expD=tx.exp?expFmt(tx.exp):'—';
+        var subLabel = tx.type==='dc3_to_tinh'?'<span style="font-size:10px;background:#27ae60;color:white;padding:1px 5px;border-radius:3px;margin-left:4px">Tổ CL</span>':'';
+        t+='<tr style="background:'+bg+';border-bottom:1px solid #eee">'
+          +'<td style="padding:6px 10px;font-weight:600;white-space:nowrap">'+tx.from_unit+'</td>'
+          +'<td style="padding:6px 10px;color:'+headerColor+';font-weight:600;white-space:nowrap">'+tx.to_unit+'</td>'
+          +'<td style="padding:6px 10px">'+tx.drug+subLabel+'</td>'
+          +'<td style="padding:6px 10px;text-align:center;color:#666">'+tx.lot+'</td>'
+          +'<td style="padding:6px 10px;text-align:center;color:#666">'+expD+'</td>'
+          +'<td style="padding:6px 10px;text-align:center;font-weight:700;color:'+headerColor+'">'+Number(tx.qty).toLocaleString()+' viên</td>'
+          +'<td style="padding:6px 10px;text-align:center;color:#888">'+dt+'</td>'
+          +'</tr>';
+      });
+      t+='</tbody></table></div>';
+      return t;
+    }
+
+    if(dc2List.length){
+      html+='<div style="font-size:12px;font-weight:700;color:#1a5276;margin-bottom:6px">↔ Điều chuyển nội bộ ('+dc2List.length+' phiếu)</div>';
+      html+=makeTable(dc2List,'#1a5276');
+    }
+    if(dc3List.length){
+      html+='<div style="font-size:12px;font-weight:700;color:#8e44ad;margin-bottom:6px">↗ Xuất tỉnh/thành phố khác ('+dc3List.length+' phiếu)</div>';
+      html+=makeTable(dc3List,'#8e44ad');
+    }
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div style="color:red;font-size:12px;padding:10px">Lỗi: '+e.message+'</div>';
+  }
 }
 
 // Cảnh báo tính TRỰC TIẾP từ bvphData + bcData
@@ -3028,7 +3129,8 @@ function renderDrugTable(){
         ?'<span class="badge badge-r">Sắp hết</span>'
         :'<span class="badge badge-g">Đủ kho</span>');
     var unitCell=r.unit||BVPH;
-    tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'">'
+    tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'"'
+      +' data-open="'+r.open+'" data-in="'+c.tin+'" data-out="'+c.tout+'" data-final="'+c.final+'">'
       +'<td class="left">'+r.drug+'</td>'
       +'<td style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;max-width:130px" title="'+unitCell+'">'+unitCell+'</td>'
       +'<td>'+r.lot+'</td>'
@@ -3041,6 +3143,10 @@ function renderDrugTable(){
       +'</tr>';
   });
   setDrugTotals(totOpen,totIn,totOut,totFinal);
+
+  // Áp dụng lại filter đang gõ (nếu có)
+  var q = document.getElementById('search-drug');
+  if(q && q.value.trim()) filterDrugTable();
 }
 function setDrugTotals(o,i,x,f){
   document.getElementById('dt-fo').textContent=o;
@@ -3049,10 +3155,22 @@ function setDrugTotals(o,i,x,f){
   document.getElementById('dt-ff').textContent=f;
 }
 function filterDrugTable(){
-  var q=document.getElementById('search-drug').value.toLowerCase();
-  document.querySelectorAll('#thuoc-body tr').forEach(function(tr){
-    tr.style.display=(tr.dataset.drug&&tr.dataset.drug.indexOf(q)>=0)?'':'none';
+  var q = (document.getElementById('search-drug').value||'').toLowerCase().trim();
+  var totOpen=0, totIn=0, totOut=0, totFinal=0, count=0;
+
+  document.querySelectorAll('#thuoc-body tr[data-drug]').forEach(function(tr){
+    var show = !q || tr.dataset.drug.indexOf(q) >= 0;
+    tr.style.display = show ? '' : 'none';
+    if(show){
+      totOpen  += parseInt(tr.dataset.open)||0;
+      totIn    += parseInt(tr.dataset.in)||0;
+      totOut   += parseInt(tr.dataset.out)||0;
+      totFinal += parseInt(tr.dataset.final)||0;
+      count++;
+    }
   });
+
+  setDrugTotals(totOpen, totIn, totOut, totFinal);
 }
 
 // Đồng bộ tháng bảng Danh sách thuốc với kỳ báo cáo đang chọn
