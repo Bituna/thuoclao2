@@ -1036,7 +1036,7 @@ em{font-style:normal!important}i{font-style:normal!important}
       <button id="btn-footer-chot-bvph" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính">🔒 Chốt Kho chính</button>
       <button id="btn-footer-chot-bc" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị">🔒 Chốt 22 ĐV</button>
       <button class="btn" style="background:#1d6f42;color:white" onclick="exportExcel()" title="Xuất báo cáo ra file Excel (.xlsx)">📊 Xuất Excel</button>
-      <button class="btn" style="background:#c0392b;color:white" onclick="exportBaoCaoDonVi()" title="Xuất báo cáo theo mẫu BYT">📋 Mẫu BC BYT</button>
+      <button id="btn-in-bc" class="btn" style="background:#c0392b;color:white" onclick="printBaoCaoDonVi()" title="In báo cáo đơn vị theo mẫu BYT">🖨 In báo cáo</button>
       <button id="btn-footer-cloud" class="btn" style="background:#1a5276;color:white" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải dữ liệu từ cloud">☁ Tải từ cloud</button>
       <button class="btn btn-primary" id="btn-save-bc" onclick="saveBC()">💾 Lưu báo cáo</button>
       <button class="btn" id="btn-open-bc" onclick="openReport()" style="display:none;background:#e67e22;color:white">🔓 Mở lại để sửa</button>
@@ -4299,12 +4299,16 @@ function openReport(){
 // Ẩn/hiện nút footer theo role — chỉ Admin thấy tất cả
 function updateFooterByRole(){
   var admin = isAdmin();
+  var role = currentUser ? currentUser.role : 'admin';
   // Các nút chỉ Admin thấy
   var adminOnly = ['btn-footer-print','btn-footer-chot-bvph','btn-footer-chot-bc','btn-footer-cloud'];
   adminOnly.forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = admin ? '' : 'none';
   });
+  // Nút In báo cáo BYT: hiện với tất cả mọi người
+  var btnIn = document.getElementById('btn-in-bc');
+  if(btnIn) btnIn.style.display = '';
 }
 
 function updateSaveBtnUI(){
@@ -5290,6 +5294,254 @@ async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
     throw new Error('HTTP '+res.status+': '+errText);
   }
   return true;
+}
+
+// ============================================================
+// IN BÁO CÁO ĐƠN VỊ THEO MẪU BYT — in trực tiếp
+// ============================================================
+function printBaoCaoDonVi(){
+  var role = currentUser ? currentUser.role : 'admin';
+  var periodKey = _currentPeriodKey();
+  if(isAdmin()){
+    _showPrintUnitPicker(periodKey);
+  } else if(role==='bvph'){
+    _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
+  } else {
+    var u = currentUser.unit||'';
+    _doPrint(u, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===u; }), periodKey);
+  }
+}
+
+function _showPrintUnitPicker(periodKey){
+  var old=document.getElementById('_print_picker'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='_print_picker';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:400px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#1a2332;margin-bottom:14px';
+  h.textContent='🖨 Chọn đơn vị cần in báo cáo';
+  var lbl=document.createElement('div'); lbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:6px';
+  lbl.textContent='Đơn vị:';
+  var sel=document.createElement('select');
+  sel.style.cssText='width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
+  var o0=document.createElement('option'); o0.value='bvph'; o0.textContent=BVPH; sel.appendChild(o0);
+  UNITS.forEach(function(u){
+    if(u===BVPH) return;
+    var o=document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o);
+  });
+  var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  var btnC=document.createElement('button'); btnC.textContent='Hủy';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.onclick=function(){ ov.remove(); };
+  var btnO=document.createElement('button'); btnO.textContent='🖨 In báo cáo';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.onclick=function(){
+    var unit=sel.value; ov.remove();
+    if(unit==='bvph'||unit===BVPH){
+      _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
+    } else {
+      _doPrint(unit, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===unit; }), periodKey);
+    }
+  };
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
+  box.appendChild(h); box.appendChild(lbl); box.appendChild(sel); box.appendChild(btnRow);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  setTimeout(function(){ sel.focus(); },100);
+}
+
+function _doPrint(unitName, rows, periodKey){
+  if(!rows.length){ toast('Không có dữ liệu kỳ '+periodKey+'!','var(--warning)'); return; }
+  var p=periodKey.split('-');
+  var month=parseInt(p[1]||'0');
+  var year=parseInt(p[0]||'0');
+  // Gom nhóm theo tên thuốc
+  var groups = {}, groupOrder = [];
+  rows.forEach(function(r){
+    if(!groups[r.drug]){ groups[r.drug]=[]; groupOrder.push(r.drug); }
+    groups[r.drug].push(r);
+  });
+
+  // Tạo HTML in
+  var today = new Date();
+  var diaDanh = unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'').replace(/bv\s*/i,'').trim() || unitName;
+
+  var tableRows = '';
+  var stt = 1;
+  var totOpen=0, totTinh=0, totDC=0, totNhap=0, totSD=0, totDC2=0, totHH=0, totXuat=0, totCuoi=0;
+
+  groupOrder.forEach(function(drug){
+    var drugRows = groups[drug];
+    drugRows.forEach(function(r, i){
+      var expDisp = '';
+      if(r.exp){
+        var ep = r.exp.split('-');
+        if(ep.length===3) expDisp = ep[2]+'-'+ep[1]+'-'+ep[0];
+        else expDisp = r.exp;
+      }
+      var tonDau  = r.open||0;
+      var tinh    = r.tinh||0;
+      var dc      = r.dc||0;
+      var sd      = r.sd||0;
+      var dc2     = r.dc2||0;
+      var hh      = r.hh||0;
+      var nhap    = tinh + dc;
+      var xuat    = sd + dc2 + hh;
+      var tonCuoi = tonDau + nhap - xuat;
+
+      totOpen+=tonDau; totTinh+=tinh; totDC+=dc; totNhap+=nhap;
+      totSD+=sd; totDC2+=dc2; totHH+=hh; totXuat+=xuat; totCuoi+=tonCuoi;
+
+      var rowspan = drugRows.length;
+      var firstCells = i===0
+        ? '<td rowspan="'+rowspan+'" class="center bold">'+stt+'</td>'
+          +'<td rowspan="'+rowspan+'" class="left bold">'+drug+'</td>'
+          +'<td rowspan="'+rowspan+'" class="center">Viên</td>'
+          +'<td rowspan="'+rowspan+'" class="center">'+(r.note||'QTC')+'</td>'
+        : '';
+
+      tableRows += '<tr>'
+        + firstCells
+        + '<td class="center">'+r.lot+'</td>'
+        + '<td class="center">'+expDisp+'</td>'
+        + '<td class="center num">'+(tonDau||'')+'</td>'
+        + '<td class="center num">'+(tinh||'')+'</td>'
+        + '<td class="center num">'+(dc||'')+'</td>'
+        + '<td class="center num"></td>'
+        + '<td class="center num">'+(nhap||'')+'</td>'
+        + '<td class="center num">'+(sd||'')+'</td>'
+        + '<td class="center num">'+(dc2||'')+'</td>'
+        + '<td class="center num">'+(hh||'')+'</td>'
+        + '<td class="center num"></td>'
+        + '<td class="center num">'+(xuat||'')+'</td>'
+        + '<td class="center num">'+(tonCuoi===0?'-':tonCuoi)+'</td>'
+        + '<td class="center"></td>'
+        + '</tr>';
+    });
+    stt++;
+  });
+
+  // Dòng tổng
+  tableRows += '<tr class="tong">'
+    + '<td colspan="6" class="center bold">Tổng cộng</td>'
+    + '<td class="center bold num">'+(totOpen||'')+'</td>'
+    + '<td class="center bold num">'+(totTinh||'')+'</td>'
+    + '<td class="center bold num">'+(totDC||'')+'</td>'
+    + '<td class="center bold num"></td>'
+    + '<td class="center bold num">'+(totNhap||'')+'</td>'
+    + '<td class="center bold num">'+(totSD||'')+'</td>'
+    + '<td class="center bold num">'+(totDC2||'')+'</td>'
+    + '<td class="center bold num">'+(totHH||'')+'</td>'
+    + '<td class="center bold num"></td>'
+    + '<td class="center bold num">'+(totXuat||'')+'</td>'
+    + '<td class="center bold num">'+(totCuoi||'')+'</td>'
+    + '<td></td>'
+    + '</tr>';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    + '<title>Báo cáo '+unitName+'</title>'
+    + '<style>'
+    + 'body{font-family:"Times New Roman",serif;font-size:10pt;margin:0;padding:0}'
+    + '.page{width:277mm;margin:0 auto;padding:10mm 10mm 8mm 15mm}'
+    + 'h1.byt{text-align:center;font-size:11pt;font-weight:bold;margin:2px 0}'
+    + 'h2.ctlao{text-align:center;font-size:10pt;font-weight:normal;margin:2px 0}'
+    + 'h1.tieude{text-align:center;font-size:14pt;font-weight:bold;margin:6px 0 4px}'
+    + '.info-row{display:flex;justify-content:space-between;font-size:10pt;font-weight:bold;margin:4px 0 8px}'
+    + '.info-row span{flex:1;text-align:center}'
+    + '.info-row span:first-child{text-align:left}'
+    + '.info-row span:last-child{text-align:right}'
+    + 'table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-top:4px}'
+    + 'th,td{border:1px solid #000;padding:2px 3px;vertical-align:middle}'
+    + 'th{background:#fff;font-weight:bold;text-align:center}'
+    + '.center{text-align:center}'
+    + '.left{text-align:left}'
+    + '.bold{font-weight:bold}'
+    + '.num{text-align:center}'
+    + '.hdr-nhap{background:#e8f5e9}'
+    + '.hdr-xuat{background:#fce4d6}'
+    + '.hdr-main{background:#ddeeff}'
+    + 'tr.tong td{background:#ddeeff;font-weight:bold}'
+    + '.sign-row{display:flex;justify-content:space-between;margin-top:8px;font-size:9.5pt}'
+    + '.sign-col{text-align:center;flex:1}'
+    + '.sign-col .title{font-weight:bold}'
+    + '.sign-col .sub{font-style:italic;font-size:8.5pt}'
+    + '.ngay-ky{text-align:right;font-style:italic;font-size:9.5pt;margin:6px 0 0}'
+    + '@media print{'
+    + '  @page{size:A4 landscape;margin:10mm 10mm 8mm 15mm}'
+    + '  body{margin:0}'
+    + '  .page{width:100%;padding:0}'
+    + '  button{display:none}'
+    + '}'
+    + '</style></head><body>'
+    + '<div class="page">'
+    + '<h1 class="byt">BỘ Y TẾ</h1>'
+    + '<h2 class="ctlao">Chương trình Chống Lao quốc gia</h2>'
+    + '<h1 class="tieude">BÁO CÁO  SỬ DỤNG  THUỐC ĐIỀU TRỊ LAO KHÁNG THUỐC</h1>'
+    + '<div class="info-row">'
+    + '<span>Đơn vị: <b>'+unitName+'</b></span>'
+    + '<span>Thành phố Hải Phòng</span>'
+    + '<span>Báo cáo tháng '+month+' năm '+year+'</span>'
+    + '</div>'
+
+    + '<table>'
+    + '<thead>'
+    + '<tr>'
+    + '<th rowspan="4" style="width:22px" class="hdr-main">STT</th>'
+    + '<th rowspan="4" style="width:110px" class="hdr-main">Tên thuốc/hàm lượng</th>'
+    + '<th rowspan="4" style="width:32px" class="hdr-main">Đơn vị tính</th>'
+    + '<th rowspan="4" style="width:38px" class="hdr-main">Nguồn kinh phí</th>'
+    + '<th rowspan="4" style="width:65px" class="hdr-main">Lô sản xuất</th>'
+    + '<th rowspan="4" style="width:60px" class="hdr-main">Hạn sử dụng</th>'
+    + '<th rowspan="4" style="width:36px" class="hdr-main">Tồn đầu kỳ</th>'
+    + '<th colspan="4" class="hdr-nhap">Nhập trong kỳ</th>'
+    + '<th colspan="5" class="hdr-xuat">Xuất trong kỳ</th>'
+    + '<th rowspan="4" style="width:36px" class="hdr-main">Tồn cuối kỳ</th>'
+    + '<th rowspan="4" style="width:45px" class="hdr-main">Ghi chú</th>'
+    + '</tr>'
+    + '<tr>'
+    + '<th class="hdr-nhap">Tỉnh cấp</th>'
+    + '<th class="hdr-nhap">Điều chuyển/<br>trả lại</th>'
+    + '<th class="hdr-nhap">Thừa</th>'
+    + '<th class="hdr-nhap">Cộng</th>'
+    + '<th class="hdr-xuat">Xuất sử dụng</th>'
+    + '<th class="hdr-xuat">Điều chuyển/<br>trả lại</th>'
+    + '<th class="hdr-xuat">Hỏng,<br>vỡ,<br>thiếu</th>'
+    + '<th class="hdr-xuat">Thuốc quá hạn<br>chờ hủy</th>'
+    + '<th class="hdr-xuat">Cộng</th>'
+    + '</tr>'
+    + '<tr>'
+    + '<th class="hdr-nhap" colspan="4"></th>'
+    + '<th class="hdr-xuat" colspan="5"></th>'
+    + '</tr>'
+    + '<tr>'
+    + '<th class="hdr-nhap">(a)</th>'
+    + '<th class="hdr-nhap">(b)</th>'
+    + '<th class="hdr-nhap">(c)</th>'
+    + '<th class="hdr-nhap">(d)=(b)+(c)+(d)</th>'
+    + '<th class="hdr-xuat">(f)</th>'
+    + '<th class="hdr-xuat">(g)</th>'
+    + '<th class="hdr-xuat">(h)</th>'
+    + '<th class="hdr-xuat">(i)</th>'
+    + '<th class="hdr-xuat">(j)=(f)+(g)+(h)+(i)</th>'
+    + '</tr>'
+    + '</thead>'
+    + '<tbody>'+tableRows+'</tbody>'
+    + '</table>'
+
+    + '<div class="ngay-ky">'+diaDanh+', ngày '+('0'+today.getDate()).slice(-2)+' tháng '+('0'+(today.getMonth()+1)).slice(-2)+' năm '+today.getFullYear()+'</div>'
+    + '<div class="sign-row">'
+    + '<div class="sign-col"><div class="title">Người lập báo cáo</div></div>'
+    + '<div class="sign-col"><div class="title">Trưởng khoa Dược</div></div>'
+    + '<div class="sign-col"><div class="title">Bác sĩ phụ trách TCL</div></div>'
+    + '<div class="sign-col"><div class="title">Thủ trưởng đơn vị</div><div class="sub">( Ký tên, đóng dấu)</div></div>'
+    + '</div>'
+    + '</div>'
+    + '<script>window.onload=function(){window.print();}<\/script>'
+    + '</body></html>';
+
+  var win = window.open('','_blank','width=1100,height=800');
+  win.document.write(html);
+  win.document.close();
 }
 
 // ============================================================
