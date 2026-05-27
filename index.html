@@ -3169,14 +3169,15 @@ function buildTbl(data, bodyId, prefix){
         // dc2 = Xuất điều chuyển → hỏi đơn vị nhận
         if(field === 'dc2'){
           var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
-          var onblur = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
+          var onclick = 'onDc2Change(\'' + prefix + '\',' + rowIdx + ',this)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:54px;padding:4px;border:1px solid #f59e0b;border-radius:5px;text-align:center;font-size:12px;background:#fffbeb"'
+            + ' style="width:54px;padding:4px;border:1px solid #f59e0b;border-radius:5px;text-align:center;font-size:12px;background:#fffbeb;cursor:pointer"'
             + ' onchange="' + onch + '"'
             + ' oninput="' + onch + '"'
-            + ' onblur="' + onblur + '"'
-            + ' title="Xuất điều chuyển — nhập xong sẽ hỏi đơn vị nhận"'
+            + ' onfocus="' + onclick + '"'
+            + ' title="Click để chọn đơn vị nhận điều chuyển"'
+            + ' readonly'
             + '>';
         }
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
@@ -3201,7 +3202,15 @@ function buildTbl(data, bodyId, prefix){
     tr += '<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'&#9888; ':'')+expDisp+'</td>';
     tr += '<td class="open-stock">'+makeCell('open', row.open, openRO)+'</td>';
     tr += '<td>'+makeCell('tinh', row.tinh||0, false)+'</td>';
-    tr += '<td>'+makeCell('dc',   row.dc||0,   false)+'</td>';
+    // dc = Nhập điều chuyển: chỉ đọc, click xem chi tiết
+    var dcVal = row.dc||0;
+    var dcStyle = 'cursor:pointer;color:#1a5276;font-weight:600;text-decoration:underline;text-decoration-style:dotted';
+    var dcClick = 'showDcDetail(\''+prefix+'\','+rowIdx+')';
+    if(isEditing && canEdit){
+      tr += '<td><span style="'+dcStyle+'" onclick="'+dcClick+'" title="Click để xem chi tiết điều chuyển vào">'+dcVal+'</span></td>';
+    } else {
+      tr += '<td>'+dcVal+'</td>';
+    }
     tr += '<td class="calc-cell"><strong>'+res.tin+'</strong></td>';
     tr += '<td>'+makeCell('sd',   row.sd||0,   false)+'</td>';
     if(isBVPH){
@@ -4225,8 +4234,6 @@ async function loadSaved(){
 // ============================================================
 // ── ĐIỀU CHUYỂN THUỐC ────────────────────────────────────────
 function onDc2Change(prefix, rowIdx, inp){
-  var qty = parseInt(inp.value) || 0;
-  if(qty <= 0) return;
   var arr = prefix === 'bvph' ? bvphData : bcData;
   var realIdx = getReal(prefix, rowIdx);
   if(realIdx < 0) return;
@@ -4244,15 +4251,24 @@ function onDc2Change(prefix, rowIdx, inp){
 
   var h = document.createElement('div');
   h.style.cssText = 'font-size:15px;font-weight:700;color:#1a2332;margin-bottom:5px';
-  h.textContent = '↗ Xuất điều chuyển ' + qty.toLocaleString() + ' viên';
+  h.textContent = '↗ Tạo phiếu xuất điều chuyển';
+
   var sub = document.createElement('div');
-  sub.style.cssText = 'font-size:12px;color:#666;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px';
-  sub.textContent = row.drug + ' — Lô ' + row.lot + ' | Từ: ' + fromUnit;
+  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px;line-height:1.7';
+  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Từ đơn vị:</b> '+fromUnit;
 
+  // Ô nhập số lượng
+  var qtyLabel = document.createElement('div');
+  qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
+  qtyLabel.textContent = 'Số lượng điều chuyển (viên):';
+  var qtyInp = document.createElement('input');
+  qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
+  qtyInp.style.cssText = 'width:100%;padding:10px;border:2px solid #f59e0b;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:14px;box-sizing:border-box;text-align:center';
+
+  // Chọn đơn vị nhận
   var lbl = document.createElement('div');
-  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:6px';
+  lbl.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:5px';
   lbl.textContent = 'Chuyển đến đơn vị:';
-
   var sel = document.createElement('select');
   sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:16px';
   var opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --';
@@ -4263,24 +4279,34 @@ function onDc2Change(prefix, rowIdx, inp){
 
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button');
-  btnC.textContent='Hủy (xóa số)';
-  btnC.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
-  btnC.onclick=function(){ ov.remove(); inp.value=0; updField(prefix,rowIdx,'dc2',0); };
+  btnC.textContent='Hủy';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.onclick=function(){ ov.remove(); };
   var btnO = document.createElement('button');
-  btnO.textContent='✓ Xác nhận';
-  btnO.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.textContent='✓ Xác nhận điều chuyển';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var toUnit=sel.value;
-    if(!toUnit){ toast('Vui lòng chọn đơn vị nhận!','var(--warning)'); return; }
+    var qty = parseInt(qtyInp.value)||0;
+    var toUnit = sel.value;
+    if(qty <= 0){ toast('Vui lòng nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
+    if(!toUnit){ toast('Vui lòng chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
     ov.remove();
+    // Cộng dồn vào dc2 của dòng nguồn
+    arr[realIdx].dc2 = (arr[realIdx].dc2||0) + qty;
+    inp.value = arr[realIdx].dc2;
+    updField(prefix, rowIdx, 'dc2', arr[realIdx].dc2);
     _applyTransfer(prefix, realIdx, row, qty, fromUnit, toUnit);
   };
   btnRow.appendChild(btnC); btnRow.appendChild(btnO);
-  box.appendChild(h); box.appendChild(sub); box.appendChild(lbl); box.appendChild(sel); box.appendChild(btnRow);
+  box.appendChild(h); box.appendChild(sub);
+  box.appendChild(qtyLabel); box.appendChild(qtyInp);
+  box.appendChild(lbl); box.appendChild(sel);
+  box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
-  ov.onclick=function(e){ if(e.target===ov){ ov.remove(); inp.value=0; updField(prefix,rowIdx,'dc2',0); } };
-  setTimeout(function(){ sel.focus(); }, 100);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  setTimeout(function(){ qtyInp.focus(); }, 100);
 }
+
 
 function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   var periodKey = _currentPeriodKey();
@@ -4302,6 +4328,98 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
     if(srcArr[fromIdx]) srcArr[fromIdx].dc2 = 0;
     renderBVPH(); renderBC();
   }
+}
+
+// Hiện chi tiết nhập điều chuyển của 1 dòng
+async function showDcDetail(prefix, rowIdx){
+  var arr = prefix === 'bvph' ? bvphData : bcData;
+  var realIdx = getReal(prefix, rowIdx);
+  if(realIdx < 0) return;
+  var row = arr[realIdx];
+  var toUnit = row.unit || BVPH;
+  var periodKey = _currentPeriodKey();
+
+  // Tải lịch sử từ Supabase
+  var transfers = [];
+  if(_supaOnline){
+    try{
+      var r = await fetch(
+        SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
+        +'&to_unit=eq.'+encodeURIComponent(toUnit)
+        +'&drug=eq.'+encodeURIComponent(row.drug)
+        +'&lot=eq.'+encodeURIComponent(row.lot)
+        +'&order=created_at.asc',
+        {headers:_supaHdr}
+      );
+      if(r.ok) transfers = await r.json();
+    }catch(e){}
+  }
+
+  var old = document.getElementById('_dc_detail_modal'); if(old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = '_dc_detail_modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:500px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+
+  var h = document.createElement('div');
+  h.style.cssText = 'font-size:15px;font-weight:700;color:#1a2332;margin-bottom:5px';
+  h.textContent = '↙ Chi tiết Nhập điều chuyển';
+
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:#555;margin-bottom:14px;padding:8px;background:#f8f9fa;border-radius:6px;line-height:1.7';
+  sub.innerHTML = '<b>Thuốc:</b> '+row.drug+'<br><b>Số lô:</b> '+row.lot+' &nbsp;|&nbsp; <b>Hạn:</b> '+expToMMYYYY(row.exp)+'<br><b>Đơn vị nhận:</b> '+toUnit;
+
+  var totalDC = row.dc || 0;
+  var totalEl = document.createElement('div');
+  totalEl.style.cssText = 'font-size:13px;font-weight:700;color:#1a5276;margin-bottom:10px;padding:6px 10px;background:#eef7ff;border-radius:6px';
+  totalEl.textContent = 'Tổng nhập điều chuyển: ' + totalDC.toLocaleString() + ' viên';
+
+  var listEl = document.createElement('div');
+  if(transfers.length === 0){
+    listEl.style.cssText = 'color:#888;font-size:12px;font-style:italic;margin-bottom:14px';
+    listEl.textContent = 'Chưa có phiếu điều chuyển nào được ghi nhận trong kỳ này.';
+  } else {
+    // Bảng danh sách
+    var tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px';
+    tbl.innerHTML = '<thead><tr style="background:#1a5276;color:white">'
+      +'<th style="padding:6px 8px;text-align:left">Từ đơn vị</th>'
+      +'<th style="padding:6px 8px">Số lượng</th>'
+      +'<th style="padding:6px 8px">Thời gian</th>'
+      +'</tr></thead>';
+    var total = 0;
+    var tbody = document.createElement('tbody');
+    transfers.forEach(function(t, i){
+      var tr = document.createElement('tr');
+      tr.style.background = i%2===0?'#f8f9fa':'white';
+      var dt = t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—';
+      tr.innerHTML = '<td style="padding:6px 8px">' + t.from_unit + '</td>'
+        + '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#27ae60">' + (t.qty||0).toLocaleString() + ' viên</td>'
+        + '<td style="padding:6px 8px;text-align:center;color:#888">' + dt + '</td>';
+      tbody.appendChild(tr);
+      total += (t.qty||0);
+    });
+    // Dòng tổng
+    var tfr = document.createElement('tr');
+    tfr.style.background='#eef7ff';
+    tfr.innerHTML = '<td style="padding:6px 8px;font-weight:700">Tổng cộng</td>'
+      +'<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a5276">'+total.toLocaleString()+' viên</td>'
+      +'<td></td>';
+    tbody.appendChild(tfr);
+    tbl.appendChild(tbody);
+    listEl.appendChild(tbl);
+  }
+
+  var btnClose = document.createElement('button');
+  btnClose.textContent = 'Đóng';
+  btnClose.style.cssText = 'padding:8px 22px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px;float:right';
+  btnClose.onclick = function(){ ov.remove(); };
+
+  box.appendChild(h); box.appendChild(sub); box.appendChild(totalEl);
+  box.appendChild(listEl); box.appendChild(btnClose);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
 }
 
 async function _saveTransfer(period, fromUnit, toUnit, row, qty){
