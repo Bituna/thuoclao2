@@ -4305,9 +4305,9 @@ function onDc2Change(prefix, rowIdx, inp){
 
   var qtyLabel = document.createElement('div');
   qtyLabel.style.cssText = 'font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
-  qtyLabel.textContent = 'Số lượng (viên):';
+  qtyLabel.innerHTML = 'Số lượng (viên): <span style="font-weight:400;color:#888">(nhập 0 để reset)</span>';
   var qtyInp = document.createElement('input');
-  qtyInp.type='number'; qtyInp.min='1'; qtyInp.placeholder='Nhập số lượng...';
+  qtyInp.type='number'; qtyInp.min='0'; qtyInp.placeholder='Nhập số lượng (0=reset)...';
   qtyInp.style.cssText = 'width:100%;padding:9px;border:2px solid #f59e0b;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:12px;box-sizing:border-box;text-align:center';
 
   var lbl = document.createElement('div');
@@ -4330,11 +4330,19 @@ function onDc2Change(prefix, rowIdx, inp){
   btnO.textContent='✓ Xác nhận';
   btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var qty=parseInt(qtyInp.value)||0;
+    var qty=parseInt(qtyInp.value);
+    if(isNaN(qty) || qty < 0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
     var toUnit=sel.value;
-    if(qty<=0){ toast('Nhập số lượng!','var(--warning)'); qtyInp.focus(); return; }
-    if(!toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    if(qty > 0 && !toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
     ov.remove();
+    if(qty === 0){
+      // Reset dc2 về 0
+      arr[realIdx].dc2 = 0;
+      inp.value = 0;
+      updField(prefix, rowIdx, 'dc2', 0);
+      toast('Đã reset xuất điều chuyển về 0','var(--warning)');
+      return;
+    }
     arr[realIdx].dc2=(arr[realIdx].dc2||0)+qty;
     inp.value=arr[realIdx].dc2;
     updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
@@ -4527,10 +4535,16 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   });
 
   if(!targetRow){
-    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này!','orange');
-    if(srcRow) srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-qty);
-    renderBVPH(); renderBC();
-    return;
+    // Tự động thêm dòng cho đơn vị nhận
+    var newRow = {
+      unit: toUnit, drug: fromRow.drug, lot: fromRow.lot, exp: fromRow.exp||'',
+      open:0, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+      locked:false, editing:true, bcMonth:periodKey, openLocked:false
+    };
+    if(toUnit===BVPH){ bvphData.push(newRow); targetArr=bvphData; }
+    else { bcData.push(newRow); targetArr=bcData; }
+    targetRow = newRow;
+    toast('Đã tự động thêm dòng "'+fromRow.drug+'" vào báo cáo của '+toUnit,'#1a5276');
   }
 
   // Cộng vào dc của đơn vị nhận
@@ -4577,10 +4591,15 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit){
   });
 
   if(!targetRow){
-    toast('⚠ Đơn vị "'+toUnit+'" chưa có dòng thuốc "'+fromRow.drug+' Lô '+fromRow.lot+'" kỳ này!','orange');
-    if(srcRow) srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-qty);
-    renderBVPH(); renderBC();
-    return;
+    // Tự động thêm dòng cho đơn vị nhận
+    var newRow3 = {
+      unit:toUnit, drug:fromRow.drug, lot:fromRow.lot, exp:fromRow.exp||'',
+      open:0, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+      locked:false, editing:true, bcMonth:periodKey, openLocked:false
+    };
+    bcData.push(newRow3);
+    targetRow = newRow3;
+    toast('Đã tự động thêm dòng "'+fromRow.drug+'" vào báo cáo của '+toUnit,'#1a5276');
   }
 
   // Cộng vào tinh (Tỉnh cấp) của đơn vị nhận
@@ -4679,7 +4698,7 @@ async function _saveTransfer(period, fromUnit, toUnit, row, qty, type){
     body:JSON.stringify([{
       period:period, from_unit:fromUnit, to_unit:toUnit,
       drug:row.drug, lot:row.lot, exp:row.exp||'', qty:qty,
-      note: type||'dc2_to_dc'
+      type: type||'dc2_to_dc'
     }])
   });
   if(!res.ok){
