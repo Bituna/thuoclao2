@@ -4355,23 +4355,38 @@ async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx
       el.innerHTML='<div style="font-size:12px;color:#888;font-style:italic">Chưa có phiếu nào trong kỳ này.</div>';
       return;
     }
-    var html='<div style="font-size:12px;font-weight:700;color:#333;margin-bottom:6px">Phiếu đã tạo:</div>';
-    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-    html+='<tr style="background:#f0f4f8"><th style="padding:5px 7px;text-align:left">Đến đơn vị</th><th style="padding:5px 7px">SL</th><th style="padding:5px 7px">Ngày</th><th style="padding:5px 7px">Thao tác</th></tr>';
+    var tbl = document.createElement('table');
+    tbl.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+    var hdr = document.createElement('tr');
+    hdr.style.background='#f0f4f8';
+    ['Đến đơn vị','SL','Ngày','Thao tác'].forEach(function(txt){
+      var th=document.createElement('th'); th.style.cssText='padding:5px 7px;text-align:left'; th.textContent=txt; hdr.appendChild(th);
+    });
+    var thead=document.createElement('thead'); thead.appendChild(hdr); tbl.appendChild(thead);
+    var tbody=document.createElement('tbody');
     transfers.forEach(function(t){
       var dt = t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—';
-      html+='<tr style="border-bottom:1px solid #eee">'
-        +'<td style="padding:5px 7px">'+t.to_unit+'</td>'
-        +'<td style="padding:5px 7px;text-align:center;font-weight:700;color:#27ae60">'+t.qty+'</td>'
-        +'<td style="padding:5px 7px;text-align:center;color:#888">'+dt+'</td>'
-        +'<td style="padding:5px 7px;text-align:center">'
-        +'<button onclick="ov.remove();_cancelAndRefresh(''+t.id+'',''+t.to_unit+'',''+field+'')" '
-        +'style="font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer;margin-right:3px">✕ Hủy</button>'
-        +'</td>'
-        +'</tr>';
+      var tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid #eee';
+      var tdUnit = document.createElement('td'); tdUnit.style.cssText='padding:5px 7px'; tdUnit.textContent=t.to_unit;
+      var tdQty  = document.createElement('td'); tdQty.style.cssText='padding:5px 7px;text-align:center;font-weight:700;color:#27ae60'; tdQty.textContent=t.qty;
+      var tdDate = document.createElement('td'); tdDate.style.cssText='padding:5px 7px;text-align:center;color:#888'; tdDate.textContent=dt;
+      var tdAct  = document.createElement('td'); tdAct.style.cssText='padding:5px 7px;text-align:center';
+      var btnHuy = document.createElement('button');
+      btnHuy.textContent='✕ Hủy';
+      btnHuy.style.cssText='font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer';
+      (function(tid, tunit){ btnHuy.onclick=function(){ ov.remove(); _cancelAndRefresh(tid, tunit, field); }; })(t.id, t.to_unit);
+      tdAct.appendChild(btnHuy);
+      tr.appendChild(tdUnit); tr.appendChild(tdQty); tr.appendChild(tdDate); tr.appendChild(tdAct);
+      tbody.appendChild(tr);
     });
-    html+='</table>';
-    el.innerHTML=html;
+    tbl.appendChild(tbody);
+    el.innerHTML='';
+    var titleDiv=document.createElement('div');
+    titleDiv.style.cssText='font-size:12px;font-weight:700;color:#333;margin-bottom:6px';
+    titleDiv.textContent='Phiếu đã tạo:';
+    el.appendChild(titleDiv);
+    el.appendChild(tbl);
   }catch(e){ el.innerHTML='<div style="font-size:12px;color:red">Lỗi tải: '+e.message+'</div>'; }
 }
 
