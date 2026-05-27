@@ -5298,17 +5298,35 @@ async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
 // ============================================================
 // IN BÁO CÁO ĐƠN VỊ THEO MẪU BYT — in trực tiếp
 // ============================================================
+// Cache transfers để dùng khi in
+var _printTransfers = [];
+var _printTransfersPeriod = '';
+
 function printBaoCaoDonVi(){
   var role = currentUser ? currentUser.role : 'admin';
   var periodKey = _currentPeriodKey();
-  if(isAdmin()){
-    _showPrintUnitPicker(periodKey);
-  } else if(role==='bvph'){
-    _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
-  } else {
-    var u = currentUser.unit||'';
-    _doPrint(u, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===u; }), periodKey);
-  }
+  toast('Đang tải phiếu điều chuyển...','#1a5276');
+  _loadTransfersForPrint(periodKey, function(){
+    if(isAdmin()){
+      _showPrintUnitPicker(periodKey);
+    } else if(role==='bvph'){
+      _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
+    } else {
+      var u = currentUser.unit||'';
+      _doPrint(u, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===u; }), periodKey);
+    }
+  });
+}
+
+function _loadTransfersForPrint(periodKey, cb){
+  if(!_supaOnline){ _printTransfers=[]; _printTransfersPeriod=periodKey; cb(); return; }
+  fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)+'&order=created_at.asc',
+    {headers:_supaHdr})
+  .then(function(r){ return r.ok?r.json():[]; })
+  .then(function(data){
+    _printTransfers=data; _printTransfersPeriod=periodKey; cb();
+  })
+  .catch(function(){ _printTransfers=[]; _printTransfersPeriod=periodKey; cb(); });
 }
 
 function _showPrintUnitPicker(periodKey){
@@ -5429,45 +5447,42 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate){
   var diaDanh=unitName.replace(/trung\s*tâm\s*y\s*tế\s*/i,'').replace(/bệnh\s*viện\s*/i,'').replace(/bv\s*/i,'').trim()||unitName;
   var ngayKy=diaDanh+', ngày '+('0'+printDate.getDate()).slice(-2)+' tháng '+(printDate.getMonth()+1)+' năm '+printDate.getFullYear();
 
-  // Ghi chú điều chuyển từ data đã có trong bộ nhớ
+  // Ghi chú điều chuyển từ phiếu Supabase đã tải trước
   var ghiChuMap={};
-  var allRows=(bvphData||[]).concat(bcData||[]).filter(function(r){return r.bcMonth===periodKey;});
+  var transfers = (_printTransfersPeriod===periodKey) ? _printTransfers : [];
+  var myUnit_str = rows.length>0 ? (rows[0].unit||BVPH) : '';
 
-  rows.forEach(function(r){
-    var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
+  // Map theo key=drug|lot|exp
+  // Xuất: from_unit = đơn vị này → ghi tên to_unit + qty
+  // Nhận dc: to_unit = đơn vị này, type=dc2_to_dc → ghi tên from_unit + qty
+  // Nhận tinh: to_unit = đơn vị này, type=dc3_to_tinh → ghi tên from_unit + qty
 
-    // Ghi chú XUẤT: đơn vị này xuất cho ai
-    if((r.dc2||0)>0){
-      var notes=[];
-      allRows.forEach(function(other){
-        if(other===r||other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
-        var otherUnit=other.unit||BVPH;
-        var myUnit=r.unit||BVPH;
-        if(otherUnit===myUnit) return;
-        // Đơn vị nhận có dc tăng hoặc tinh tăng
-        if((other.dc||0)>0) notes.push(otherUnit+': '+(other.dc)+' viên');
-        else if(isBVPH&&(other.tinh||0)>0) notes.push(otherUnit+': '+(other.tinh)+' viên');
-      });
-      if(notes.length && !ghiChuMap[key]) ghiChuMap[key]=notes.join(', ');
+  transfers.forEach(function(t){
+    var key=t.drug+'|'+t.lot+'|'+(t.exp||'');
+    var fromUnit=t.from_unit||'';
+    var toUnit=t.to_unit||'';
+    var qty=t.qty||0;
+    var type=t.type||'dc2_to_dc';
+
+    // Đơn vị này là bên XUẤT
+    if(fromUnit===myUnit_str||(myUnit_str===BVPH&&(fromUnit===BVPH||fromUnit==='bvph'))){
+      if(!ghiChuMap[key]) ghiChuMap[key]={xuat:[],nhan:[]};
+      ghiChuMap[key].xuat.push(toUnit+': '+qty+' viên');
     }
-
-    // Ghi chú NHẬN: đơn vị này nhận từ ai
-    if((r.dc||0)>0||(r.tinh||0)>0){
-      var myUnit=r.unit||BVPH;
-      var fromNotes=[];
-      allRows.forEach(function(other){
-        if(other===r||other.drug!==r.drug||other.lot!==r.lot||other.exp!==r.exp) return;
-        var otherUnit=other.unit||BVPH;
-        if(otherUnit===myUnit) return;
-        // Đơn vị kia có dc2 > 0 = đã xuất
-        if((other.dc2||0)>0) fromNotes.push(otherUnit+': '+(other.dc2)+' viên');
-      });
-      if(fromNotes.length){
-        var existing=ghiChuMap[key]||'';
-        var prefix=existing?existing+'; ':'';
-        ghiChuMap[key]=prefix+'Nhận từ: '+fromNotes.join(', ');
-      }
+    // Đơn vị này là bên NHẬN (dc hoặc tinh)
+    if(toUnit===myUnit_str||(myUnit_str===BVPH&&(toUnit===BVPH||toUnit==='bvph'))){
+      if(!ghiChuMap[key]) ghiChuMap[key]={xuat:[],nhan:[]};
+      ghiChuMap[key].nhan.push(fromUnit+': '+qty+' viên');
     }
+  });
+
+  // Chuyển thành chuỗi
+  var ghiChuStr={};
+  Object.keys(ghiChuMap).forEach(function(k){
+    var parts=[];
+    if(ghiChuMap[k].xuat.length) parts.push('Xuất đến: '+ghiChuMap[k].xuat.join(', '));
+    if(ghiChuMap[k].nhan.length) parts.push('Nhận từ: '+ghiChuMap[k].nhan.join(', '));
+    if(parts.length) ghiChuStr[k]=parts.join('; ');
   });
 
   // In luôn — không có async
@@ -5499,7 +5514,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuM
          +'<td rowspan="'+rowspan+'" class="c">'+(r.note||'QTC')+'</td>'
         :'';
       var key=r.drug+'|'+r.lot+'|'+(r.exp||'');
-      var gc=ghiChuMap[key]||'';
+      var gc=ghiChuStr[key]||'';
       tableRows+='<tr>'+fc
         +'<td class="c">'+r.lot+'</td>'
         +'<td class="c">'+expDisp+'</td>'
