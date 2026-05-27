@@ -1393,6 +1393,8 @@ async function _autoLoadOnLogin(){
     renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
     updateSaveBtnUI(); updateLockedUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
+    // Cache transfers cho chức năng in báo cáo
+    _cacheTransfers(periodKey);
   }catch(e){
     console.warn('Auto-load error:', e);
   }
@@ -5298,35 +5300,38 @@ async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
 // ============================================================
 // IN BÁO CÁO ĐƠN VỊ THEO MẪU BYT — in trực tiếp
 // ============================================================
-// Cache transfers để dùng khi in
+// Cache transfers — load cùng lúc với data báo cáo
 var _printTransfers = [];
 var _printTransfersPeriod = '';
+
+// Gọi hàm này sau khi load kỳ báo cáo xong
+async function _cacheTransfers(periodKey){
+  if(!_supaOnline) return;
+  try{
+    var r = await fetch(
+      SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)+'&order=created_at.asc',
+      {headers:_supaHdr}
+    );
+    _printTransfers = r.ok ? await r.json() : [];
+    _printTransfersPeriod = periodKey;
+  }catch(e){ _printTransfers=[]; }
+}
 
 function printBaoCaoDonVi(){
   var role = currentUser ? currentUser.role : 'admin';
   var periodKey = _currentPeriodKey();
-  toast('Đang tải phiếu điều chuyển...','#1a5276');
-  _loadTransfersForPrint(periodKey, function(){
-    if(isAdmin()){
-      _showPrintUnitPicker(periodKey);
-    } else if(role==='bvph'){
-      _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
-    } else {
-      var u = currentUser.unit||'';
-      _doPrint(u, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===u; }), periodKey);
-    }
-  });
-}
-
-function _loadTransfersForPrint(periodKey, cb){
-  if(!_supaOnline){ _printTransfers=[]; _printTransfersPeriod=periodKey; cb(); return; }
-  fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)+'&order=created_at.asc',
-    {headers:_supaHdr})
-  .then(function(r){ return r.ok?r.json():[]; })
-  .then(function(data){
-    _printTransfers=data; _printTransfersPeriod=periodKey; cb();
-  })
-  .catch(function(){ _printTransfers=[]; _printTransfersPeriod=periodKey; cb(); });
+  // Dùng cache transfers đã load — nếu khác kỳ thì báo
+  if(_printTransfersPeriod !== periodKey){
+    toast('Lưu ý: dữ liệu điều chuyển chưa được tải cho kỳ này.','orange');
+  }
+  if(isAdmin()){
+    _showPrintUnitPicker(periodKey);
+  } else if(role==='bvph'){
+    _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey);
+  } else {
+    var u = currentUser.unit||'';
+    _doPrint(u, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===u; }), periodKey);
+  }
 }
 
 function _showPrintUnitPicker(periodKey){
