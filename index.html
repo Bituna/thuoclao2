@@ -5872,10 +5872,10 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'.ir span:first-child{text-align:left}'
     +'.ir span:last-child{text-align:right}'
     +'table{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:3px}'
-    +'th,td{border:0.3pt solid #000;padding:1px 2px;vertical-align:middle;line-height:1.2}'
-    +'th{font-weight:bold;text-align:center}'
+    +'th,td{border:0.4pt solid #000;padding:1px 2px;vertical-align:middle;line-height:1.2;color:black;background:white}'
+    +'th{font-weight:bold;text-align:center;background:white;color:black}'
     +'.c{text-align:center}.l{text-align:left;padding-left:2px}.b{font-weight:bold}.n{text-align:center}'
-    +'.hn{background:#1e7e34;color:white}.xn{background:#a04000;color:white}.mn{background:#1a5276;color:white}'
+    +'.hn{background:white;color:black}.xn{background:white;color:black}.mn{background:white;color:black}'
     +'.k{font-size:6pt}'
     +'.gc{font-size:6.5pt;line-height:1.2}'
     +'.nk{text-align:right;font-style:italic;font-size:9pt;margin:5px 0 3px}'
@@ -5885,8 +5885,8 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'.sc i{font-size:8pt}'
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
-    +'  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     +'  .pg{padding:20mm 10mm 10mm 10mm!important;width:100%!important;box-sizing:border-box}'
+    +'  th,td{border:0.4pt solid black!important;background:white!important;color:black!important}'
     +'}';
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BC '+unitName+'</title>'
@@ -5942,9 +5942,11 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
   ps = document.createElement('style');
   ps.id = '_byt_print_style';
   ps.textContent = '@media print{'
-    + 'body > *:not(#_byt_print_div){display:none!important}'
-    + '#_byt_print_div{display:block!important;position:fixed;inset:0;background:white;z-index:99999}'
-    + '#_byt_print_div{box-sizing:border-box}#_byt_print_div .pg{padding:20mm 10mm 10mm 10mm;box-sizing:border-box}'
+    + '@page{size:A4 landscape;margin:0}'
+    + 'body>*:not(#_byt_print_div){visibility:hidden!important}'
+    + '#_byt_print_div{visibility:visible!important;display:block!important;position:fixed;inset:0;background:white;z-index:99999;overflow:visible}'
+    + '#_byt_print_div *{visibility:visible!important}'
+    + '#_byt_print_div .pg{padding:20mm 10mm 10mm 10mm;box-sizing:border-box}'
     + '}';
   document.head.appendChild(ps);
 
