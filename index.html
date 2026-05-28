@@ -4187,6 +4187,8 @@ async function cancelTransferById(transferId, toUnit){
 
         renderBVPH(); renderBC(); renderTP();
         _syncPeriodToCloud();
+        // Cập nhật cache transfers cho in báo cáo
+        _printTransfers = _printTransfers.filter(function(x){ return x.id !== t.id; });
         toast('✓ Đã hủy phiếu — Xuất ĐC của '+fromUnit+' và '+(isdc3?'Tỉnh cấp':'Nhập ĐC')+' của '+toUnit+' đã được xóa','var(--warning)');
 
         // Cập nhật lại nút pending nếu đơn vị nhận còn phiếu
@@ -5374,7 +5376,10 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPerio
   // Lưu phiếu lên Supabase (chỉ khi delta > 0)
   if(qty > 0 && _supaOnline){
     _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc2_to_dc', txDate)
-      .then(function(){
+      .then(function(saved){
+        // Cập nhật cache ghi chú in báo cáo
+        if(saved && saved.id) _printTransfers.push(saved);
+        else _cacheTransfers(periodKey);
         toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu','#27ae60');
       })
       .catch(function(e){
@@ -5430,7 +5435,9 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
 
   if(_supaOnline){
     _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh', txDate)
-      .then(function(){
+      .then(function(saved){
+        if(saved && saved.id) _printTransfers.push(saved);
+        else _cacheTransfers(periodKey);
         toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu cloud','#6c3483');
       })
       .catch(function(e){
