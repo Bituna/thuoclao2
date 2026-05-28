@@ -1283,7 +1283,7 @@ async function loadCatalogFromCloud(){
 }
 
 async function checkSupabase(){
-  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 6000); });
+  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 8000); });
   var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
   var fetchPr = fetch(SUPA_URL+'/rest/v1/settings?select=key&limit=1', {headers: hdCheck})
     .then(function(r){ return r; }).catch(function(){ return null; });
@@ -1337,6 +1337,19 @@ async function _autoLoadOnLogin(){
       url += '&unit=eq.bvph';
     }
     // Admin: tải tất cả
+
+    // Tải ACCOUNTS từ cloud để đảm bảo tài khoản mới được nhận diện
+    if(_supaOnline){
+      try{
+        var acr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value',{headers:_supaHdr});
+        if(acr.ok){
+          var acd = await acr.json();
+          if(acd.length && acd[0].value && acd[0].value.length > 0){
+            ACCOUNTS = acd[0].value;
+          }
+        }
+      }catch(e){}
+    }
 
     // Tải catalog trước (độc lập với reports)
     var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
@@ -1397,8 +1410,8 @@ async function _autoLoadOnLogin(){
       if(role !== 'donvi') lockedPeriods = sv[0].value;
       // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
     }
-    renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
-    updateSaveBtnUI(); updateLockedUI();
+    fullRender();
+    updateSaveBtnUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
     // Cache transfers cho chức năng in báo cáo
     _cacheTransfers(periodKey);
@@ -1598,11 +1611,7 @@ var SUBMITTED=["Bệnh viện Phổi Hải Phòng","Kho lẻ Bệnh viện Phổ
 
 // Tài khoản hệ thống
 var ACCOUNTS=[
-  {name:"Quản trị viên",user:"admin",pass:"1",unit:"BV Phổi Hải Phòng",role:"admin"},
-  {name:"BS. Nguyễn Văn A",user:"bvph",pass:"1",unit:"Bệnh viện Phổi Hải Phòng",role:"bvph"},
-  {name:"DS. Trần Thị Bình",user:"donvi",pass:"1",unit:"Trung tâm Y tế Hồng Bàng",role:"donvi"},
-  {name:"DS. Lê Văn Cường",user:"lechan",pass:"1",unit:"Trung tâm Y tế Lê Chân",role:"donvi"},
-  {name:"CN. Phạm Thị D",user:"ngoq",pass:"1",unit:"Trung tâm Y tế Ngô Quyền",role:"donvi"}
+  {name:"Quản trị viên",user:"admin",pass:"1",unit:"Bệnh viện Phổi Hải Phòng",role:"admin"}
 ];
 
 var drugFreq={};
@@ -2705,22 +2714,24 @@ function saveNewAccount(){
   var role=document.getElementById('acc-role').value;
   if(!name||!user||!pass){toast('Vui lòng nhập đủ thông tin!','var(--danger)');return;}
   if(ACCOUNTS.find(function(a){return a.user===user;})){toast('Tên đăng nhập đã tồn tại!','var(--danger)');return;}
+  if(!unit){toast('Vui lòng chọn đơn vị!','var(--danger)');return;}
   ACCOUNTS.push({name:name,user:user,pass:pass,unit:unit,role:role});
+  saveLocalCache(buildPayload());
+  _saveAccountsToCloud();
   closeModal('modal-acc');renderAccounts();
   toast('Đã thêm tài khoản: '+name,'var(--success)');
 }
 function editAccount(i){
   if(!isAdmin()){toast('Chỉ Admin mới sửa tài khoản!','var(--danger)');return;}
   var a = ACCOUNTS[i];
-  // Dùng modal-role để chỉnh (đã có modal phân quyền, mở rộng thêm tên/đơn vị)
-  // Nếu không có modal riêng, dùng prompt an toàn với fallback
   var n = window.prompt('Họ tên mới cho "'+a.name+'":', a.name);
-  if(n === null) return; // bấm Cancel
+  if(n === null) return;
   var u = window.prompt('Đơn vị:', a.unit);
   if(u === null) return;
   if(n.trim()) ACCOUNTS[i].name = n.trim();
   if(u.trim()) ACCOUNTS[i].unit = u.trim();
   saveLocalCache(buildPayload());
+  _saveAccountsToCloud();
   renderAccounts();
   toast('Đã cập nhật: '+ACCOUNTS[i].name,'var(--success)');
 }
@@ -2744,11 +2755,22 @@ function changeRole(i){
   document.getElementById('modal-role').classList.add('open');
 }
 
+// Lưu ACCOUNTS lên Supabase settings
+async function _saveAccountsToCloud(){
+  if(!_supaOnline) return;
+  try{
+    var hdPost = Object.assign({}, _supaHdr, {'Prefer':'resolution=merge-duplicates,return=minimal','Content-Type':'application/json'});
+    await fetch(SUPA_URL+'/rest/v1/settings', {
+      method:'POST', headers:hdPost,
+      body:JSON.stringify([{key:'ACCOUNTS', value:ACCOUNTS}])
+    });
+  }catch(e){ console.warn('Save accounts error:',e); }
+}
+
 function saveRole(){
   if(_roleEditIdx<0) return;
   var newRole=document.getElementById('role-select').value;
   var target=ACCOUNTS[_roleEditIdx];
-  // Không cho đổi role của tài khoản admin gốc (user='admin')
   if(target.user==='admin' && newRole!=='admin'){
     toast('Không thể đổi quyền của tài khoản Admin gốc!','var(--danger)');return;
   }
@@ -2761,6 +2783,7 @@ function saveRole(){
   closeModal('modal-role');
   var _rnp2=document.getElementById('role-new-pass');if(_rnp2)_rnp2.value='';
   saveLocalCache(buildPayload());
+  _saveAccountsToCloud();
   renderAccounts();
   var msg='Đã đổi quyền "'+oldName+'" → '+RLABELS[newRole];
   if(newPass) msg+=' + đổi mật khẩu';
@@ -2773,10 +2796,13 @@ function deleteAccount(i){
   var a=ACCOUNTS[i];
   if(currentUser&&a.user===currentUser.user){toast('Không xóa tài khoản đang đăng nhập!','var(--danger)');return;}
   if(a.role==='admin'){toast('Không thể xóa tài khoản Admin! Đổi quyền trước rồi mới xóa.','var(--danger)');return;}
-  if(!confirm('Xóa tài khoản "'+a.name+'" ('+a.user+')?'))return;
-  ACCOUNTS.splice(i,1);
-  saveLocalCache(buildPayload());
-  renderAccounts();toast('Đã xóa: '+a.name,'var(--danger)');
+  _confirmModal('Xóa tài khoản?','Xóa tài khoản "'+a.name+'" ('+a.user+')? Hành động không thể hoàn tác.', function(){
+    ACCOUNTS.splice(i,1);
+    saveLocalCache(buildPayload());
+    _saveAccountsToCloud();
+    renderAccounts();
+    toast('Đã xóa: '+a.name,'var(--danger)');
+  });
 }
 
 // ============================================================
@@ -3533,8 +3559,7 @@ function onGlobalMonthChange(){
 function renderBVPH(){
   var filtered = bvphData.filter(matchPeriod);
   buildTbl(filtered,'bvph-body','bvph');
-  checkMismatch();renderTQ();renderDrugTable();
-  renderTP();
+  checkMismatch();
   updateLockedUI();
 }
 function renderBC(){
@@ -3696,6 +3721,7 @@ function updField(prefix, rowIdx, field, val){
   row[field] = v;
   if(prefix==='bvph') renderBVPH(); else renderBC();
   saveLocalCache(buildPayload());
+  _syncPeriodToCloud();
 }
 function delR(prefix, rowIdx){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi xóa.','var(--danger)');return;}
@@ -4368,13 +4394,18 @@ function buildPayload(){
 }
 
 // Đồng bộ kỳ hiện tại lên Supabase sau mỗi thay đổi
+var _syncTimer = null;
 function _syncPeriodToCloud(){
-  if(!_supaOnline) return;
-  var periodKey = _currentPeriodKey();
-  if(!periodKey) return;
-  saveToSupabase(periodKey).catch(function(e){
-    console.warn('Sync cloud error:', e);
-  });
+  // Debounce 1.5s — tránh gọi cloud liên tục khi user nhập nhanh
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(function(){
+    if(!_supaOnline) return;
+    var periodKey = _currentPeriodKey();
+    if(!periodKey) return;
+    saveToSupabase(periodKey).catch(function(e){
+      console.warn('Sync cloud error:', e);
+    });
+  }, 1500);
 }
 
 function saveLocalCache(payload){
@@ -4544,7 +4575,12 @@ function updateFooterByRole(){
     var el = document.getElementById(id);
     if(el) el.style.display = admin ? '' : 'none';
   });
-  // Nút In báo cáo BYT: hiện với tất cả mọi người
+  // Ẩn file-status-bar và cloud-status với non-admin
+  var fsb = document.getElementById('file-status-bar');
+  var cs  = document.getElementById('cloud-status');
+  if(fsb) fsb.style.display = admin ? '' : 'none';
+  if(cs)  cs.style.display  = admin ? '' : 'none';
+  // Nút In báo cáo BYT: hiện với tất cả
   var btnIn = document.getElementById('btn-in-bc');
   if(btnIn) btnIn.style.display = '';
 }
@@ -6647,6 +6683,11 @@ function onTPDrugChange(){} // placeholder
 
 function addTPRowReal(){
   toast('Bảng Tổng toàn TP tự tổng hợp từ dữ liệu Kho chính và 22 đơn vị.\nKhông cần nhập thêm.','#6c3483');
+}
+
+// Render toàn bộ sau khi load cloud xong
+function fullRender(){
+  renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI();
 }
 
 function renderTP(){
