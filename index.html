@@ -230,7 +230,8 @@ td:nth-child(8){border-left:2px solid #f5b8be}
 .ss-card .val{font-size:20px;font-weight:700;color:var(--text)}
 
 /* FOOTER */
-.footer-actions{display:flex;gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+gap:8px;justify-content:flex-end;padding:14px 24px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
 
 /* MODAL (for sub-modals) */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;display:none;align-items:center;justify-content:center}
@@ -1032,6 +1033,9 @@ em{font-style:normal!important}i{font-style:normal!important}
       <div id="cloud-status" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:160px">
         <span style="color:#999;font-size:11px">☁ Cloud: đang kiểm tra...</span>
       </div>
+      <button id="btn-pending-transfers" onclick="checkPendingTransfers()" style="display:none;padding:5px 12px;border:none;border-radius:6px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600;animation:pulse 2s infinite">
+        📦 <span id="pending-count">0</span> phiếu chờ xác nhận
+      </button>
       <button id="btn-footer-chot-bvph" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính">🔒 Chốt Kho chính</button>
       <button id="btn-footer-chot-bc" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị">🔒 Chốt 22 ĐV</button>
       <button class="btn" style="background:#1d6f42;color:white" onclick="exportExcel()" title="Xuất báo cáo ra file Excel (.xlsx)">📊 Xuất Excel</button>
@@ -3915,11 +3919,10 @@ async function rechoseFile(){
 async function checkPendingTransfers(){
   if(!_supaOnline || !currentUser) return;
   var myUnit = currentUser.unit || (currentUser.role==='bvph' ? BVPH : '');
-  if(!myUnit || myUnit===BVPH) return; // BVPH không cần nhận xác nhận
+  if(!myUnit || myUnit===BVPH) return;
   var periodKey = _currentPeriodKey();
   if(!periodKey) return;
   try{
-    // Tải tất cả transfers đến đơn vị này trong kỳ
     var r = await fetch(
       SUPA_URL+'/rest/v1/transfers?to_unit=eq.'+encodeURIComponent(myUnit)
       +'&period=eq.'+encodeURIComponent(periodKey)
@@ -3928,10 +3931,20 @@ async function checkPendingTransfers(){
     );
     if(!r.ok) return;
     var all = await r.json();
-    // Lọc pending ở client: status=pending hoặc chưa có status
-    var pending = all.filter(function(t){
-      return !t.status || t.status==='pending';
-    });
+    var pending = all.filter(function(t){ return !t.status || t.status==='pending'; });
+
+    // Cập nhật nút footer
+    var btnPending = document.getElementById('btn-pending-transfers');
+    var countEl = document.getElementById('pending-count');
+    if(btnPending){
+      if(pending.length > 0){
+        btnPending.style.display = '';
+        if(countEl) countEl.textContent = pending.length;
+      } else {
+        btnPending.style.display = 'none';
+      }
+    }
+
     if(pending.length > 0){
       _showPendingTransferPopup(pending, myUnit, periodKey);
     }
@@ -4052,53 +4065,70 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
   ov.appendChild(box); document.body.appendChild(ov);
 }
 
-// Hủy phiếu điều chuyển kèm xóa dc đơn vị nhận
+// Hủy phiếu điều chuyển — xóa cả 2 chiều xuất và nhập
 async function cancelTransferById(transferId, toUnit){
-  // Lấy thông tin phiếu trước
-  var periodKey = _currentPeriodKey();
+  if(!_supaOnline){ toast('Cần kết nối cloud để hủy phiếu!','var(--danger)'); return; }
+
+  // Lấy thông tin phiếu
   var t = null;
-  if(_supaOnline){
-    try{
-      var r = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {headers:_supaHdr});
-      var data = await r.json();
-      if(data.length) t = data[0];
-    }catch(e){}
-  }
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {headers:_supaHdr});
+    var data = await r.json();
+    if(data.length) t = data[0];
+  }catch(e){ toast('Lỗi tải phiếu: '+e.message,'var(--danger)'); return; }
 
-  // Popup cảnh báo
-  var msg = t
-    ? 'Hành động này sẽ xóa nhập điều chuyển của "'+toUnit+'" ('+t.qty+' viên '+t.drug+').\n\nBạn có chắc chắn không?'
-    : 'Hủy phiếu này sẽ xóa nhập điều chuyển của "'+toUnit+'".\n\nBạn có chắc chắn không?';
+  if(!t){ toast('Không tìm thấy phiếu!','var(--danger)'); return; }
 
-  if(!confirm(msg)) return;
+  var periodKey = t.period || _currentPeriodKey();
+  var fromUnit = t.from_unit||'';
+  var qty = t.qty||0;
+  var isdc3 = t.type==='dc3_to_tinh';
 
-  if(_supaOnline && t){
-    try{ await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {method:'DELETE', headers:_supaHdr}); }catch(e){}
+  // Popup cảnh báo rõ ràng
+  _confirmModal(
+    '⚠ Xác nhận hủy phiếu điều chuyển',
+    'Hành động này sẽ:<br>'
+    +'• Xóa <b>'+qty.toLocaleString('vi-VN')+' viên '+t.drug+'</b> khỏi cột <b>Xuất ĐC</b> của <b>'+fromUnit+'</b><br>'
+    +'• Xóa khỏi cột <b>'+(isdc3?'Tỉnh cấp':'Nhập ĐC')+'</b> của <b>'+toUnit+'</b><br><br>'
+    +'Bạn có chắc chắn không?',
+    async function(){
+      try{
+        // Xóa phiếu trên Supabase
+        await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+t.id, {method:'DELETE', headers:_supaHdr});
 
-    // Trừ dc của đơn vị nhận
-    var isdc3 = t.type==='dc3_to_tinh'||t.note==='dc3_to_tinh';
-    var srcArr = (t.from_unit===BVPH||t.from_unit==='bvph') ? bvphData : bcData;
-    var srcRow = srcArr.find(function(r){
-      return r.bcMonth===periodKey&&r.drug===t.drug&&r.lot===t.lot&&r.exp===t.exp
-        &&(t.from_unit===BVPH||t.from_unit==='bvph'?(r.unit===BVPH||r.unit==='bvph'):r.unit===t.from_unit);
-    });
-    if(srcRow){
-      if(isdc3) srcRow.dc3=Math.max(0,(srcRow.dc3||0)-(t.qty||0));
-      else      srcRow.dc2=Math.max(0,(srcRow.dc2||0)-(t.qty||0));
+        // Trừ dc2/dc3 của đơn vị XUẤT
+        var srcArr = (fromUnit===BVPH||fromUnit==='bvph') ? bvphData : bcData;
+        var srcRow = srcArr.find(function(r){
+          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
+            && (fromUnit===BVPH||fromUnit==='bvph' ? (r.unit===BVPH||r.unit==='bvph') : r.unit===fromUnit);
+        });
+        if(srcRow){
+          if(isdc3) srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-qty);
+          else      srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-qty);
+        }
+
+        // Trừ tinh/dc của đơn vị NHẬN
+        var dstArr = (toUnit===BVPH||toUnit==='bvph') ? bvphData : bcData;
+        var dstRow = dstArr.find(function(r){
+          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
+            && (toUnit===BVPH||toUnit==='bvph' ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
+        });
+        if(dstRow){
+          if(isdc3) dstRow.tinh = Math.max(0,(dstRow.tinh||0)-qty);
+          else      dstRow.dc   = Math.max(0,(dstRow.dc||0)-qty);
+        }
+
+        renderBVPH(); renderBC(); renderTP();
+        _syncPeriodToCloud();
+        toast('✓ Đã hủy phiếu — Xuất ĐC của '+fromUnit+' và '+(isdc3?'Tỉnh cấp':'Nhập ĐC')+' của '+toUnit+' đã được xóa','var(--warning)');
+
+        // Cập nhật lại nút pending nếu đơn vị nhận còn phiếu
+        if(currentUser && currentUser.role==='donvi') setTimeout(checkPendingTransfers, 500);
+      }catch(e){
+        toast('Lỗi hủy phiếu: '+e.message,'var(--danger)');
+      }
     }
-    var dstArr=(toUnit===BVPH)?bvphData:bcData;
-    var dstRow=dstArr.find(function(r){
-      return r.bcMonth===periodKey&&r.drug===t.drug&&r.lot===t.lot&&r.exp===t.exp
-        &&(toUnit===BVPH?(r.unit===BVPH||r.unit==='bvph'):r.unit===toUnit);
-    });
-    if(dstRow){
-      if(isdc3) dstRow.tinh=Math.max(0,(dstRow.tinh||0)-(t.qty||0));
-      else      dstRow.dc  =Math.max(0,(dstRow.dc||0)-(t.qty||0));
-    }
-    renderBVPH(); renderBC(); renderTP();
-    _syncPeriodToCloud();
-    toast('Đã hủy phiếu — nhập điều chuyển của '+toUnit+' đã được xóa','var(--warning)');
-  }
+  );
 }
 
 // ── API công khai ──────────────────────────────────────────
@@ -6569,7 +6599,8 @@ function _confirmModal(title, body, onOk, onCancel){
   var box=document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
   var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#1a2332;margin-bottom:8px'; h.textContent=title;
-  var b=document.createElement('div'); b.style.cssText='font-size:13px;color:#555;margin-bottom:20px'; b.textContent=body;
+  var b=document.createElement('div'); b.style.cssText='font-size:13px;color:#555;margin-bottom:20px;line-height:1.6';
+  if(body.indexOf('<')>=0) b.innerHTML=body; else b.textContent=body;
   var r=document.createElement('div'); r.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var bc=document.createElement('button'); bc.textContent='Hủy';
   bc.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
