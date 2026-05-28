@@ -1028,22 +1028,63 @@ em{font-style:normal!important}i{font-style:normal!important}
     </div>
 
 
-    <div class="footer-actions no-print">
-      <div id="file-status-bar" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:180px"><span style="color:#27ae60;font-size:11px">💾 Tự động lưu cloud</span></div>
-      <div id="cloud-status" style="font-size:11px;padding:4px 8px;background:rgba(0,0,0,.04);border-radius:6px;min-width:160px">
-        <span style="color:#999;font-size:11px">☁ Cloud: đang kiểm tra...</span>
+
+    <div class="footer-actions no-print" style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);background:var(--surface);gap:8px;flex-wrap:wrap">
+
+      <!-- Bên trái: status (chỉ admin) -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="file-status-bar" style="display:flex;align-items:center;gap:5px;font-size:11px;color:#27ae60">
+          <span style="width:8px;height:8px;background:#27ae60;border-radius:50%;display:inline-block"></span>
+          Tự động lưu cloud
+        </div>
+        <div id="cloud-status">
+          <span style="color:#999;font-size:11px">☁ đang kiểm tra...</span>
+        </div>
+        <button id="btn-pending-transfers" onclick="checkPendingTransfers()"
+          style="display:none;padding:4px 12px;border:none;border-radius:20px;background:#e67e22;color:white;cursor:pointer;font-size:11px;font-weight:600;animation:pulse 2s infinite">
+          📦 <span id="pending-count">0</span> phiếu chờ
+        </button>
       </div>
-      <button id="btn-pending-transfers" onclick="checkPendingTransfers()" style="display:none;padding:5px 12px;border:none;border-radius:6px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600;animation:pulse 2s infinite">
-        📦 <span id="pending-count">0</span> phiếu chờ xác nhận
-      </button>
-      <button id="btn-footer-chot-bvph" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('bvph')" title="Chốt BC Kho chính">🔒 Chốt Kho chính</button>
-      <button id="btn-footer-chot-bc" class="btn btn-xs" style="background:#6c757d;color:white" onclick="chot('other')" title="Chốt BC 22 đơn vị">🔒 Chốt 22 ĐV</button>
-      <button class="btn" style="background:#1d6f42;color:white" onclick="exportExcel()" title="Xuất báo cáo ra file Excel (.xlsx)">📊 Xuất Excel</button>
-      <button id="btn-in-bc" class="btn" style="background:#c0392b;color:white" onclick="printBaoCaoDonVi()" title="In báo cáo đơn vị theo mẫu BYT">🖨 In báo cáo</button>
-      <button id="btn-footer-cloud" class="btn" style="background:#1a5276;color:white" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải dữ liệu từ cloud">☁ Tải từ cloud</button>
-      <button class="btn btn-primary" id="btn-save-bc" onclick="saveBC()">💾 Lưu báo cáo</button>
-      <button class="btn" id="btn-open-bc" onclick="openReport()" style="display:none;background:#e67e22;color:white">🔓 Mở lại để sửa</button>
+
+      <!-- Bên phải: action buttons -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button id="btn-footer-chot-bvph" onclick="chot('bvph')" title="Chốt Kho chính"
+          style="padding:6px 14px;border:1px solid #adb5bd;border-radius:6px;background:white;color:#495057;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
+          🔒 Chốt Kho chính
+        </button>
+        <button id="btn-footer-chot-bc" onclick="chot('other')" title="Chốt 22 ĐV"
+          style="padding:6px 14px;border:1px solid #adb5bd;border-radius:6px;background:white;color:#495057;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
+          🔒 Chốt 22 ĐV
+        </button>
+        <button id="btn-footer-cloud" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải từ cloud"
+          style="padding:6px 14px;border:1px solid #1a5276;border-radius:6px;background:white;color:#1a5276;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
+          ☁ Tải từ cloud
+        </button>
+
+        <div style="width:1px;height:24px;background:#dee2e6;margin:0 2px"></div>
+
+        <button onclick="exportExcel()" title="Xuất Excel"
+          style="padding:6px 14px;border:none;border-radius:6px;background:#1d6f42;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          📊 Xuất Excel
+        </button>
+        <button id="btn-in-bc" onclick="printBaoCaoDonVi()" title="In báo cáo BYT"
+          style="padding:6px 14px;border:none;border-radius:6px;background:#c0392b;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          🖨 In báo cáo
+        </button>
+
+        <div style="width:1px;height:24px;background:#dee2e6;margin:0 2px"></div>
+
+        <button id="btn-open-bc" onclick="openReport()"
+          style="display:none;padding:6px 16px;border:none;border-radius:6px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600">
+          🔓 Mở lại để sửa
+        </button>
+        <button id="btn-save-bc" onclick="saveBC()"
+          style="padding:6px 18px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(26,82,118,.3)">
+          💾 Lưu báo cáo
+        </button>
+      </div>
     </div>
+
   </div>
 
   <!-- TAB THỐNG KÊ -->
@@ -1300,9 +1341,9 @@ function _updateCloudStatus(){
   var el = document.getElementById('cloud-status');
   if(!el) return;
   if(_supaOnline){
-    el.innerHTML = '<span style="color:#27ae60;font-size:11px">☁ Cloud: <strong>Supabase ✓</strong></span>';
+    el.innerHTML = '<span style="color:#27ae60;font-size:11px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#27ae60;border-radius:50%;display:inline-block"></span>Supabase ✓</span>';
   } else {
-    el.innerHTML = '<span style="color:#e67e22;font-size:11px">☁ Cloud: <span style="cursor:pointer;text-decoration:underline" onclick="checkSupabase()">Offline — thử lại</span></span>';
+    el.innerHTML = '<span style="color:#e67e22;font-size:11px;cursor:pointer" onclick="checkSupabase()">⚠ Offline — thử lại</span>';
   }
 }
 
