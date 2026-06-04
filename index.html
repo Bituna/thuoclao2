@@ -8836,12 +8836,12 @@ function openAddPatient(){
   openModal('modal-patient');
 }
 
-function editPatient(idx){
-  var filtered = typeof _filteredPatients === 'function' ? _filteredPatients() : BN_DATA;
-  var realIdx = BN_DATA.indexOf(filtered[idx]); if(realIdx < 0) return;
-  var pt = BN_DATA[realIdx];
-  
-  document.getElementById('pt-index').value = realIdx;
+function editPatient(idx) {
+  // idx truyền vào là vị trí thật trong mảng BN_DATA
+  if (idx < 0 || idx >= BN_DATA.length) return;
+  var pt = BN_DATA[idx];
+
+  document.getElementById('pt-index').value = idx; // Lưu index thật
   document.getElementById('pt-modal-title').textContent = 'Sửa thông tin: ' + (pt.name || pt.hoTen || '');
   document.getElementById('pt-name').value = pt.name || pt.hoTen || pt.tenBN || '';
   document.getElementById('pt-gender').value = pt.gender || pt.gioiTinh || 'Nam';
@@ -8851,27 +8851,40 @@ function editPatient(idx){
   document.getElementById('pt-start').value = pt.startDate || pt.ngayBD || pt.ngayBatDau || '';
   document.getElementById('pt-end').value = pt.endDate || pt.ngayKT || pt.ngayKetThuc || '';
   document.getElementById('pt-status').value = pt.status || 'Đang điều trị';
-  
-  // Kiểm tra xem phác đồ có nằm trong list chuẩn không
+
+  // Chỉnh lý phác đồ
   var standardPds = ['6BPaLM', '18-20BdqLfxLzdCfzCs', '18-20LfxLzdCfzCsE', '18-20LfxZCfzCsE'];
   var currentPd = pt.pd || pt.phacDo || '6BPaLM';
-  if(standardPds.includes(currentPd)) {
-      document.getElementById('pt-pd').value = currentPd;
-      document.getElementById('pt-pd-custom').style.display = 'none';
-      document.getElementById('pt-pd-custom').value = '';
+  if (standardPds.includes(currentPd)) {
+    document.getElementById('pt-pd').value = currentPd;
+    document.getElementById('pt-pd-custom').style.display = 'none';
+    document.getElementById('pt-pd-custom').value = '';
   } else {
-      document.getElementById('pt-pd').value = 'Khác';
-      document.getElementById('pt-pd-custom').style.display = 'block';
-      document.getElementById('pt-pd-custom').value = currentPd;
+    document.getElementById('pt-pd').value = 'Khác';
+    document.getElementById('pt-pd-custom').style.display = 'block';
+    document.getElementById('pt-pd-custom').value = currentPd;
   }
-  
+
+  // Chỉnh lý đơn vị quản lý
   var uSel = document.getElementById('pt-unit');
-  if(uSel) {
-      uSel.innerHTML = '';
-      if(typeof UNITS !== 'undefined'){ UNITS.forEach(function(u){ var o = document.createElement('option'); o.value = u; o.textContent = u; uSel.appendChild(o); }); }
-      uSel.value = pt.unit || pt.donVi || (typeof BVPH !== 'undefined' ? BVPH : '');
-      if(typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'donvi') uSel.disabled = true;
+  if (uSel) {
+    uSel.innerHTML = '';
+    if (typeof UNITS !== 'undefined') {
+      UNITS.forEach(function(u) {
+        var o = document.createElement('option');
+        o.value = u;
+        o.textContent = u;
+        uSel.appendChild(o);
+      });
+    }
+    uSel.value = pt.unit || pt.donVi || (typeof BVPH !== 'undefined' ? BVPH : '');
+    // Khóa dropdown nếu là user đơn vị tuyến
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'donvi') {
+      uSel.disabled = true;
+    }
   }
+
+  // Đổ dữ liệu thuốc
   generateDrugInputs(pt.customDrugs || null);
   openModal('modal-patient');
 }
@@ -8922,43 +8935,81 @@ function savePatient(){
   if(idx >= 0) BN_DATA[idx] = pt; else BN_DATA.push(pt);
   _scheduleBnSync();
   closeModal('modal-patient');
-  if(typeof _fillBnFilters === 'function') _fillBnFilters();
+  // Cập nhật giao diện
+  if (typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
-  if(typeof renderDuTru === 'function') renderDuTru();
-  if(typeof toast === 'function') toast('Đã lưu dữ liệu bệnh nhân!', 'var(--success)');
+  if (typeof renderDuTru === 'function') renderDuTru();
+  
+  closeModal('modal-patient');
+  
+  // Lưu cục bộ và đồng bộ Cloud an toàn
+  if (typeof saveLocalCache === 'function') {
+      saveLocalCache(typeof buildPayload === 'function' ? buildPayload() : {});
+  }
+  
+  if (typeof _scheduleBnSync === 'function') {
+      _scheduleBnSync();
+  } else if (typeof _savePatientsToCloud === 'function') {
+      _savePatientsToCloud();
+  } else {
+      console.warn("Chưa tìm thấy hàm đồng bộ Cloud cho bệnh nhân.");
+  }
+  
+  if (typeof toast === 'function') {
+      toast('Đã lưu thông tin bệnh nhân!', 'var(--success)');
+  }
 }
 
-function deletePatient(idx){
-  if(idx < 0 || idx >= BN_DATA.length) return;
-  var name = BN_DATA[idx].name || BN_DATA[idx].hoTen || 'bệnh nhân này';
-  if(!confirm('Xóa ' + name + ' khỏi danh sách?')) return;
+function deletePatient(idx) {
+  if (idx < 0 || idx >= BN_DATA.length) return;
+  var ptName = BN_DATA[idx].name || BN_DATA[idx].hoTen || 'bệnh nhân này';
+  
+  if (!confirm('Bạn có chắc chắn muốn xóa [' + ptName + '] khỏi danh sách?')) return;
+  
+  // 1. Xóa khỏi mảng dữ liệu gốc
   BN_DATA.splice(idx, 1);
-  _scheduleBnSync();
-  if(typeof _fillBnFilters === 'function') _fillBnFilters();
+  
+  // 2. Cập nhật lại giao diện Bảng và Dự trù
+  if (typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
-  if(typeof renderDuTru === 'function') renderDuTru();
-  if(typeof toast === 'function') toast('Đã xóa bệnh nhân.', 'var(--success)');
+  if (typeof renderDuTru === 'function') renderDuTru();
+  
+  // 3. Lưu đồng bộ lên Cloud
+  if (typeof _scheduleBnSync === 'function') {
+      _scheduleBnSync();
+  } else if (typeof _savePatientsToCloud === 'function') {
+      _savePatientsToCloud();
+  }
+  
+  if (typeof toast === 'function') toast('Đã xóa bệnh nhân: ' + ptName, 'var(--danger)');
 }
 
 // Hàm xóa toàn bộ bệnh nhân có cảnh báo an toàn
-function deleteAllPatients(){
-  if(!BN_DATA || BN_DATA.length === 0) {
-      if(typeof toast === 'function') toast('Danh sách đang trống!', 'var(--warning)');
-      else alert('Danh sách đang trống!');
-      return;
+function deleteAllPatients() {
+  if (!BN_DATA || BN_DATA.length === 0) {
+    if (typeof toast === 'function') toast('Danh sách đang trống!', 'var(--warning)');
+    else alert('Danh sách đang trống!');
+    return;
   }
   
   var confirmMsg = "CẢNH BÁO NGUY HIỂM!\n\nBạn có chắc chắn muốn XÓA TOÀN BỘ " + BN_DATA.length + " bệnh nhân trong danh sách không?\nHành động này KHÔNG THỂ HOÀN TÁC!";
-  
-  if(confirm(confirmMsg)){
-    BN_DATA = []; // Lệnh làm rỗng toàn bộ dữ liệu
+  if (confirm(confirmMsg)) {
+    // 1. Làm rỗng mảng
+    BN_DATA = [];
     
-    _scheduleBnSync();
-    if(typeof _fillBnFilters === 'function') _fillBnFilters();
+    // 2. Cập nhật giao diện
+    if (typeof _fillBnFilters === 'function') _fillBnFilters();
     renderPatientTable();
-    if(typeof renderDuTru === 'function') renderDuTru();
+    if (typeof renderDuTru === 'function') renderDuTru();
     
-    if(typeof toast === 'function') toast('Đã xóa sạch toàn bộ danh sách!', 'var(--danger)');
+    // 3. Đồng bộ lên Cloud
+    if (typeof _scheduleBnSync === 'function') {
+        _scheduleBnSync();
+    } else if (typeof _savePatientsToCloud === 'function') {
+        _savePatientsToCloud();
+    }
+    
+    if (typeof toast === 'function') toast('Đã xóa sạch toàn bộ danh sách bệnh nhân!', 'var(--danger)');
     else alert('Đã xóa toàn bộ danh sách!');
   }
 }
