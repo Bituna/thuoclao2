@@ -8815,6 +8815,81 @@ function calculateEndDate() {
     }
 }
 
+// ── Tính chi tiết Bedaquiline dựa trên ngày bắt đầu và kết thúc điều trị ──
+function calculateBedaquilineDetails(startDateStr, endDateStr) {
+    if(!startDateStr) {
+        return { monthTotal: 24, note: "Chưa có ngày bắt đầu" };
+    }
+    
+    var startDate = new Date(startDateStr + 'T00:00:00');
+    if(isNaN(startDate.getTime())) {
+        return { monthTotal: 24, note: "Ngày bắt đầu không hợp lệ" };
+    }
+    
+    // Nếu có ngày kết thúc, tính dựa trên đó; nếu không, lấy mặc định 6 tháng
+    var endDate;
+    if(endDateStr) {
+        endDate = new Date(endDateStr + 'T00:00:00');
+        if(isNaN(endDate.getTime())) {
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 168); // mặc định 24 tuần
+        }
+    } else {
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 168); // mặc định 24 tuần = 168 ngày
+    }
+    
+    // Ngày 15 (kết thúc 14 ngày dùng 4v/ngày)
+    var day15 = new Date(startDate);
+    day15.setDate(day15.getDate() + 14);
+    
+    // Tìm thứ 2 tiếp theo sau ngày 14
+    var nextMonday = new Date(day15);
+    nextMonday.setDate(nextMonday.getDate() + 1);
+    var dayOfWeek = nextMonday.getDay(); // 0=CN, 1=T2, 2=T3,...
+    var daysToMonday = (dayOfWeek === 0) ? 1 : (dayOfWeek === 1) ? 0 : (8 - dayOfWeek);
+    nextMonday.setDate(nextMonday.getDate() + daysToMonday);
+    
+    // Format ngày
+    var formatDate = function(d) {
+        return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear().toString().slice(-2);
+    };
+    
+    var startStr = formatDate(startDate);
+    var day14Str = formatDate(day15);
+    var mondayStr = formatDate(nextMonday);
+    var endStr = formatDate(endDate);
+    
+    // Tính viên giai đoạn đầu (14 ngày × 4 viên)
+    var phase1Tablets = 14 * 4; // 56 viên
+    
+    // Tính viên giai đoạn 2-3 (từ ngày 15-30: 2v × 3 lần × 2 tuần)
+    var phase23Tablets = 2 * 3 * 2; // 12 viên
+    
+    // Tính viên giai đoạn cuối (từ thứ 2: 2v × 3 lần/tuần)
+    // Tổng tuần từ ngày 15 đến end
+    var totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    var daysPhase2 = totalDays - 14; // ngày còn lại từ ngày 15
+    var weeksPhase2 = Math.ceil(daysPhase2 / 7);
+    var phase4Tablets = 2 * 3 * (weeksPhase2 - 2); // -2 vì tuần 3-4 đã tính
+    
+    // Tổng viên
+    var totalTablets = phase1Tablets + phase23Tablets + phase4Tablets;
+    
+    // Nếu khác 188, hiệu chỉnh giai đoạn cuối
+    if(Math.abs(totalTablets - 188) > 1) {
+        phase4Tablets = 188 - phase1Tablets - phase23Tablets;
+    }
+    totalTablets = phase1Tablets + phase23Tablets + phase4Tablets;
+    
+    // Ghi chú chi tiết
+    var note = "Từ " + startStr + " → " + day14Str + ": 4v/ngày (" + phase1Tablets + "v); "
+             + "Từ " + mondayStr + " → " + endStr + ": 2v × thứ 2,4,6 (" + (phase23Tablets + phase4Tablets) + "v); "
+             + "Tổng: " + totalTablets + " viên";
+    
+    return { monthTotal: 24, note: note };
+}
+
 // 2. Thuật toán gợi ý TỔNG VIÊN/THÁNG và GHI CHÚ theo Tuổi & Cân Nặng (WHO 2022)
 function getDrugsByWeight(pd, weight, age) {
     var w = parseFloat(weight) || 50;
@@ -8823,8 +8898,10 @@ function getDrugsByWeight(pd, weight, age) {
     var pdStr = String(pd || '').replace(/\s+/g, '');
     
     // Bedaquiline: công thức cố định (188 viên/6 tháng)
-    var vBdq = 188 / 6; // ~ 31.333 viên/tháng
-    var noteBdq = "2 viên/ngày x 3 lần/tuần = 24 viên/tháng (sau 2 tuần đầu)";
+    // Tháng 1: 4v/ngày×14 ngày + 2v×3 lần×2 tuần = 56+12 = 68 viên
+    // Tháng 2-6: 2v×3 lần/tuần = 24 viên/tháng
+    var vBdq = 24; // viên/tháng (giai đoạn ổn định từ tháng 2)
+    var noteBdq = "Tháng 1: 68v (4v/14 ngày + 2v×3 lần×2 tuần); Tháng 2-6: 24v/tháng";
     
     // Nếu là phác đồ chuẩn, lấy từ PHAC_DO
     if(PHAC_DO[pdStr]) {
@@ -8939,6 +9016,7 @@ function generateDrugInputs(existingCustomDrugs) {
     var pdStr = (pdSelect === 'Khác') ? document.getElementById('pt-pd-custom').value : pdSelect;
     var weight = document.getElementById('pt-weight').value;
     var age = document.getElementById('pt-age').value;
+    var startDate = document.getElementById('pt-start').value;
     var container = document.getElementById('pt-drugs-container');
     
     var drugsToRender = existingCustomDrugs || getDrugsByWeight(pdStr, weight, age);
@@ -8948,6 +9026,13 @@ function generateDrugInputs(existingCustomDrugs) {
        html = '<div style="color:#888; font-size:12px; font-style:italic">Vui lòng chọn phác đồ, nhập Tuổi và Cân nặng.</div>';
     } else {
        drugsToRender.forEach(function(item) {
+          // Nếu là Bedaquiline, tính chi tiết dựa trên ngày bắt đầu
+          if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0) {
+             var bdqDetail = calculateBedaquilineDetails(startDate);
+             item.monthTotal = bdqDetail.monthTotal;
+             item.note = bdqDetail.note;
+          }
+          
           var noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;">'+item.note+'</div>' : '';
           var val = item.monthTotal !== undefined ? item.monthTotal : item.daily;
 
@@ -9523,7 +9608,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fg">
           <label>Ngày bắt đầu</label>
-          <input type="date" id="pt-start" onchange="calculateEndDate()">
+          <input type="date" id="pt-start" onchange="calculateEndDate(); generateDrugInputs(null)">
         </div>
         <div class="fg">
           <label>Ngày kết thúc (Dự kiến)</label>
