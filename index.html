@@ -9063,121 +9063,119 @@ function parseExcelDate(val) {
     return '';
 }
 
+// Nút bấm kích hoạt mở file
+function triggerImportPatient() {
+  var input = document.getElementById('import-patient-file');
+  if (input) input.click();
+}
+
+// Hàm xử lý file Excel sau khi chọn
 function importPatientExcel(input) {
-    var file = input.files[0];
-    if (!file) return;
-    if(typeof XLSX === 'undefined') { toast('Thư viện Excel chưa tải, kiểm tra mạng!', 'var(--danger)'); return; }
-    
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            var data = new Uint8Array(e.target.result);
-            var wb = XLSX.read(data, {type: 'array'});
-            var ws = wb.Sheets[wb.SheetNames[0]];
-            var aoa = XLSX.utils.sheet_to_json(ws, {header: 1}); 
-            
-            var headers = aoa[1] || [];
-            var colMap = {};
-            for (var c = 0; c < headers.length; c++) {
-                var h = (headers[c] || '').toString().trim().toLowerCase();
-                if (h.indexOf('họ và tên') > -1) colMap.name = c;
-                else if (h === 'nam') colMap.ageNam = c;
-                else if (h === 'nữ') colMap.ageNu = c;
-                else if (h.indexOf('địa chỉ') > -1) colMap.address = c;
-                else if (h.indexOf('đơn vị') > -1) colMap.unit = c; // ĐÃ THÊM NHẬN DIỆN CỘT ĐƠN VỊ
-                else if (h.indexOf('ngày bđ') > -1 || h.indexOf('ngày bắt đầu') > -1) colMap.start = c;
-                else if (h.indexOf('ngày kết thúc') > -1) colMap.end = c;
-                else if (h.indexOf('pđ') > -1 || h.indexOf('phác đồ') > -1) colMap.pd = c;
-                
-                else if (h.indexOf('bdq') > -1) colMap['Bedaquiline 100mg'] = c;
-                else if (h.indexOf('lfx') > -1) colMap['Levofloxacin 250mg'] = c;
-                else if (h.indexOf('lzd') > -1) colMap['Linezolid 600mg'] = c;
-                else if (h.indexOf('cfz') > -1) colMap['Clofazimine 100mg'] = c;
-                else if (h.indexOf('cs') > -1) colMap['Cycloserine 250mg'] = c;
-                else if (h.indexOf('emb') > -1) colMap['Ethambutol 400mg'] = c;
-                else if (h.indexOf('pto') > -1) colMap['Prothionamide 250mg'] = c;
-                else if (h.indexOf('inh') > -1) colMap['Isoniazid 300mg'] = c;
-                else if (h.indexOf('pza') > -1) colMap['Pyrazinamid 500mg'] = c;
-                else if (h.indexOf('mfx') > -1) colMap['Moxifloxacin 400mg'] = c;
-                else if (h.indexOf('am') > -1) colMap['Amikacin 500mg'] = c;
-                else if (h.indexOf('dlm') > -1) colMap['Delamanid 50mg'] = c;
-                else if (h.indexOf('pa') > -1) colMap['Pretomanid 200mg'] = c;
-            }
+  var file = input.files[0];
+  if (!file) return;
 
-            if (colMap.name === undefined) {
-                toast('Không tìm thấy cột Họ và tên! Tải sai file?', 'var(--danger)');
-                return;
-            }
+  // Reset giá trị input để có thể tải lại cùng 1 file nhiều lần
+  input.value = '';
 
-            var added = 0;
-            for (var r = 2; r < aoa.length; r++) {
-                var row = aoa[r];
-                if (!row || row.length === 0 || !row[colMap.name]) continue;
-                
-                var name = row[colMap.name];
-                var ageNam = row[colMap.ageNam];
-                var ageNu = row[colMap.ageNu];
-                var gender = ageNu ? 'Nữ' : 'Nam';
-                var age = ageNu ? ageNu : (ageNam ? ageNam : '');
-                var address = colMap.address !== undefined ? (row[colMap.address] || '') : '';
-                var pd = colMap.pd !== undefined ? (row[colMap.pd] || 'Khác') : 'Khác';
-                
-                // Đọc Đơn vị quản lý từ file. Nếu trống thì tự lấy tài khoản đang đăng nhập
-                var fileUnit = colMap.unit !== undefined ? (row[colMap.unit] || '') : '';
-                var finalUnit = fileUnit ? fileUnit : (typeof currentUser !== 'undefined' && currentUser && currentUser.unit ? currentUser.unit : 'Bệnh viện Phổi Hải Phòng');
-                
-                var startRaw = colMap.start !== undefined ? row[colMap.start] : '';
-                var endRaw = colMap.end !== undefined ? row[colMap.end] : '';
-                var start = parseExcelDate(startRaw);
-                var end = parseExcelDate(endRaw);
+  if (typeof XLSX === 'undefined') {
+    if (typeof toast === 'function') toast('Thư viện Excel chưa tải xong. Vui lòng kiểm tra mạng!', 'var(--danger)');
+    return;
+  }
 
-                var customDrugs = [];
-                Object.keys(colMap).forEach(function(k) {
-                    if (['name','ageNam','ageNu','address','unit','start','end','pd'].indexOf(k) < 0) {
-                        var dailyDose = parseFloat(row[colMap[k]]);
-                        if (dailyDose > 0) {
-                            customDrugs.push({
-                                drug: k,
-                                monthTotal: dailyDose * 26,
-                                note: 'Up từ file: ' + dailyDose + ' viên/ngày'
-                            });
-                        }
-                    }
-                });
+  if (typeof toast === 'function') toast('Đang đọc file Excel...', 'var(--warning)');
 
-                var ptDrugs = customDrugs.length > 0 ? customDrugs : null;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var workbook = XLSX.read(data, {type: 'array'});
+      // Đọc Sheet đầu tiên
+      var firstSheetName = workbook.SheetNames[0];
+      var worksheet = workbook.Sheets[firstSheetName];
+      
+      // Chuyển Sheet thành mảng 2 chiều (array of arrays)
+      var rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+      
+      if (rows.length < 2) {
+        if (typeof toast === 'function') toast('File Excel trống hoặc không có dữ liệu!', 'var(--warning)');
+        return;
+      }
 
-                var newBn = {
-                    name: name, hoTen: name,
-                    gender: gender, gioiTinh: gender,
-                    age: age, tuoi: age,
-                    address: address, diaChi: address,
-                    pd: pd, phacDo: pd,
-                    startDate: start, ngayBD: start,
-                    endDate: end, ngayKT: end,
-                    status: 'Đang điều trị',
-                    unit: finalUnit, donVi: finalUnit, // Đã cập nhật lưu Đơn vị
-                    customDrugs: ptDrugs
-                };
-                
-                BN_DATA.push(newBn);
-                added++;
-            }
-
-            if (added > 0) {
-                _scheduleBnSync();
-                if (typeof _fillBnFilters === 'function') _fillBnFilters();
-                renderPatientTable();
-                if (typeof renderDuTru === 'function') renderDuTru();
-                toast('Thành công! Tải lên ' + added + ' bệnh nhân.', 'var(--success)');
-            } else {
-                toast('File không có dữ liệu bệnh nhân!', 'var(--warning)');
-            }
-        } catch(err) {
-            toast('Lỗi đọc file: ' + err.message, 'var(--danger)');
+      // Xác định dòng tiêu đề (thường là dòng số 1 hoặc 2)
+      var headerRow = rows[0]; 
+      
+      // Hàm tìm số thứ tự cột dựa trên các từ khóa thông dụng
+      function findCol(keywords) {
+        for (var c = 0; c < headerRow.length; c++) {
+          var val = (headerRow[c] || '').toString().toLowerCase();
+          for (var k = 0; k < keywords.length; k++) {
+            if (val.indexOf(keywords[k]) !== -1) return c;
+          }
         }
-    };
-    reader.readAsArrayBuffer(file);
+        return -1;
+      }
+
+      // Nhận diện cột linh hoạt
+      var colName = findCol(['tên', 'họ', 'bệnh nhân', 'name']);
+      var colGender = findCol(['giới', 'gioi']);
+      var colAge = findCol(['tuổi', 'tuoi', 'năm sinh', 'nam sinh']);
+      var colWeight = findCol(['cân', 'can nang', 'kg']);
+      var colUnit = findCol(['đơn vị', 'don vi', 'tuyến', 'ttyt', 'nơi']);
+      var colPd = findCol(['phác đồ', 'phac do', 'thuốc', 'pd']);
+      var colStart = findCol(['bắt đầu', 'bat dau', 'ngày đt', 'ngày vào']);
+
+      if (colName === -1) {
+        if (typeof toast === 'function') toast('Lỗi: File Excel phải có cột "Tên bệnh nhân" hoặc "Họ tên" ở dòng đầu tiên!', 'var(--danger)');
+        return;
+      }
+
+      var added = 0;
+      if (typeof BN_DATA === 'undefined') window.BN_DATA = [];
+
+      // Quét từng dòng dữ liệu
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r || !r[colName] || r[colName].toString().trim() === '') continue; // Bỏ qua dòng trống
+        
+        var newPt = {
+          name: r[colName].toString().trim(),
+          gender: colGender !== -1 && r[colGender] ? r[colGender].toString().trim() : 'Nam',
+          age: colAge !== -1 && r[colAge] ? r[colAge].toString().trim() : '',
+          weight: colWeight !== -1 && r[colWeight] ? r[colWeight].toString().trim() : '',
+          unit: colUnit !== -1 && r[colUnit] ? r[colUnit].toString().trim() : (typeof currentUser !== 'undefined' ? (currentUser.unit || '') : ''),
+          pd: colPd !== -1 && r[colPd] ? r[colPd].toString().trim() : '6BPaLM',
+          startDate: colStart !== -1 && r[colStart] ? r[colStart].toString().trim() : '',
+          status: 'Đang điều trị'
+        };
+        
+        BN_DATA.push(newPt);
+        added++;
+      }
+
+      // Cập nhật lại giao diện bảng và bộ lọc
+      if (typeof _fillBnFilters === 'function') _fillBnFilters();
+      if (typeof renderPatientTable === 'function') renderPatientTable();
+      if (typeof renderDuTru === 'function') renderDuTru();
+
+      // Lưu trữ và đồng bộ lên Cloud
+      if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
+      if (typeof _scheduleBnSync === 'function') {
+          _scheduleBnSync();
+      } else if (typeof _savePatientsToCloud === 'function') {
+          _savePatientsToCloud();
+      }
+
+      if (typeof toast === 'function') {
+        if (added > 0) toast('Đã tải lên thành công ' + added + ' bệnh nhân!', 'var(--success)');
+        else toast('Không tìm thấy dữ liệu hợp lệ để tải lên.', 'var(--warning)');
+      }
+
+    } catch (err) {
+      console.error(err);
+      if (typeof toast === 'function') toast('Lỗi đọc file: ' + err.message, 'var(--danger)');
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // Hàm tải file Excel mẫu (Đã cập nhật thêm Cột Đơn vị)
