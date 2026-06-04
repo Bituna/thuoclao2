@@ -1340,23 +1340,23 @@ body.modal-open { overflow: hidden !important; }
 
       <!-- Nhóm hành động chính -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-primary" onclick="openAddPatient()" style="border-radius:8px;font-size:12px;padding:7px 14px;gap:6px">
+        <button id="bn-btn-add" class="btn btn-primary" onclick="openAddPatient()" style="border-radius:8px;font-size:12px;padding:7px 14px;gap:6px">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Thêm bệnh nhân
         </button>
-        <button class="btn btn-outline" onclick="exportPatientExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#475569;border-color:#cbd5e1">
+        <button id="bn-btn-export" class="btn btn-outline" onclick="exportPatientExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#475569;border-color:#cbd5e1">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel
         </button>
       </div>
 
       <!-- Divider -->
-      <div style="width:1px;height:28px;background:#e2e8f0;margin:0 2px"></div>
+      <div class="btn-divider" style="width:1px;height:28px;background:#e2e8f0;margin:0 2px"></div>
 
       <!-- Nhóm import -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-outline" onclick="downloadTemplateExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#2980b9;border-color:#93c5fd;background:#eff6ff">
+        <button id="bn-btn-template" class="btn btn-outline" onclick="downloadTemplateExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#2980b9;border-color:#93c5fd;background:#eff6ff">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>File mẫu
         </button>
-        <button class="btn btn-outline" onclick="triggerImportPatient()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#16a34a;border-color:#86efac;background:#f0fdf4">
+        <button id="bn-btn-import" class="btn btn-outline" onclick="triggerImportPatient()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#16a34a;border-color:#86efac;background:#f0fdf4">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Tải lên danh sách
         </button>
         <button id="bn-delete-all-btn" class="btn btn-outline" onclick="deleteAllPatients()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#dc2626;border-color:#fca5a5;background:#fff5f5">
@@ -2937,15 +2937,24 @@ function initApp(){
           _loadPatientsFromCloud().then(function(){
             _fillBnFilters();
             if(currentUser && currentUser.role === 'donvi'){
+              // Set filter sau _fillBnFilters để đảm bảo option đã có
               var uSel = document.getElementById('bn-filter-unit');
-              if(uSel) uSel.value = currentUser.unit || '';
+              if(uSel){
+                uSel.value = currentUser.unit || '';
+                // Nếu value không khớp (option chưa có), thêm vào
+                if(uSel.value !== (currentUser.unit||'')){
+                  var o2=document.createElement('option');
+                  o2.value=currentUser.unit; o2.textContent=currentUser.unit;
+                  uSel.appendChild(o2);
+                  uSel.value=currentUser.unit;
+                }
+              }
               setTimeout(checkPendingTransfers, 2000);
             }
-            var bnPage = document.getElementById('page-bn');
-            if(bnPage && bnPage.classList.contains('active')){
-              renderPatientTable();
-              renderDuTru();
-            }
+            // Luôn render trang BN sau khi load xong (dù đang active hay không)
+            _fillBnFilters();
+            renderPatientTable();
+            renderDuTru();
           });
         }
       });
@@ -5186,7 +5195,6 @@ function buildPayload(){
     ACCOUNTS:ACCOUNTS, drugFreq:drugFreq, threshold:threshold,
     lockedPeriods:lockedPeriods, catalogLocked:catalogLocked,
     reportLocked: isCurrentPeriodLocked(),
-    BN_DATA: BN_DATA,
     savedAt: new Date().toISOString()
   };
 }
@@ -5215,11 +5223,6 @@ function saveLocalCache(payload){
       savedAt: new Date().toISOString()
     };
     localStorage.setItem('thuoclao_settings', JSON.stringify(minimal));
-  }catch(e){}
-  // Lưu BN_DATA riêng
-  try{
-    var bn = payload.BN_DATA !== undefined ? payload.BN_DATA : BN_DATA;
-    if(Array.isArray(bn)) localStorage.setItem('thuoclao_bndata', JSON.stringify(bn));
   }catch(e){}
 }
 
@@ -5457,7 +5460,6 @@ function applyPayload(p){
   if(p.drugFreq)    drugFreq    = p.drugFreq;
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
-  if(p.BN_DATA && Array.isArray(p.BN_DATA)) BN_DATA = p.BN_DATA;
   if(p.lockedPeriods && typeof p.lockedPeriods === 'object'){
     // Đơn vị tuyến không áp dụng lockedPeriods từ localStorage/file (chỉ từ Supabase)
     if(!currentUser || currentUser.role === 'donvi'){
@@ -5474,14 +5476,6 @@ function applyPayload(p){
 }
 
 async function loadSaved(){
-  // Load BN_DATA từ localStorage
-  try{
-    var bnRaw = localStorage.getItem('thuoclao_bndata');
-    if(bnRaw){
-      var bnParsed = JSON.parse(bnRaw);
-      if(Array.isArray(bnParsed) && bnParsed.length > 0) BN_DATA = bnParsed;
-    }
-  }catch(e){}
   // Chỉ load localStorage làm khởi tạo nhanh (accounts, threshold...)
   try{
     var raw=localStorage.getItem('thuoclao_data');
@@ -8192,6 +8186,16 @@ function _fillBnFilters(){
   var unitWrap = uSel.parentElement;
   if(unitWrap) unitWrap.style.display = '';
 
+  // Ẩn/hiện nút theo role
+  var adminOnlyBtns = ['bn-btn-add','bn-btn-export','bn-btn-template','bn-btn-import','bn-delete-all-btn'];
+  adminOnlyBtns.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = isDonVi ? 'none' : '';
+  });
+  // Ẩn divider khi donvi
+  var dividers = document.querySelectorAll('#page-bn .btn-divider');
+  dividers.forEach(function(d){ d.style.display = isDonVi ? 'none' : ''; });
+
   if(isDonVi){
     // Đảm bảo option đơn vị mình luôn có dù BN_DATA chưa load
     var hasMyUnit = Array.from(uSel.options).some(function(o){ return o.value === myUnit; });
@@ -8200,16 +8204,12 @@ function _fillBnFilters(){
       o.value = myUnit; o.textContent = myUnit;
       uSel.appendChild(o);
     }
-    // Donvi: set cố định đơn vị mình, không cho đổi
     uSel.value = myUnit;
     uSel.disabled = true;
     uSel.style.background = '#f0f7ff';
     uSel.style.fontWeight = '700';
     uSel.style.color = '#1a5276';
     uSel.style.borderColor = '#93c5fd';
-    // Ẩn nút Xóa toàn bộ với donvi
-    var delBtn = document.getElementById('bn-delete-all-btn');
-    if(delBtn) delBtn.style.display = 'none';
   } else {
     uSel.disabled = false;
     uSel.style.background = '';
