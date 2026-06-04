@@ -1281,8 +1281,8 @@ body.modal-open { overflow: hidden !important; }
       </div>
     </div>
 
-    <div class="tbl-wrap" style="border-radius:12px;overflow:hidden;border:none;box-shadow:0 2px 12px rgba(0,0,0,0.10)">
-      <table style="border-collapse:collapse;width:100%">
+    <div class="tbl-wrap" style="border-radius:12px;overflow:auto;border:none;box-shadow:0 2px 12px rgba(0,0,0,0.10);max-height:calc(100vh - 280px)">
+      <table style="border-collapse:collapse;width:100%;min-width:700px">
         <thead>
           <tr>
             <th class="left" style="background:#1a2332;color:#fff;padding:11px 14px;font-size:12px;font-weight:700;letter-spacing:.3px;border:none;min-width:180px">Đơn vị</th>
@@ -8977,34 +8977,6 @@ function exportPatientExcel(){
 }
 // --- TÍNH NĂNG TẢI LÊN DANH SÁCH BỆNH NHÂN TỪ EXCEL ---
 
-// Hàm tải file Excel mẫu cho người dùng
-function downloadTemplateExcel() {
-    if(typeof XLSX === 'undefined') { alert('Thư viện Excel chưa được tải, vui lòng kiểm tra mạng!'); return; }
-    
-    // Tạo cấu trúc file mẫu với 2 dòng ví dụ
-    var aoa = [
-        ['MẪU NHẬP DANH SÁCH BỆNH NHÂN ĐIỀU TRỊ LAO KHÁNG THUỐC'],
-        ['STT', 'Họ và tên', 'Nam', 'Nữ', 'Địa chỉ', 'Phác đồ', 'Ngày bắt đầu', 'Ngày kết thúc', 'Bdq', 'Lfx', 'Lzd', 'Cfz', 'Cs', 'Emb', 'Pza', 'Mfx', 'Pa', 'Dlm'],
-        ['1', 'Nguyễn Văn A', '45', '', 'Lê Chân, Hải Phòng', '6BPaLM', '01/06/2026', '01/12/2026', '4', '', '1', '', '', '', '', '1', '1', ''],
-        ['2', 'Trần Thị B', '', '32', 'Ngô Quyền, Hải Phòng', '18-20BdqLfxLzdCfzCs', '15/05/2026', '15/11/2027', '2', '3', '0.5', '1', '2', '', '', '', '', '']
-    ];
-    
-    var ws = XLSX.utils.aoa_to_sheet(aoa);
-    
-    // Gộp ô tiêu đề (dòng 1)
-    ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:17}}];
-    
-    // Chỉnh độ rộng các cột cho đẹp và dễ nhìn
-    ws['!cols'] = [
-        {wch:5}, {wch:22}, {wch:6}, {wch:6}, {wch:25}, {wch:20}, {wch:12}, {wch:12},
-        {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}, {wch:6}
-    ];
-    
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Mau_Nhap_Lieu');
-    XLSX.writeFile(wb, 'File_Mau_Danh_Sach_Benh_Nhan.xlsx');
-}
-
 function triggerImportPatient() {
     document.getElementById('import-patient-file').value = '';
     document.getElementById('import-patient-file').click();
@@ -9131,7 +9103,6 @@ function importPatientExcel(input) {
             }
 
             if (added > 0) {
-                saveLocalCache(buildPayload()); // Lưu BN_DATA offline
                 _scheduleBnSync();
                 if (typeof _fillBnFilters === 'function') _fillBnFilters();
                 renderPatientTable();
