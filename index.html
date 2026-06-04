@@ -8822,11 +8822,20 @@ function getDrugsByWeight(pd, weight, age) {
     var drugs = [];
     var pdStr = String(pd || '').replace(/\s+/g, '');
     
+    // Bedaquiline: công thức cố định (188 viên/6 tháng)
+    var vBdq = 188 / 6; // ~ 31.333 viên/tháng
+    var noteBdq = "2 viên/ngày x 3 lần/tuần = 24 viên/tháng (sau 2 tuần đầu)";
+    
     // Nếu là phác đồ chuẩn, lấy từ PHAC_DO
     if(PHAC_DO[pdStr]) {
        var pdo = PHAC_DO[pdStr];
        pdo.forEach(function(item){
-          drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+          // Bedaquiline: áp dụng công thức đặc biệt
+          if(item.drug === 'Bedaquiline 100mg') {
+             drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
+          } else {
+             drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+          }
        });
        return drugs;
     }
@@ -8836,7 +8845,12 @@ function getDrugsByWeight(pd, weight, age) {
        if(pdStr.indexOf(k) >= 0) {
           var pdo = PHAC_DO[k];
           pdo.forEach(function(item){
-             drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+             // Bedaquiline: áp dụng công thức đặc biệt
+             if(item.drug === 'Bedaquiline 100mg') {
+                drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
+             } else {
+                drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+             }
           });
           return drugs;
        }
@@ -8874,8 +8888,7 @@ function getDrugsByWeight(pd, weight, age) {
 
     // Bedaquiline 100mg: tổng 188 viên cho toàn bộ 6 tháng điều trị.
     // Liều: 4v/ngày x 14 ngày, sau đó 2v x 3 lần/tuần cho 22 tuần còn lại (tổng 24 tuần = 6 tháng).
-    var vBdq = 188 / 6; // trung bình ~31.333 viên/tháng
-    var noteBdq = "4v/ngày x 14 ngày, sau đó 2v x 3 lần/tuần cho 22 tuần tiếp theo (tổng 24 tuần)";
+    // (vBdq và noteBdq đã định nghĩa ở đầu hàm)
     
     // Áp dụng Liều dùng 1 ngày (Chuẩn TCYTTG 2022)
     var dLzd = (w < 24) ? 0.5 : ((w < 30) ? 0.75 : 1);
