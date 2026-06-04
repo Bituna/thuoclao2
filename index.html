@@ -8920,13 +8920,24 @@ function savePatient(){
   };
 
   if(idx >= 0) BN_DATA[idx] = pt; else BN_DATA.push(pt);
-  saveLocalCache(buildPayload()); // Lưu BN_DATA vào localStorage
   _scheduleBnSync();
   closeModal('modal-patient');
   if(typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
   if(typeof renderDuTru === 'function') renderDuTru();
   if(typeof toast === 'function') toast('Đã lưu dữ liệu bệnh nhân!', 'var(--success)');
+}
+
+function deletePatient(idx){
+  if(idx < 0 || idx >= BN_DATA.length) return;
+  var name = BN_DATA[idx].name || BN_DATA[idx].hoTen || 'bệnh nhân này';
+  if(!confirm('Xóa ' + name + ' khỏi danh sách?')) return;
+  BN_DATA.splice(idx, 1);
+  _scheduleBnSync();
+  if(typeof _fillBnFilters === 'function') _fillBnFilters();
+  renderPatientTable();
+  if(typeof renderDuTru === 'function') renderDuTru();
+  if(typeof toast === 'function') toast('Đã xóa bệnh nhân.', 'var(--success)');
 }
 
 // Hàm xóa toàn bộ bệnh nhân có cảnh báo an toàn
