@@ -884,6 +884,21 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <button class="btn btn-xs" style="margin-left:auto;background:#e67e22;color:white;white-space:nowrap" onclick="openReport()">🔓 Mở lại để sửa</button>
     </div>
 
+    <!-- THANH CHỌN ĐƠN VỊ DÀNH CHO ADMIN -->
+    <div class="filter-bar admin-only-filter" style="margin-bottom:14px; display:none; background:#eef7ff; border-color:#b3d4f0">
+      <div class="fg">
+        <label style="color:#1a5276">Xem và quản lý báo cáo của đơn vị:</label>
+        <select id="filter-unit-bc" style="width:300px; font-weight:600; color:#1a5276" onchange="onAdminUnitFilterChange()">
+          <option value="__all__">-- Tổng hợp tất cả đơn vị --</option>
+        </select>
+        <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
+      </div>
+      <input type="hidden" id="filter-month-bc" value="2026-05">
+      <div class="fg" style="justify-content:flex-end;margin-top:auto">
+        <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+    </div>
+
     <!-- BẢNG TỔNG TOÀN THÀNH PHỐ - ĐẶT LÊN ĐẦU -->
     <div id="tp-zone" style="margin-bottom:18px">
       <!-- NOTE: Bảng tổng TP tự tổng hợp, không nhập tay -->
@@ -1097,19 +1112,6 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     </div>
 
     <div id="bc-zone">
-      <div class="filter-bar" style="margin-bottom:10px">
-        <div class="fg">
-          <label>Xem báo cáo đơn vị</label>
-          <select id="filter-unit-bc" style="width:240px" onchange="renderBC()">
-            <option value="__all__">Tổng hợp tất cả đơn vị</option>
-          </select>
-          <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
-        </div>
-        <input type="hidden" id="filter-month-bc" value="2026-05">
-        <div class="fg" style="justify-content:flex-end;margin-top:auto">
-          <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
-        </div>
-      </div>
       <div class="tbl-hd-bar">
         <h3 id="bc-table-title">Báo cáo tổng hợp — 22 đơn vị tuyến</h3>
         <div class="del-dd no-print">
@@ -1993,7 +1995,7 @@ var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
 Object.defineProperty(window,'reportLocked',{
   get:function(){
-    try{ return !!lockedPeriods[_currentPeriodKey()]; }catch(e){ return false; }
+    try{ return isCurrentPeriodLocked(); }catch(e){ return false; }
   },
   set:function(v){  }
 });
@@ -2954,17 +2956,20 @@ function initApp(){
     if(role==='donvi'){
       fubc.innerHTML='<option value="'+currentUser.unit+'">'+currentUser.unit+'</option>';
       fubc.value = currentUser.unit;
-      fubc.style.display='none';
+      document.querySelector('.admin-only-filter').style.display='none';
       if(fubcFixed){ fubcFixed.style.display='block'; fubcFixed.textContent=currentUser.unit; }
-    } else {
+    } else if(role==='admin') {
+      document.querySelector('.admin-only-filter').style.display='flex';
       fubc.style.display='';
       if(fubcFixed) fubcFixed.style.display='none';
       fubc.disabled = false;
-      fubc.style.background=''; fubc.style.color=''; fubc.style.fontWeight='';
       fubc.innerHTML='<option value="__all__">-- Tổng hợp tất cả đơn vị --</option>';
+      fubc.innerHTML+='<option value="bvph">Kho chính Bệnh viện Phổi Hải Phòng</option>';
       UNITS.filter(function(u){return u!==BVPH;}).forEach(function(u){
         var o=document.createElement('option');o.value=u;o.textContent=u;fubc.appendChild(o);
       });
+    } else {
+      document.querySelector('.admin-only-filter').style.display='none';
     }
   }
   // Đảm bảo bc-unit cũng được fill đúng
@@ -3961,13 +3966,11 @@ function buildTbl(data, bodyId, prefix){
     var isEditing = (row.editing === true);
     // Tồn đầu khoá với non-admin sau khi chốt
     var openRO    = (!isAdmin() && row.openLocked === true);
+    var isPeriodLocked = isCurrentPeriodLocked();
 
     // Nút thao tác
-    // reportLocked=true: báo cáo đã lưu → ẩn hết nút trừ admin
-    // isLocked=true: dòng bị khoá → chỉ admin thấy nút Mở
-    // isLocked=false: bình thường → Sửa/Lưu + Xóa
     var btns = '';
-    if(canEdit){
+    if(canEdit && !isPeriodLocked && !isLocked){
       var editLbl = isEditing ? '&#128190; Lưu' : '&#9999; Sửa';
       var editSty = isEditing
         ? 'background:var(--success);color:white'
@@ -4881,20 +4884,22 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
             headers: Object.assign({}, _supaHdr, {'Prefer':'return=minimal','Content-Type':'application/json'}),
             body: JSON.stringify({status:'confirmed', notif_for: transfer.from_unit, notif_read: false})
           });
-          // 2. Cộng vào dc của đơn vị nhận trong báo cáo
+          // 2. Cộng vào dc hoặc tinh của đơn vị nhận trong báo cáo
           var targetArr = (myUnit===BVPH) ? bvphData : bcData;
           var targetRow = targetArr.find(function(r){
             return r.bcMonth===periodKey && r.drug===transfer.drug
               && r.lot===transfer.lot && r.exp===transfer.exp
               && (myUnit===BVPH?(r.unit===BVPH||r.unit==='bvph'):r.unit===myUnit);
           });
+          var fieldToUpdate = (transfer.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
           if(targetRow){
-            targetRow.dc = (targetRow.dc||0) + (transfer.qty||0);
+            targetRow[fieldToUpdate] = (targetRow[fieldToUpdate]||0) + (transfer.qty||0);
           } else {
             // Tự thêm dòng mới nếu chưa có
             var newRow = {unit:myUnit,drug:transfer.drug,lot:transfer.lot,exp:transfer.exp||'',
-              open:0,tinh:0,dc:transfer.qty||0,sd:0,dc2:0,dc3:0,hh:0,
+              open:0,tinh:0,dc:0,sd:0,dc2:0,dc3:0,hh:0,
               locked:false,editing:true,bcMonth:periodKey,openLocked:false};
+            newRow[fieldToUpdate] = transfer.qty||0;
             if(myUnit===BVPH) bvphData.push(newRow); else bcData.push(newRow);
           }
           renderBVPH(); renderBC(); renderTP();
@@ -5199,16 +5204,30 @@ async function saveBC(){
   var periodKey = _currentPeriodKey();
   if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--danger)'); return; }
 
-  // 1. Khóa kỳ này
-  lockedPeriods[periodKey] = true;
+  var role = currentUser ? currentUser.role : 'admin';
+  var unit = currentUser ? currentUser.unit : '';
 
-  // 2. Đánh dấu locked=true cho tất cả rows của kỳ này
-  bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-    r.locked=true; r.editing=false; r.openLocked=true;
-  });
-  bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-    r.locked=true; r.editing=false; r.openLocked=true;
-  });
+  if (role === 'donvi') {
+      lockedPeriods[periodKey + '_' + unit] = true;
+      bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+  } else if (role === 'bvph') {
+      lockedPeriods[periodKey + '_bvph'] = true;
+      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+  } else {
+      var selUnit = document.getElementById('filter-unit-bc');
+      var unitVal = selUnit ? selUnit.value : '__all__';
+      if(unitVal === '__all__') {
+          lockedPeriods[periodKey] = true;
+          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+          bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      } else if (unitVal === 'bvph') {
+          lockedPeriods[periodKey + '_bvph'] = true;
+          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      } else {
+          lockedPeriods[periodKey + '_' + unitVal] = true;
+          bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unitVal;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      }
+  }
 
   // 3. Tính kỳ tiếp theo
   var nextKey = _nextPeriodKey(periodKey);
@@ -5323,21 +5342,55 @@ function openReport(){
   if(!isAdmin()){toast('Chỉ Admin mới mở lại báo cáo!','var(--danger)');return;}
   var periodKey = _currentPeriodKey();
   var label = _keyToLabel(periodKey);
-  if(!confirm('Mở lại báo cáo '+label+' để chỉnh sửa?\nSẽ bỏ khoá các dòng của kỳ này.'))return;
-  // Chỉ mở kỳ đang chọn
-  delete lockedPeriods[periodKey];
-  bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
-  bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
-  // Reset opacity form ngay lập tức
-  var fB=document.getElementById('form-bvph');
-  var fD=document.getElementById('form-donvi');
-  var _role = currentUser ? currentUser.role : '';
-  if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display=(_role==='admin'||_role==='bvph')?'block':'none'; }
-  if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display=(_role==='admin'||_role==='donvi')?'block':'none'; }
-  renderBVPH(); renderBC();
-  updateSaveBtnUI();
-  updateLockedUI();
-  toast('Đã mở lại báo cáo '+label+' để chỉnh sửa','var(--warning)');
+  
+  var selUnit = document.getElementById('filter-unit-bc');
+  var unitVal = selUnit ? selUnit.value : '__all__';
+
+  var title = '🔓 Mở khóa báo cáo';
+  var msg = '';
+  var unitDisplay = unitVal === 'bvph' ? 'Kho chính BV Phổi HP' : unitVal;
+
+  if (unitVal !== '__all__') {
+      msg = 'Mở khóa báo cáo <b>'+label+'</b> cho đơn vị:<br><strong style="color:var(--accent);font-size:14px;display:block;margin-top:4px">' + unitDisplay + '</strong>';
+  } else {
+      msg = 'Mở khóa báo cáo <b>'+label+'</b> cho <strong style="color:var(--danger);font-size:14px;">TẤT CẢ</strong> các đơn vị?';
+  }
+
+  _confirmModal(title, msg, function() {
+      if (unitVal !== '__all__') {
+          delete lockedPeriods[periodKey + '_' + unitVal];
+          if (lockedPeriods[periodKey]) {
+              delete lockedPeriods[periodKey];
+              if(unitVal !== 'bvph') lockedPeriods[periodKey + '_bvph'] = true;
+              UNITS.forEach(function(u){ if(u !== BVPH && u !== unitVal) lockedPeriods[periodKey + '_' + u] = true; });
+          }
+          if (unitVal === 'bvph') {
+              bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+          } else {
+              bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unitVal;}).forEach(function(r){ r.locked=false; });
+          }
+      } else {
+          delete lockedPeriods[periodKey];
+          Object.keys(lockedPeriods).forEach(function(k){ if(k.startsWith(periodKey + '_')) delete lockedPeriods[k]; });
+          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+          bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; });
+      }
+
+      // Reset opacity form ngay lập tức
+      var fB=document.getElementById('form-bvph');
+      var fD=document.getElementById('form-donvi');
+      var _role = currentUser ? currentUser.role : '';
+      if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display=(_role==='admin'||_role==='bvph')?'block':'none'; }
+      if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display=(_role==='admin'||_role==='donvi')?'block':'none'; }
+      
+      saveLocalCache(buildPayload());
+      if(_supaOnline) saveToSupabase(periodKey).catch(function(){});
+
+      renderBVPH(); renderBC();
+      updateSaveBtnUI();
+      updateLockedUI();
+      toast('Đã mở lại báo cáo '+label+' để chỉnh sửa','var(--warning)');
+  }, null, 'Mở khóa');
 }
 
 // Ẩn/hiện nút footer theo role — chỉ Admin thấy tất cả
@@ -5380,12 +5433,52 @@ function updateLockedUI(){
   // Form nhập liệu — ẩn hoàn toàn khi đã lưu, hiện lại khi mở
   var fB = document.getElementById('form-bvph');
   var fD = document.getElementById('form-donvi');
-  if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='bvph') ? 'block' : 'none'); }
-  if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display = locked ? 'none' : (currentUser&&(currentUser.role==='admin'||currentUser.role==='donvi') ? 'block' : 'none'); }
+  
+  if (role === 'admin') {
+      var selUnit = document.getElementById('filter-unit-bc');
+      var unitVal = selUnit ? selUnit.value : '__all__';
+      if (unitVal === '__all__') {
+          if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display = locked ? 'none' : 'block'; }
+          if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display = locked ? 'none' : 'block'; }
+      } else if (unitVal === 'bvph') {
+          if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display = locked ? 'none' : 'block'; }
+          if(fD){ fD.style.display = 'none'; }
+      } else {
+          if(fB){ fB.style.display = 'none'; }
+          if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display = locked ? 'none' : 'block'; }
+      }
+  } else {
+      if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display = locked ? 'none' : (role==='bvph' ? 'block' : 'none'); }
+      if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display = locked ? 'none' : (role==='donvi' ? 'block' : 'none'); }
+  }
 
   // Nút Xóa dữ liệu — ẩn hoàn toàn khi đã lưu
   document.querySelectorAll('.del-dd').forEach(function(el){
-    el.style.display = locked ? 'none' : '';
+    var isBcZone = el.closest('#bc-zone') !== null;
+    if (role === 'admin') {
+      var selUnit = document.getElementById('filter-unit-bc');
+      var unitVal = selUnit ? selUnit.value : '__all__';
+      if (unitVal === '__all__') {
+        var p = _currentPeriodKey();
+        var isBvphZone = el.closest('#bvph-zone') !== null;
+        if (isBvphZone) {
+            el.style.display = (lockedPeriods[p + '_bvph'] || lockedPeriods[p]) ? 'none' : '';
+        } else if (isBcZone) {
+            var anyBcLocked = UNITS.some(function(u) { return u !== BVPH && (lockedPeriods[p + '_' + u] || lockedPeriods[p]); });
+            el.style.display = anyBcLocked ? 'none' : '';
+        } else {
+            el.style.display = locked ? 'none' : '';
+        }
+      } else {
+        el.style.display = locked ? 'none' : '';
+      }
+    } else {
+      if (isBcZone) {
+        el.style.display = 'none';
+      } else {
+        el.style.display = locked ? 'none' : '';
+      }
+    }
   });
 
   // Banner trạng thái khóa
@@ -6712,15 +6805,28 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
     var qty=t.qty||0;
     var type=t.type||'dc2_to_dc';
 
+    function _short(u) {
+      if(!u) return '';
+      if(u === BVPH || u === 'bvph') return 'BV Phổi HP';
+      return u.replace(/Trung\s*tâm\s*Y\s*tế\s*/i, '')
+              .replace(/Bệnh\s*viện\s*Đa\s*khoa\s*/i, 'BVĐK ')
+              .replace(/Bệnh\s*viện\s*/i, 'BV ')
+              .replace(/Cơ\s*sở\s*cai\s*nghiện\s*/i, 'CSCN ')
+              .replace(/Trại\s*giam\s*/i, 'TG ')
+              .trim();
+    }
+    var sFrom = _short(fromUnit);
+    var sTo   = _short(toUnit);
+
     // Đơn vị này là bên XUẤT
     if(fromUnit===myUnit_str||(myUnit_str===BVPH&&(fromUnit===BVPH||fromUnit==='bvph'))){
       if(!ghiChuMap[key]) ghiChuMap[key]={xuat:[],nhan:[]};
-      ghiChuMap[key].xuat.push(toUnit+': '+qty+' viên');
+      ghiChuMap[key].xuat.push(sTo+': '+qty+' viên');
     }
     // Đơn vị này là bên NHẬN (dc hoặc tinh)
     if(toUnit===myUnit_str||(myUnit_str===BVPH&&(toUnit===BVPH||toUnit==='bvph'))){
       if(!ghiChuMap[key]) ghiChuMap[key]={xuat:[],nhan:[]};
-      ghiChuMap[key].nhan.push(fromUnit+': '+qty+' viên');
+      ghiChuMap[key].nhan.push(sFrom+': '+qty+' viên');
     }
   });
 
@@ -6751,7 +6857,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
   var groups={}, groupOrder=[];
 
   var hasGhiChu = Object.keys(ghiChuStr).length > 0;
-  var nameStyle = hasGhiChu ? 'min-width:120px; width:18%' : 'min-width:160px; width:28%';
+  var nameStyle = hasGhiChu ? 'min-width:100px; width:14%' : 'min-width:130px; width:20%';
   var gcStyle   = hasGhiChu ? 'min-width:150px; width:18%' : 'min-width:50px; width:5%';
 
   rows.forEach(function(r){
@@ -6805,8 +6911,8 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
 
   var xCol=isBVPH?5:4;
   var xHdr=isBVPH
-    ?'<th style="width:60px">Xuất sử dụng</th><th style="width:60px">Điều chuyển/<br>trả lại</th><th style="width:50px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:65px">Thuốc quá hạn<br>chờ hủy</th><th style="width:55px">Cộng</th>'
-    :'<th style="width:70px">Xuất sử dụng</th><th style="width:70px">Điều chuyển/<br>trả lại</th><th style="width:60px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:60px">Cộng</th>';
+    ?'<th style="width:65px">Xuất sử dụng</th><th style="width:65px">Điều chuyển/<br>trả lại</th><th style="width:55px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:70px">Thuốc quá hạn<br>chờ hủy</th><th style="width:60px">Cộng</th>'
+    :'<th style="width:75px">Xuất sử dụng</th><th style="width:75px">Điều chuyển/<br>trả lại</th><th style="width:65px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:65px">Cộng</th>';
   var xKy=isBVPH
     ?'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(i)</th><th class="k">(j)=(f)+(g)+(h)+(i)</th>'
     :'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(j)=(f)+(g)+(h)</th>';
@@ -6880,19 +6986,19 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'<th rowspan="3" class="mn" style="'+nameStyle+'">Tên thuốc/hàm lượng</th>'
     +'<th rowspan="3" class="mn" style="width:45px">Đơn vị tính</th>'
     +'<th rowspan="3" class="mn" style="width:55px">Nguồn kinh phí</th>'
-    +'<th rowspan="3" class="mn" style="width:75px">Lô sản xuất</th>'
-    +'<th rowspan="3" class="mn" style="width:65px">Hạn sử dụng</th>'
-    +'<th rowspan="3" class="mn" style="width:50px">Tồn đầu kỳ</th>'
+    +'<th rowspan="3" class="mn" style="width:85px">Lô sản xuất</th>'
+    +'<th rowspan="3" class="mn" style="width:70px">Hạn sử dụng</th>'
+    +'<th rowspan="3" class="mn" style="width:55px">Tồn đầu kỳ</th>'
     +'<th colspan="4" class="hn">Nhập trong kỳ</th>'
     +'<th colspan="'+xCol+'" class="xn">Xuất trong kỳ</th>'
-    +'<th rowspan="3" class="mn" style="width:50px">Tồn cuối kỳ</th>'
+    +'<th rowspan="3" class="mn" style="width:55px">Tồn cuối kỳ</th>'
     +'<th rowspan="3" class="mn" style="'+gcStyle+'">Ghi chú</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="hn" style="width:50px">Tỉnh cấp</th>'
-    +'<th class="hn" style="width:60px">Điều chuyển/<br>trả lại</th>'
-    +'<th class="hn" style="width:40px">Thừa</th>'
-    +'<th class="hn" style="width:50px">Cộng</th>'
+    +'<th class="hn" style="width:55px">Tỉnh cấp</th>'
+    +'<th class="hn" style="width:65px">Điều chuyển/<br>trả lại</th>'
+    +'<th class="hn" style="width:45px">Thừa</th>'
+    +'<th class="hn" style="width:55px">Cộng</th>'
     +xHdr
     +'</tr>'
     +'<tr>'
@@ -7967,6 +8073,35 @@ function renderTP(){
       +'<td></td>'
       +'</tr>';
   }
+}
+
+function onAdminUnitFilterChange() {
+  var selUnit = document.getElementById('filter-unit-bc');
+  var unitVal = selUnit ? selUnit.value : '__all__';
+  var role = currentUser ? currentUser.role : '';
+  if (role !== 'admin') return;
+
+  var tpZone   = document.getElementById('tp-zone');
+  var bvphZone = document.getElementById('bvph-zone');
+  var bcZone   = document.getElementById('bc-zone');
+  var fB       = document.getElementById('form-bvph');
+  var fD       = document.getElementById('form-donvi');
+
+  if (unitVal === '__all__') {
+      if(tpZone) tpZone.style.display = 'block';
+      if(bvphZone) bvphZone.style.display = 'block';
+      if(bcZone) bcZone.style.display = 'block';
+  } else if (unitVal === 'bvph') {
+      if(tpZone) tpZone.style.display = 'none';
+      if(bvphZone) bvphZone.style.display = 'block';
+      if(bcZone) bcZone.style.display = 'none';
+  } else {
+      if(tpZone) tpZone.style.display = 'none';
+      if(bvphZone) bvphZone.style.display = 'none';
+      if(bcZone) bcZone.style.display = 'block';
+  }
+  renderBC();
+  updateLockedUI();
 }
 
 function onTPInp(inp){
