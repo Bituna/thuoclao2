@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quản lý Thuốc Lao — BV Phổi Hải Phòng</title>
+<title>Quản lý Thuốc Lao — Bệnh viện Phổi Hải Phòng</title>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1176,14 +1176,6 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
       <!-- Bên phải: action buttons -->
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <button id="btn-footer-chot-bvph" onclick="chot('bvph')" title="Chốt Kho chính"
-          style="padding:6px 14px;border:1px solid #adb5bd;border-radius:6px;background:white;color:#495057;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
-          🔒 Chốt Kho chính
-        </button>
-        <button id="btn-footer-chot-bc" onclick="chot('other')" title="Chốt 22 ĐV"
-          style="padding:6px 14px;border:1px solid #adb5bd;border-radius:6px;background:white;color:#495057;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
-          🔒 Chốt 22 ĐV
-        </button>
         <button id="btn-footer-cloud" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải từ cloud"
           style="padding:6px 14px;border:1px solid #1a5276;border-radius:6px;background:white;color:#1a5276;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
           ☁ Tải từ cloud
@@ -4111,7 +4103,9 @@ function onGlobalMonthChange(){
   renderBC();
   renderTP();
   var tmEl = document.getElementById('thuoc-month');
-  if(tmEl && p.type === 'month') tmEl.value = p.val;
+  if(tmEl && p.type === 'month') {
+    if(currentUser && currentUser.role === 'admin') tmEl.value = p.val;
+  }
   renderDrugTable();
   updateSaveBtnUI();
   // Đồng bộ ngược lên Tổng quan
@@ -4381,33 +4375,6 @@ function lockRow(prefix, rowIdx){
   toast('Đã khóa: '+arr[ri].drug+'. Tồn đầu không thể sửa.','#6c757d');
 }
 
-// Chốt báo cáo: tồn cuối → tồn đầu kỳ mới, reset nhập/xuất, khoá tồn đầu
-function chot(prefix){
-  var canDo = isAdmin() || (prefix==='bvph' && canEditBVPH()) || (prefix==='other' && true);
-  if(!canDo){toast('Không có quyền chốt báo cáo!','var(--danger)');return;}
-  if(!confirm('Chốt báo cáo và chuyển tồn cuối → tồn đầu kỳ mới?\nSau khi chốt, tồn đầu sẽ KHÔNG sửa được (trừ Admin).'))return;
-  var arr = (prefix==='bvph') ? bvphData : bcData;
-  arr.forEach(function(row){
-    var res = calcRow(row);
-    row.open       = res.final; // tồn cuối kỳ này = tồn đầu kỳ sau
-    row.tinh       = 0;
-    row.dc         = 0;
-    row.sd         = 0;
-    row.dc2        = 0;
-    row.dc3        = 0;
-    row.hh         = 0;
-    row.locked     = false;  // mở khoá dòng để nhập liệu kỳ mới
-    row.editing    = false;
-    row.openLocked = true;   // nhưng khoá tồn đầu (không cho sửa)
-  });
-  // Lưu vào localStorage
-  try{
-    var payload={bvphData:bvphData,bcData:bcData,catalogData:catalogData,ACCOUNTS:ACCOUNTS,drugFreq:drugFreq,threshold:threshold,savedAt:new Date().toISOString()};
-    localStorage.setItem('thuoclao_data', JSON.stringify(payload));
-  }catch(e){}
-  if(prefix==='bvph') renderBVPH(); else renderBC();
-  toast('Đã chốt báo cáo! Tồn cuối → Tồn đầu kỳ mới. Dữ liệu đã được lưu.','var(--success)');
-}
 
 function unlockRow(prefix, rowIdx){
   var arr = prefix==='bvph' ? bvphData : bcData;
@@ -5242,11 +5209,12 @@ function _createNextPeriodRows(curKey, nextKey){
 
   // Tạo rows BVPH kỳ tiếp nếu chưa có
   bvphCur.forEach(function(r){
+    var fin = Math.max(0, calcRow(r).final); // tồn cuối không âm
+    if(fin === 0) return; // Bỏ qua, không tự động mang thuốc đã hết sạch sang tháng sau
     var exists = bvphData.some(function(x){
       return x.bcMonth===nextKey && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
     });
     if(!exists){
-      var fin = Math.max(0, calcRow(r).final); // tồn cuối không âm
       bvphData.push({
         unit:r.unit||BVPH, drug:r.drug, lot:r.lot, exp:r.exp,
         open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
@@ -5257,11 +5225,12 @@ function _createNextPeriodRows(curKey, nextKey){
 
   // Tạo rows 22ĐV kỳ tiếp nếu chưa có
   bcCur.forEach(function(r){
+    var fin = Math.max(0, calcRow(r).final);
+    if(fin === 0) return; // Bỏ qua, không tự động mang thuốc đã hết sạch sang tháng sau
     var exists = bcData.some(function(x){
       return x.bcMonth===nextKey && x.unit===r.unit && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
     });
     if(!exists){
-      var fin = Math.max(0, calcRow(r).final);
       bcData.push({
         unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp,
         open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
@@ -5302,8 +5271,8 @@ function openReport(){
 function updateFooterByRole(){
   var admin = isAdmin();
   var role = currentUser ? currentUser.role : 'admin';
-  // Các nút chỉ Admin thấy
-  var adminOnly = ['btn-footer-print','btn-footer-chot-bvph','btn-footer-chot-bc','btn-footer-cloud'];
+  // Các nút ẩn/hiện tuỳ quyền
+  var adminOnly = ['btn-footer-print','btn-footer-cloud'];
   adminOnly.forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = admin ? '' : 'none';
@@ -5343,11 +5312,6 @@ function updateLockedUI(){
 
   // Nút Xóa dữ liệu — ẩn hoàn toàn khi đã lưu
   document.querySelectorAll('.del-dd').forEach(function(el){
-    el.style.display = locked ? 'none' : '';
-  });
-
-  // Nút Chốt báo cáo — ẩn khi đã lưu
-  document.querySelectorAll('.btn-chot').forEach(function(el){
     el.style.display = locked ? 'none' : '';
   });
 
