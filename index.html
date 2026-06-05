@@ -61,10 +61,10 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .sb-user-info span{color:#8899aa;font-size:11px}
 .btn-logout{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:7px;color:#8899aa;font-size:12px;cursor:pointer;width:100%;transition:0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.1);color:white}
-.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
-.page{display:none;flex-direction:column;flex:1;min-height:100%}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+.page{display:none;flex-direction:column;flex:1;height:100%;overflow-y:auto;overflow-x:hidden}
 .page.active{display:flex}
-.page-header{padding:20px 24px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.page-header{position:sticky;top:0;z-index:200;padding:20px 24px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .page-header h1{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-0.3px}
 .page-header p{font-size:12px;color:var(--muted);margin-top:3px}
 .page-body{padding:18px 24px;flex:1}
@@ -112,9 +112,10 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:14px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{background:#1a5276;color:white;padding:6px 8px;text-align:center;border:1px solid #244359;white-space:nowrap;font-weight:600;font-size:11px;vertical-align:middle}
-th.left{text-align:left;padding-left:10px}
+th.left{text-align:center;padding-left:8px}
 td{border:1px solid #edf2f7;padding:7px;text-align:center;color:var(--text);vertical-align:middle}
-td.left{text-align:left;font-weight:600;padding-left:10px}
+td.left{text-align:center;font-weight:600;padding-left:7px}
+.tbl-wrap td{white-space:nowrap}
 td.open-stock{background:#fff8e1;font-weight:700;color:#7c5200;border-left:3px solid #f59e0b}
 td.calc-cell{background:#eef7ff;font-weight:700;color:var(--accent2)}
 td.final-ok{font-weight:800;color:#0369a1;font-size:13px;background:#f0f9ff}
@@ -285,7 +286,8 @@ th.hdr-out{border-left:3px solid #6b1414!important}
   .sb-item.active{ background:var(--accent); border-radius:0; }
 
   /* Content */
-  .content{ order:1; flex:1; overflow-y:auto; overflow-x:clip; }
+  .main{ order:1; flex:1; overflow:hidden; }
+  .page{ overflow-y:auto; overflow-x:hidden; }
   .page-header{ padding:10px 12px 8px; }
   .page-header h1{ font-size:15px; }
   .page-body{ padding:8px 8px 130px; }
@@ -461,7 +463,9 @@ body.modal-open { overflow: hidden !important; }
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   width: 100%; height: 100%;
-  background: rgba(0,0,0,0.55);
+  background: rgba(15,23,42,0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   z-index: 99999;
   align-items: center;
   justify-content: center;
@@ -472,11 +476,12 @@ body.modal-open { overflow: hidden !important; }
 }
 .modal {
   background: white;
-  border-radius: 12px;
-  padding: 24px 26px;
+  border-radius: 16px;
+  padding: 28px 30px;
   width: 90%;
   max-width: 420px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05);
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   margin: auto;
   flex-shrink: 0;
@@ -491,6 +496,22 @@ body.modal-open { overflow: hidden !important; }
   box-sizing: border-box;
 }
 .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+
+@keyframes modalPop{
+  from{opacity:0;transform:scale(0.95) translateY(10px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+/* Lớp phủ popup động từ JS */
+div[id^="_"][id$="_modal"], div[id="_cm_ov"], div[id="_print_picker"] {
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+}
+div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"] > div {
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05) !important;
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
 /* ===== END MODAL ===== */
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -586,7 +607,7 @@ body.modal-open { overflow: hidden !important; }
         oninput="_yearInput(this,'tq-year-list',onTQPeriodChange)"
         onchange="onTQPeriodChange()">
       <datalist id="tq-year-list">
-        <option value="2025"><option value="2026"><option value="2027">
+        <option value="2025"></option><option value="2026"></option><option value="2027"></option>
       </datalist>
       <select id="tq-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
         <option value="__year__">Cả năm</option>
@@ -720,9 +741,9 @@ body.modal-open { overflow: hidden !important; }
         <table>
           <thead>
             <tr style="background:#155724">
-              <th class="left" style="min-width:190px;background:#155724;color:#fff">Tên thuốc / Hàm lượng</th>
-              <th style="background:#155724;color:#fff">Số lô SX</th>
-              <th style="background:#155724;color:#fff">Hạn dùng</th>
+              <th class="left" style="min-width:220px;background:#155724;color:#fff">Tên thuốc / Hàm lượng</th>
+              <th style="min-width:100px;background:#155724;color:#fff">Số lô SX</th>
+              <th style="min-width:90px;background:#155724;color:#fff">Hạn dùng</th>
               <th style="background:#155724;color:#fff">Tình trạng</th>
               <th style="background:#155724;color:#fff">Tồn kho (toàn TP)</th>
               <th style="background:#155724;color:#fff">Ghi chú</th>
@@ -754,10 +775,10 @@ body.modal-open { overflow: hidden !important; }
       <table>
         <thead>
           <tr style="background:#1a5276">
-            <th class="left" style="min-width:170px;background:#1a5276;color:#fff">Tên thuốc / Hàm lượng</th>
-            <th style="background:#1a5276;color:#fff">Đơn vị</th>
-            <th style="background:#1a5276;color:#fff">Số lô</th>
-            <th style="background:#1a5276;color:#fff">Hạn dùng</th>
+            <th class="left" style="min-width:220px;background:#1a5276;color:#fff">Tên thuốc / Hàm lượng</th>
+            <th style="min-width:160px;background:#1a5276;color:#fff">Đơn vị</th>
+            <th style="min-width:100px;background:#1a5276;color:#fff">Số lô</th>
+            <th style="min-width:90px;background:#1a5276;color:#fff">Hạn dùng</th>
             <th style="background:#1a5276;color:#fff">Tồn đầu kỳ</th>
             <th style="background:#2ecc71;color:#fff">Tổng nhập</th>
             <th style="background:#e74c3c;color:#fff">Tổng xuất</th>
@@ -783,7 +804,7 @@ body.modal-open { overflow: hidden !important; }
 
 <!-- BÁO CÁO THUỐC -->
 <div class="page" id="page-bc">
-  <div class="page-header" style="position:sticky;top:0;z-index:200;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
     <div>
       <h1>Báo cáo thuốc</h1>
       <p>BV Phổi HP — báo cáo riêng | 22 đơn vị còn lại — tổng hợp chung</p>
@@ -817,7 +838,7 @@ body.modal-open { overflow: hidden !important; }
           oninput="_yearInput(this,'sel-year-list',onYearChange)"
           onchange="onYearChange()">
         <datalist id="sel-year-list">
-          <option value="2024"><option value="2025"><option value="2026"><option value="2027">
+          <option value="2024"></option><option value="2025"></option><option value="2026"></option><option value="2027"></option>
         </datalist>
       </div>
 
@@ -886,9 +907,9 @@ body.modal-open { overflow: hidden !important; }
         <table>
           <thead>
             <tr>
-              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
-              <th class="hdr-lot" rowspan="2">Số lô</th>
-              <th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th>
+              <th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
               <th class="hdr-open" rowspan="2">Tồn đầu</th>
               <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
               <th class="hdr-out" colspan="4">Xuất trong kỳ</th>
@@ -911,69 +932,61 @@ body.modal-open { overflow: hidden !important; }
     </div><!-- /tp-zone -->
 
     <!-- FORM NHẬP BV PHỔI HẢI PHÒNG -->
-    <div class="input-section" id="form-bvph" style="border-color:#1a5276;background:#f0f7ff;padding:12px 14px">
+    <div class="input-section" id="form-bvph" style="border-color:#1a5276;background:#f0f7ff;padding:12px 14px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBVPHRow();}">
       <div class="input-section-title" style="color:#1a5276;margin-bottom:10px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
         Thêm dòng — Kho chính BV Phổi HP
         <span id="bvph-drug-hint" style="font-size:10px;color:var(--accent);font-weight:400;margin-left:6px">(Admin: thêm tên thuốc mới tại Danh sách thuốc)</span>
       </div>
       <input type="hidden" id="bvph-month" value="2026-05">
-      <!-- Hàng 1: Định danh — tất cả ngang hàng -->
+      <!-- Tất cả ngang hàng -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="fg">
           <label>Tên thuốc</label>
-          <select id="bvph-drug" style="width:195px" onchange="onBVPHDrugChange()">
+          <select id="bvph-drug" style="width:160px" onchange="onBVPHDrugChange()">
             <option value="">-- Chọn thuốc --</option>
           </select>
         </div>
         <div class="fg">
           <label>Số lô</label>
-          <select id="bvph-lot-sel" style="width:190px">
+          <select id="bvph-lot-sel" style="width:110px">
             <option value="">-- Chọn lô --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Hạn dùng (tự động)</label>
-          <input type="text" id="bvph-exp" placeholder="tự điền" style="width:88px;background:#eef7ff" readonly>
+          <label>Hạn</label>
+          <input type="text" id="bvph-exp" placeholder="tự điền" style="width:55px;background:#eef7ff;text-align:center" readonly>
         </div>
-        <div class="fg">
+        <div class="fg" style="margin-right:4px">
           <label>Tồn đầu</label>
-          <input type="number" id="bvph-open" placeholder="0" min="0" style="width:68px">
+          <input type="number" id="bvph-open" placeholder="0" min="0" style="width:60px">
         </div>
-      </div>
-      <!-- Hàng 2: Nhập/Xuất + nút -->
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
-        <div style="background:#e8f5e9;border-radius:6px;padding:8px 10px">
-          <div style="font-size:10px;font-weight:700;color:#1a5276;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nhập trong kỳ</div>
-          <div style="display:flex;gap:6px">
-            <div class="fg"><label>Tỉnh cấp</label><input type="number" id="bvph-tinh" placeholder="0" min="0" style="width:64px"></div>
-            <div class="fg"><label>Điều chuyển</label><input type="number" id="bvph-dc" placeholder="0" min="0" style="width:64px"></div>
-          </div>
+
+        <div style="display:flex;gap:6px;background:#e8f5e9;border-radius:6px;padding:4px 8px;border:1px solid #c8e6c9">
+          <div class="fg"><label style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bvph-tinh" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bvph-dc" placeholder="0" min="0" style="width:72px"></div>
         </div>
-        <div style="background:#fff3f3;border-radius:6px;padding:8px 10px">
-          <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
-          <div style="display:flex;gap:6px">
-            <div class="fg"><label>Sử dụng</label><input type="number" id="bvph-sd" placeholder="0" min="0" style="width:60px"></div>
+
+        <div style="display:flex;gap:6px;background:#fff3f3;border-radius:6px;padding:4px 8px;border:1px solid #ffcdd2">
+          <div class="fg"><label style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bvph-sd" placeholder="0" min="0" style="width:60px"></div>
             <div class="fg">
-              <label>Xuất Tổ CL</label>
+            <label style="color:#b71c1c;font-weight:700">Xuất TCL (-)</label>
               <input type="number" id="bvph-dc2" placeholder="0" min="0" readonly
-                style="width:60px;border:1px solid #27ae60;background:#f0fff4;cursor:pointer"
+              style="width:64px;border:1px solid #27ae60;background:#f0fff4;cursor:pointer"
                 title="Click để tạo phiếu Xuất Tổ CL"
                 onfocus="onFormDc2BVPHChange(this)">
             </div>
             <div class="fg">
-              <label>Tỉnh khác</label>
+            <label style="color:#b71c1c;font-weight:700">Tỉnh khác (-)</label>
               <input type="number" id="bvph-dc3" placeholder="0" min="0" readonly
-                style="width:60px;border:1px solid #8e44ad;background:#f9f0ff;cursor:pointer"
+              style="width:64px;border:1px solid #8e44ad;background:#f9f0ff;cursor:pointer"
                 title="Click để tạo phiếu Xuất tỉnh khác"
                 onfocus="onFormDc3BVPHChange(this)">
             </div>
-            <div class="fg"><label>Hỏng/HH</label><input type="number" id="bvph-hh" placeholder="0" min="0" style="width:60px"></div>
-          </div>
+          <div class="fg"><label style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bvph-hh" placeholder="0" min="0" style="width:64px"></div>
         </div>
-        <div style="align-self:flex-end">
-          <button class="btn btn-primary" style="background:#1a5276" onclick="addBVPHRow()">+ Thêm dòng</button>
-        </div>
+
+        <button class="btn btn-primary" style="background:#1a5276;padding:8px 14px;white-space:nowrap;height:34px" onclick="addBVPHRow()">+ Thêm</button>
       </div>
     </div>
 
@@ -1008,8 +1021,8 @@ body.modal-open { overflow: hidden !important; }
         <table>
           <thead>
             <tr>
-              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
-              <th class="hdr-lot" rowspan="2">Số lô</th><th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th><th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
               <th class="hdr-open" rowspan="2">Tồn đầu</th>
               <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
               <th class="hdr-out" colspan="5">Xuất trong kỳ</th>
@@ -1030,66 +1043,60 @@ body.modal-open { overflow: hidden !important; }
     </div><!-- /bvph-zone -->
 
     <!-- FORM NHẬP CÁC ĐƠN VỊ TUYẾN -->
-    <div class="input-section" id="form-donvi" style="padding:12px 14px">
+    <div class="input-section" id="form-donvi" style="padding:12px 14px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBcRow();}">
       <div class="input-section-title" style="margin-bottom:10px">+ Thêm dòng — Đơn vị tuyến</div>
       <input type="hidden" id="bc-month" value="2026-05">
-      <!-- Hàng 1: Định danh — tất cả ngang hàng -->
+      <!-- Tất cả ngang hàng -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="fg" id="bc-unit-wrap">
           <label>Đơn vị</label>
           <select id="bc-unit" style="width:180px" onchange="onUnitChange()"><option value="">-- Chọn đơn vị --</option></select>
-          <div id="bc-unit-fixed" style="display:none;padding:6px 10px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276;width:180px"></div>
+          <div id="bc-unit-fixed" style="display:none;padding:6px 10px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276;width:auto;min-width:180px;height:32px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         </div>
         <div class="fg">
           <label>Tên thuốc</label>
-          <select id="bc-drug" style="width:195px" onchange="onBCDrugChange()">
+          <select id="bc-drug" style="width:220px" onchange="onBCDrugChange()">
             <option value="">-- Chọn thuốc --</option>
           </select>
         </div>
         <div class="fg">
           <label>Số lô</label>
-          <select id="bc-lot-sel" style="width:190px">
+          <select id="bc-lot-sel" style="width:130px">
             <option value="">-- Chọn lô --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Hạn dùng (tự động)</label>
-          <input type="text" id="bc-exp" placeholder="tự điền" style="width:88px;background:#eef7ff" readonly>
+          <label>Hạn</label>
+          <input type="text" id="bc-exp" placeholder="tự điền" style="width:75px;background:#eef7ff;text-align:center" readonly>
         </div>
-        <div class="fg">
+        <div class="fg" style="margin-right:4px">
           <label>Tồn đầu</label>
-          <input type="number" id="bc-open" placeholder="0" min="0" style="width:68px">
+          <input type="number" id="bc-open" placeholder="0" min="0" style="width:60px">
         </div>
-      </div>
-      <!-- Hàng 2: Nhập/Xuất + nút -->
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
-        <div style="background:#e8f5e9;border-radius:6px;padding:8px 10px">
-          <div style="font-size:10px;font-weight:700;color:#1a5276;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nhập trong kỳ</div>
-          <div style="display:flex;gap:6px">
-            <div class="fg"><label>Tỉnh cấp</label><input type="number" id="bc-tinh" placeholder="0" min="0" style="width:64px"></div>
-            <div class="fg"><label>Điều chuyển</label><input type="number" id="bc-dc" placeholder="0" min="0" style="width:64px"></div>
-          </div>
+
+        <div style="display:flex;gap:6px;background:#e8f5e9;border-radius:6px;padding:4px 8px;border:1px solid #c8e6c9">
+          <div class="fg"><label style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bc-tinh" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bc-dc" placeholder="0" min="0" style="width:72px"></div>
         </div>
-        <div style="background:#fff3f3;border-radius:6px;padding:8px 10px">
-          <div style="font-size:10px;font-weight:700;color:#7b1f1f;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Xuất trong kỳ</div>
-          <div style="display:flex;gap:6px">
-            <div class="fg"><label>Sử dụng</label><input type="number" id="bc-sd" placeholder="0" min="0" style="width:64px"></div>
+
+        <div style="display:flex;gap:6px;background:#fff3f3;border-radius:6px;padding:4px 8px;border:1px solid #ffcdd2">
+          <div class="fg"><label style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bc-sd" placeholder="0" min="0" style="width:60px"></div>
             <div class="fg">
-              <label>Điều chuyển</label>
+            <label style="color:#b71c1c;font-weight:700">Xuất ĐC (-)</label>
               <input type="number" id="bc-dc2" placeholder="0" min="0" readonly
                 style="width:64px;border:1px solid #f59e0b;background:#fffbeb;cursor:pointer"
                 title="Click để tạo phiếu điều chuyển"
                 onfocus="onFormDc2BCChange(this)">
             </div>
-            <div class="fg"><label>Hỏng/HH</label><input type="number" id="bc-hh" placeholder="0" min="0" style="width:64px"></div>
-          </div>
+          <div class="fg"><label style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bc-hh" placeholder="0" min="0" style="width:64px"></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;align-self:flex-end">
-          <button class="btn btn-primary" onclick="addBcRow()">+ Thêm dòng</button>
+
+        <div style="display:flex;gap:6px;align-items:flex-end">
+          <button class="btn btn-primary" onclick="addBcRow()" style="padding:8px 14px;white-space:nowrap;height:34px">+ Thêm</button>
           <button class="btn" onclick="addNoUsageRow()"
-            style="background:#e74c3c;color:#fff;font-size:11px;padding:7px 12px;white-space:nowrap"
+            style="background:#e74c3c;color:#fff;font-size:11px;padding:8px 12px;white-space:nowrap;height:34px"
             title="Đơn vị không sử dụng thuốc trong kỳ này — tất cả số liệu = 0">
-            📋 Không sử dụng thuốc kỳ này
+            📋 Không SD
           </button>
         </div>
       </div>
@@ -1130,9 +1137,9 @@ body.modal-open { overflow: hidden !important; }
         <table style="border-collapse:collapse;width:100%">
           <thead>
             <tr>
-              <th class="left hdr-name" style="min-width:148px" rowspan="2">Tên thuốc</th>
-              <th class="hdr-lot" rowspan="2">Số lô</th>
-              <th class="hdr-exp" rowspan="2">Hạn dùng</th>
+              <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
+              <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th>
+              <th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
               <th class="hdr-open" rowspan="2">Tồn đầu</th>
               <th class="hdr-in" colspan="3">Nhập trong kỳ</th>
               <th class="hdr-out" colspan="4">Xuất trong kỳ</th>
@@ -1491,13 +1498,36 @@ body.modal-open { overflow: hidden !important; }
     </div>
     <div style="margin:12px 0 4px;padding:10px 14px;background:#f7fafc;border-radius:8px;border:1px solid var(--border)">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-        <input type="checkbox" id="chk-no-tcl" style="width:15px;height:15px;cursor:pointer">
-        <span>Không in phần <b>Bác sĩ phụ trách TCL</b> <span style="font-size:11px;color:var(--muted)">(Trưởng khoa Dược sẽ căn giữa)</span></span>
+        <input type="checkbox" id="chk-tcl" style="width:15px;height:15px;cursor:pointer">
+        <span>In phần <b>Bác sĩ phụ trách TCL</b> <span style="font-size:11px;color:var(--muted)">(Mặc định không in bác sĩ tổ chống lao)</span></span>
       </label>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-print')">Hủy</button>
       <button class="btn btn-primary" onclick="doPrint()">🖨 In ngay</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SỬA TÀI KHOẢN CÁ NHÂN -->
+<div class="modal-overlay" id="modal-self-edit">
+  <div class="modal" style="width:400px">
+    <h3 style="font-size:15px;margin-bottom:14px">Chỉnh sửa tài khoản</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 10px;background:#f7fafc;border-radius:6px">
+      Đơn vị: <strong id="self-edit-unit">—</strong><br>
+      Tên đăng nhập: <span id="self-edit-user" style="font-family:monospace">—</span>
+    </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label>Tên dược sĩ phụ trách</label>
+      <input type="text" id="self-edit-name" placeholder="Nhập họ và tên...">
+    </div>
+    <div class="fg" style="margin-bottom:4px">
+      <label>Mật khẩu mới <span style="font-weight:400;color:var(--muted)">(để trống nếu không đổi)</span></label>
+      <input type="password" id="self-edit-pass" placeholder="Nhập mật khẩu mới...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-self-edit')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveSelfAccount()">Lưu thay đổi</button>
     </div>
   </div>
 </div>
@@ -2847,23 +2877,19 @@ function initApp(){
   } else if(role==='bvph'){
     // BVPH: thấy Báo cáo + Danh sách thuốc, ẩn Tổng quan, Tài khoản, Cài đặt
     _sbShow('sb-tq',false); _sbShow('sb-thuoc',true);
-    _sbShow('sb-tk',false); _sbShow('sb-cd',false);
-    _sbShow('sb-sec-system',false);
+    _sbShow('sb-tk',true); _sbShow('sb-cd',false);
+    _sbShow('sb-sec-system',true);
     // Vào thẳng trang Báo cáo
     nav('bc', document.getElementById('sb-bc'));
   } else {
     // Đơn vị tuyến: thấy Báo cáo + Bệnh nhân
     _sbShow('sb-tq',false); _sbShow('sb-thuoc',false);
-    _sbShow('sb-tk',false); _sbShow('sb-cd',false);
-    _sbShow('sb-sec-system',false);
+    _sbShow('sb-tk',true); _sbShow('sb-cd',false);
+    _sbShow('sb-sec-system',true);
     _sbShow('sb-sec-main',true);
     _sbShow('sb-bn',true);
-    // Hiện trang BN nhưng CHƯA load data — chờ _autoLoadOnLogin xong sẽ tự render
-    document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-    document.querySelectorAll('.sb-item').forEach(function(i){i.classList.remove('active');});
-    document.getElementById('page-bn').classList.add('active');
-    var sbBn = document.getElementById('sb-bn');
-    if(sbBn) sbBn.classList.add('active');
+    // Vào thẳng trang Báo cáo
+    nav('bc', document.getElementById('sb-bc'));
     // Hiện loading indicator
     var tbody = document.getElementById('bn-tbody');
     if(tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#94a3b8">⏳ Đang tải dữ liệu từ cloud...</td></tr>';
@@ -3013,6 +3039,23 @@ function renderAccounts(){
   var tbody=document.getElementById('accounts-body');
   tbody.innerHTML='';
 
+  var role = currentUser ? currentUser.role : 'admin';
+  var isAdminView = (role === 'admin');
+
+  var accountsToRender = ACCOUNTS;
+  if (!isAdminView) {
+    accountsToRender = ACCOUNTS.filter(function(a){ return a.unit === currentUser.unit; });
+    var statsCards = document.querySelector('#page-tk .page-body > div:first-child');
+    if(statsCards) statsCards.style.display = 'none';
+    var addBtn = document.getElementById('add-account-btn');
+    if(addBtn) addBtn.style.display = 'none';
+  } else {
+    var statsCards = document.querySelector('#page-tk .page-body > div:first-child');
+    if(statsCards) statsCards.style.display = 'grid';
+    var addBtn = document.getElementById('add-account-btn');
+    if(addBtn) addBtn.style.display = 'block';
+  }
+
   // Màu & icon theo vai trò
   var ROLE_STYLE={
     admin:{ border:'#e74c3c', rowBg:'#fff8f8', avatarBg:'linear-gradient(135deg,#e74c3c,#c0392b)', icon:'🔑', label:'Quản trị viên',
@@ -3034,7 +3077,8 @@ function renderAccounts(){
   var eb=document.getElementById('acc-count-bvph');    if(eb) eb.textContent=cntBvph;
   var ed=document.getElementById('acc-count-donvi');   if(ed) ed.textContent=cntDonvi;
 
-  ACCOUNTS.forEach(function(a,i){
+  accountsToRender.forEach(function(a){
+    var i = ACCOUNTS.indexOf(a);
     var isSelf = currentUser && a.user===currentUser.user;
     var rs = ROLE_STYLE[a.role] || ROLE_STYLE.donvi;
 
@@ -3056,7 +3100,7 @@ function renderAccounts(){
 
     // Cột mật khẩu
     var passCell='';
-    if(isAdmin()){
+    if(isAdminView){
       passCell='<div style="display:flex;align-items:center;gap:4px;justify-content:center">'
         +'<span id="pass-mask-'+i+'" style="font-family:monospace;letter-spacing:3px;color:#aaa">•••••</span>'
         +'<span id="pass-show-'+i+'" style="font-family:monospace;font-size:12px;color:var(--text);display:none;background:#f7f7f7;border-radius:4px;padding:1px 6px">'+a.pass+'</span>'
@@ -3071,12 +3115,12 @@ function renderAccounts(){
 
     // Nút thao tác
     var btns='';
-    if(isAdmin()){
+    if(isAdminView){
       btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editAccount('+i+')">✏ Sửa</button> ';
       btns+='<button class="btn btn-xs" style="background:#6c757d;color:white;border-radius:5px" onclick="changeRole('+i+')">⚙ Quyền</button>';
       if(!isSelf && a.role!=='admin') btns+=' <button class="btn btn-xs" style="background:#e74c3c;color:white;border-radius:5px" onclick="deleteAccount('+i+')">✕ Xóa</button>';
     } else {
-      btns='<span style="color:#ccc;font-size:11px">—</span>';
+      btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editSelfAccount('+i+')">✏ Sửa</button>';
     }
 
     // Dòng bảng — bỏ cột username, thêm cột Dược sĩ (tức là tên người dùng)
@@ -3268,6 +3312,43 @@ function editAccount(i){
   _saveAccountsToCloud();
   renderAccounts();
   toast('Đã cập nhật: '+ACCOUNTS[i].name,'var(--success)');
+}
+
+var _selfEditIdx = -1;
+
+function editSelfAccount(i){
+  _selfEditIdx = i;
+  var a = ACCOUNTS[i];
+  document.getElementById('self-edit-unit').textContent = a.unit || '—';
+  document.getElementById('self-edit-user').textContent = a.user || '—';
+  document.getElementById('self-edit-name').value = a.name || '';
+  document.getElementById('self-edit-pass').value = ''; // Để trống tức là không đổi mật khẩu
+  openModal('modal-self-edit');
+}
+
+function saveSelfAccount(){
+  if (_selfEditIdx < 0) return;
+  var a = ACCOUNTS[_selfEditIdx];
+  var newName = document.getElementById('self-edit-name').value.trim();
+  var newPass = document.getElementById('self-edit-pass').value.trim();
+  
+  if (!newName) { toast('Tên dược sĩ không được để trống!', 'var(--danger)'); return; }
+  
+  a.name = newName;
+  if (newPass) a.pass = newPass;
+  
+  // Cập nhật lại thông tin cá nhân trên thanh Sidebar
+  if (currentUser && currentUser.user === a.user) {
+    currentUser.name = a.name;
+    if (newPass) currentUser.pass = newPass;
+    document.getElementById('sb-name').textContent = a.name || a.unit;
+  }
+  
+  saveLocalCache(buildPayload());
+  _saveAccountsToCloud();
+  renderAccounts();
+  closeModal('modal-self-edit');
+  toast('Đã cập nhật thông tin tài khoản!', 'var(--success)');
 }
 
 var _roleEditIdx=-1;
@@ -3749,7 +3830,7 @@ function renderDrugTable(){
     tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'"'
       +' data-open="'+r.open+'" data-in="'+c.tin+'" data-out="'+c.tout+'" data-final="'+c.final+'">'
       +'<td class="left">'+r.drug+'</td>'
-      +'<td style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;max-width:130px" title="'+unitCell+'">'+unitCell+'</td>'
+      +'<td style="font-size:11px;color:var(--muted);white-space:nowrap" title="'+unitCell+'">'+unitCell+'</td>'
       +'<td>'+r.lot+'</td>'
       +'<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'⚠ ':'')+expFmt(r.exp)+'</td>'
       +'<td class="open-stock">'+r.open+'</td>'
@@ -3928,7 +4009,7 @@ function buildTbl(data, bodyId, prefix){
           var dc2Title = isBVPH ? 'Xuất Tổ CL → Tỉnh cấp đơn vị tuyến' : 'Click để tạo phiếu điều chuyển';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:54px;padding:4px;border:1px solid '+dc2Color+';border-radius:5px;text-align:center;font-size:12px;background:'+dc2Bg+';cursor:pointer"'
+            + ' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid '+dc2Color+';border-radius:5px;text-align:center;font-size:13px;background:'+dc2Bg+';cursor:pointer"'
             + ' onchange="' + onch + '"' + ' oninput="' + onch + '"'
             + ' onfocus="' + dc2Fn + '(\'' + prefix + '\',' + rowIdx + ',this)"'
             + ' title="' + dc2Title + '" readonly'
@@ -3939,7 +4020,7 @@ function buildTbl(data, bodyId, prefix){
           var onch3 = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:54px;padding:4px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:12px;background:#f9f0ff;cursor:pointer"'
+            + ' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:13px;background:#f9f0ff;cursor:pointer"'
             + ' onchange="' + onch3 + '"' + ' oninput="' + onch3 + '"'
             + ' onfocus="onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)"'
             + ' title="Xuất tỉnh khác — chỉ tính vào Tổng xuất" readonly'
@@ -3948,7 +4029,7 @@ function buildTbl(data, bodyId, prefix){
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
         return '<input type="number" min="0" value="' + val + '"'
           + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-          + ' style="width:54px;padding:4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px"'
+          + ' style="width:100%;min-width:60px;box-sizing:border-box;padding:6px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
           + ' onchange="' + onch + '"'
           + ' oninput="' + onch + '"'
           + '>';
@@ -4894,74 +4975,6 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
   box.appendChild(btnClose);
 
   ov.appendChild(box); document.body.appendChild(ov);
-}
-
-// Hủy phiếu điều chuyển — xóa cả 2 chiều xuất và nhập
-async function cancelTransferById(transferId, toUnit){
-  if(!_supaOnline){ toast('Cần kết nối cloud để hủy phiếu!','var(--danger)'); return; }
-
-  // Lấy thông tin phiếu
-  var t = null;
-  try{
-    var r = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {headers:_supaHdr});
-    var data = await r.json();
-    if(data.length) t = data[0];
-  }catch(e){ toast('Lỗi tải phiếu: '+e.message,'var(--danger)'); return; }
-
-  if(!t){ toast('Không tìm thấy phiếu!','var(--danger)'); return; }
-
-  var periodKey = t.period || _currentPeriodKey();
-  var fromUnit = t.from_unit||'';
-  var qty = t.qty||0;
-  var isdc3 = t.type==='dc3_to_tinh';
-
-  // Popup cảnh báo rõ ràng
-  _confirmModal(
-    '⚠ Xác nhận hủy phiếu điều chuyển',
-    'Hành động này sẽ:<br>'
-    +'• Xóa <b>'+qty.toLocaleString('vi-VN')+' viên '+t.drug+'</b> khỏi cột <b>Xuất ĐC</b> của <b>'+fromUnit+'</b><br>'
-    +'• Xóa khỏi cột <b>'+(isdc3?'Tỉnh cấp':'Nhập ĐC')+'</b> của <b>'+toUnit+'</b><br><br>'
-    +'Bạn có chắc chắn không?',
-    async function(){
-      try{
-        // Xóa phiếu trên Supabase
-        await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+t.id, {method:'DELETE', headers:_supaHdr});
-
-        // Trừ dc2/dc3 của đơn vị XUẤT
-        var srcArr = (fromUnit===BVPH||fromUnit==='bvph') ? bvphData : bcData;
-        var srcRow = srcArr.find(function(r){
-          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
-            && (fromUnit===BVPH||fromUnit==='bvph' ? (r.unit===BVPH||r.unit==='bvph') : r.unit===fromUnit);
-        });
-        if(srcRow){
-          if(isdc3) srcRow.dc3 = Math.max(0,(srcRow.dc3||0)-qty);
-          else      srcRow.dc2 = Math.max(0,(srcRow.dc2||0)-qty);
-        }
-
-        // Trừ tinh/dc của đơn vị NHẬN
-        var dstArr = (toUnit===BVPH||toUnit==='bvph') ? bvphData : bcData;
-        var dstRow = dstArr.find(function(r){
-          return r.bcMonth===periodKey && r.drug===t.drug && r.lot===t.lot && r.exp===t.exp
-            && (toUnit===BVPH||toUnit==='bvph' ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
-        });
-        if(dstRow){
-          if(isdc3) dstRow.tinh = Math.max(0,(dstRow.tinh||0)-qty);
-          else      dstRow.dc   = Math.max(0,(dstRow.dc||0)-qty);
-        }
-
-        renderBVPH(); renderBC(); renderTP();
-        _syncPeriodToCloud();
-        // Cập nhật cache transfers cho in báo cáo
-        _printTransfers = _printTransfers.filter(function(x){ return x.id !== t.id; });
-        toast('✓ Đã hủy phiếu — Xuất ĐC của '+fromUnit+' và '+(isdc3?'Tỉnh cấp':'Nhập ĐC')+' của '+toUnit+' đã được xóa','var(--warning)');
-
-        // Cập nhật lại nút pending nếu đơn vị nhận còn phiếu
-        if(currentUser && currentUser.role==='donvi') setTimeout(checkPendingTransfers, 500);
-      }catch(e){
-        toast('Lỗi hủy phiếu: '+e.message,'var(--danger)');
-      }
-    }
-  );
 }
 
 // ── API công khai ──────────────────────────────────────────
@@ -6607,13 +6620,17 @@ function _showPrintUnitPicker(periodKey){
   });
 
   // Checkbox không in TCL
+  // Checkbox in TCL
   var chkWrap=document.createElement('div');
   chkWrap.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:16px;cursor:pointer';
   var chk=document.createElement('input'); chk.type='checkbox'; chk.id='_picker_no_tcl';
+  var chk=document.createElement('input'); chk.type='checkbox'; chk.id='_picker_tcl';
   chk.style.cssText='width:15px;height:15px;cursor:pointer;flex-shrink:0';
   var chkLbl=document.createElement('label'); chkLbl.htmlFor='_picker_no_tcl';
+  var chkLbl=document.createElement('label'); chkLbl.htmlFor='_picker_tcl';
   chkLbl.style.cssText='font-size:12.5px;cursor:pointer;line-height:1.4';
   chkLbl.innerHTML='Không in <b>Bác sĩ phụ trách TCL</b><br><span style="font-size:11px;color:#718096">Trưởng khoa Dược sẽ được căn giữa</span>';
+  chkLbl.innerHTML='In phần <b>Bác sĩ phụ trách TCL</b><br><span style="font-size:11px;color:#718096">Mặc định không in bác sĩ tổ chống lao</span>';
   chkWrap.appendChild(chk); chkWrap.appendChild(chkLbl);
   chkWrap.onclick=function(e){ if(e.target!==chk) chk.checked=!chk.checked; };
 
@@ -6625,7 +6642,7 @@ function _showPrintUnitPicker(periodKey){
   var btnO=document.createElement('button'); btnO.textContent='🖨 In ngay';
   btnO.style.cssText='padding:8px 20px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:700';
   btnO.onclick=async function(){
-    var hideTCL=chk.checked;
+    var hideTCL=!chk.checked;
     ov.remove();
     var unit;
     if(role==='bvph'){
@@ -6772,9 +6789,21 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
 
 function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuStr,hideTCL){
   hideTCL = !!hideTCL;
+  var phName = '';
+  if (typeof ACCOUNTS !== 'undefined') {
+    var acc = ACCOUNTS.find(function(a){ return a.unit === unitName && a.role !== 'admin'; });
+    if (!acc && isBVPH) acc = ACCOUNTS.find(function(a){ return a.role === 'bvph'; });
+    if (acc && acc.name) phName = acc.name;
+  }
+  var phHtml = phName ? '<div style="margin-top:60px;font-weight:bold;">' + phName + '</div>' : '<div style="margin-top:60px"></div>';
   var tableRows='';
   var stt=1;
   var groups={}, groupOrder=[];
+
+  var hasGhiChu = Object.keys(ghiChuStr).length > 0;
+  var nameStyle = hasGhiChu ? 'min-width:120px; width:18%' : 'min-width:160px; width:28%';
+  var gcStyle   = hasGhiChu ? 'min-width:150px; width:18%' : 'min-width:50px; width:5%';
+
   rows.forEach(function(r){
     if(!groups[r.drug]){ groups[r.drug]=[]; groupOrder.push(r.drug); }
     groups[r.drug].push(r);
@@ -6819,8 +6848,8 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
 
   var xCol=isBVPH?5:4;
   var xHdr=isBVPH
-    ?'<th style="width:38px">Xuất sử dụng</th><th style="width:38px">Điều chuyển/<br>trả lại</th><th style="width:30px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:42px">Thuốc quá hạn<br>chờ hủy</th><th style="width:30px">Cộng</th>'
-    :'<th style="width:44px">Xuất sử dụng</th><th style="width:44px">Điều chuyển/<br>trả lại</th><th style="width:38px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:38px">Cộng</th>';
+    ?'<th style="width:60px">Xuất sử dụng</th><th style="width:60px">Điều chuyển/<br>trả lại</th><th style="width:50px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:65px">Thuốc quá hạn<br>chờ hủy</th><th style="width:55px">Cộng</th>'
+    :'<th style="width:70px">Xuất sử dụng</th><th style="width:70px">Điều chuyển/<br>trả lại</th><th style="width:60px">Hỏng,<br>vỡ,<br>thiếu</th><th style="width:60px">Cộng</th>';
   var xKy=isBVPH
     ?'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(i)</th><th class="k">(j)=(f)+(g)+(h)+(i)</th>'
     :'<th class="k">(f)</th><th class="k">(g)</th><th class="k">(h)</th><th class="k">(j)=(f)+(g)+(h)</th>';
@@ -6842,7 +6871,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'.c{text-align:center}.l{text-align:left;padding-left:3px}.b{font-weight:bold}.n{text-align:center}'
     +'.hn{background:white;color:black}.xn{background:white;color:black}.mn{background:white;color:black}'
     +'.k{font-size:8pt}'
-    +'.gc{font-size:8pt;line-height:1.3}'
+    +'.gc{font-size:8pt;line-height:1.4;word-wrap:break-word;white-space:normal}'
     +'.nk{text-align:right;font-style:italic;font-size:10pt;margin:8px 0 4px}'
     +'.sr{display:flex;justify-content:space-between;margin-top:6px;font-size:10pt}'
     +'.sc{text-align:center;flex:1}'
@@ -6890,23 +6919,23 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'<div class="ir"><span>Đơn vị: <b>'+unitName+'</b></span><span>Thành phố Hải Phòng</span><span>Báo cáo tháng '+month+' năm '+year+'</span></div>'
     +'<div class="tbl-scale" id="tbl-scale"><table><thead>'
     +'<tr>'
-    +'<th rowspan="3" class="mn" style="width:18px">STT</th>'
-    +'<th rowspan="3" class="mn" style="width:108px">Tên thuốc/hàm lượng</th>'
-    +'<th rowspan="3" class="mn" style="width:24px">Đơn vị tính</th>'
-    +'<th rowspan="3" class="mn" style="width:32px">Nguồn kinh phí</th>'
-    +'<th rowspan="3" class="mn" style="width:56px">Lô sản xuất</th>'
-    +'<th rowspan="3" class="mn" style="width:42px">Hạn sử dụng</th>'
-    +'<th rowspan="3" class="mn" style="width:30px">Tồn đầu kỳ</th>'
+    +'<th rowspan="3" class="mn" style="width:35px">STT</th>'
+    +'<th rowspan="3" class="mn" style="'+nameStyle+'">Tên thuốc/hàm lượng</th>'
+    +'<th rowspan="3" class="mn" style="width:45px">Đơn vị tính</th>'
+    +'<th rowspan="3" class="mn" style="width:55px">Nguồn kinh phí</th>'
+    +'<th rowspan="3" class="mn" style="width:75px">Lô sản xuất</th>'
+    +'<th rowspan="3" class="mn" style="width:65px">Hạn sử dụng</th>'
+    +'<th rowspan="3" class="mn" style="width:50px">Tồn đầu kỳ</th>'
     +'<th colspan="4" class="hn">Nhập trong kỳ</th>'
     +'<th colspan="'+xCol+'" class="xn">Xuất trong kỳ</th>'
-    +'<th rowspan="3" class="mn" style="width:30px">Tồn cuối kỳ</th>'
-    +'<th rowspan="3" class="mn" style="width:55px">Ghi chú</th>'
+    +'<th rowspan="3" class="mn" style="width:50px">Tồn cuối kỳ</th>'
+    +'<th rowspan="3" class="mn" style="'+gcStyle+'">Ghi chú</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="hn" style="width:28px">Tỉnh cấp</th>'
-    +'<th class="hn" style="width:36px">Điều chuyển/<br>trả lại</th>'
-    +'<th class="hn" style="width:24px">Thừa</th>'
-    +'<th class="hn" style="width:28px">Cộng</th>'
+    +'<th class="hn" style="width:50px">Tỉnh cấp</th>'
+    +'<th class="hn" style="width:60px">Điều chuyển/<br>trả lại</th>'
+    +'<th class="hn" style="width:40px">Thừa</th>'
+    +'<th class="hn" style="width:50px">Cộng</th>'
     +xHdr
     +'</tr>'
     +'<tr>'
@@ -6922,9 +6951,9 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
        +'<div class="sc"><i class="nki">'+ngayKy+'</i></div>'
        +'</div>'
        +'<div class="sr-notcl">'
-       +'<div class="sc"><b>Người lập báo cáo</b></div>'
-       +'<div class="sc"><b>Trưởng khoa Dược</b></div>'
-       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
+       +'<div class="sc"><b>Người lập báo cáo</b>'+phHtml+'</div>'
+       +'<div class="sc"><b>Trưởng khoa Dược</b><div style="margin-top:60px"></div></div>'
+       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div style="margin-top:60px"></div></div>'
        +'</div>'
       :'<div class="sr" style="margin-bottom:0">'
        +'<div class="sc"></div>'
@@ -6933,10 +6962,10 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
        +'<div class="sc"><i class="nki">'+ngayKy+'</i></div>'
        +'</div>'
        +'<div class="sr">'
-       +'<div class="sc"><b>Người lập báo cáo</b></div>'
-       +'<div class="sc"><b>Trưởng khoa Dược</b></div>'
-       +'<div class="sc"><b>Bác sĩ phụ trách TCL</b></div>'
-       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i></div>'
+       +'<div class="sc"><b>Người lập báo cáo</b>'+phHtml+'</div>'
+       +'<div class="sc"><b>Trưởng khoa Dược</b><div style="margin-top:60px"></div></div>'
+       +'<div class="sc"><b>Bác sĩ phụ trách TCL</b><div style="margin-top:60px"></div></div>'
+       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div style="margin-top:60px"></div></div>'
        +'</div>'
     )+'</div>'
     +'</div></body></html>';
@@ -7182,7 +7211,7 @@ function exportBaoCaoDonVi(){
     {wpx:50},   // O: Quá hạn
     {wpx:40},   // P: Cộng xuất
     {wpx:45},   // Q: Tồn cuối
-    {wpx:60}    // R: Ghi chú
+      {wpx:120}   // R: Ghi chú
   ];
 
   // Row heights
@@ -7594,7 +7623,7 @@ function openPrintModal(){
 function doPrint(){
   var sel = document.querySelector('input[name="print-choice"]:checked');
   if(!sel) return;
-  var hideTCL = !!(document.getElementById('chk-no-tcl') && document.getElementById('chk-no-tcl').checked);
+  var hideTCL = !(document.getElementById('chk-tcl') && document.getElementById('chk-tcl').checked);
   var choice = sel.value;
   closeModal('modal-print');
 
@@ -7949,7 +7978,7 @@ function renderTP(){
     // Ô nhập inline cho TW, dc nhập tỉnh khác (dc3 và hh lấy tự động từ dữ liệu)
     function inpCell(field, val){
       return '<input type="number" min="0" value="'+val+'" disabled data-tpkey="'+encodeURIComponent(k)+'" data-tpfield="'+field+'"'
-        +' style="width:58px;padding:3px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px"'
+        +' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
         +' onchange="onTPInp(this)"'
         +' oninput="onTPInp(this)">';
     }
@@ -8217,24 +8246,29 @@ async function _loadPatientsFromCloud(){
 
 // ── Render trang bệnh nhân ────────────────────────────────────
 function renderPatientPage(){
-  // Render ngay với data hiện có (localStorage hoặc đã load từ cloud)
-  _loadPatientsFromCloud().then(function(){
-    _fillBnFilters();
-    if(currentUser && currentUser.role === 'donvi'){
-      var uSel = document.getElementById('bn-filter-unit');
-      if(uSel){
-        var unitValue = currentUser.unit || '';
-        if(unitValue && !Array.from(uSel.options).some(function(o){ return normalizeUnit(o.value) === normalizeUnit(unitValue); })){
-          var o = document.createElement('option');
-          o.value = unitValue; o.textContent = unitValue;
-          uSel.appendChild(o);
-        }
-        uSel.value = unitValue;
+  // 1. Render ngay lập tức không chờ network
+  _fillBnFilters();
+  if(currentUser && currentUser.role === 'donvi'){
+    var uSel = document.getElementById('bn-filter-unit');
+    if(uSel){
+      var unitValue = currentUser.unit || '';
+      if(unitValue && !Array.from(uSel.options).some(function(o){ return normalizeUnit(o.value) === normalizeUnit(unitValue); })){
+        var o = document.createElement('option');
+        o.value = unitValue; o.textContent = unitValue;
+        uSel.appendChild(o);
       }
+      uSel.value = unitValue;
     }
-    renderPatientTable();
-    renderDuTru();
-  });
+  }
+  renderPatientTable();
+
+  // 2. Tải ngầm update mới từ cloud
+  if(_supaOnline){
+    _loadPatientsFromCloud().then(function(){
+      _fillBnFilters();
+      renderPatientTable();
+    });
+  }
 }
 
 function normalizeUnit(u){
@@ -8248,11 +8282,15 @@ function _fillBnFilters(){
   if(!uSel || !pSel) return;
   var role = currentUser ? currentUser.role : 'admin';
   var myUnit = currentUser ? (currentUser.unit || '') : '';
+  if(role === 'bvph' && !myUnit) myUnit = BVPH;
   var myUnitNorm = normalizeUnit(myUnit);
-  var isDonVi = (role === 'donvi');
+  var isFixedUnit = (role === 'donvi' || role === 'bvph');
 
-  // Luôn hiển thị dropdown đơn vị
+  // Luôn hiển thị dropdown đơn vị - lấy từ danh sách hệ thống và bệnh nhân
   var unitMap = {};
+  if(typeof UNITS !== 'undefined'){
+    UNITS.forEach(function(u){ unitMap[normalizeUnit(u)] = u; });
+  }
   BN_DATA.forEach(function(b){
     var raw = b.unit || b.donVi || '';
     if(!raw) return;
@@ -8271,13 +8309,13 @@ function _fillBnFilters(){
   var adminOnlyBtns = ['bn-btn-add','bn-btn-export','bn-btn-template','bn-btn-import','bn-delete-all-btn'];
   adminOnlyBtns.forEach(function(id){
     var el = document.getElementById(id);
-    if(el) el.style.display = isDonVi ? 'none' : '';
+    if(el) el.style.display = isFixedUnit ? 'none' : '';
   });
-  // Ẩn divider khi donvi
+  // Ẩn divider khi là đơn vị cố định
   var dividers = document.querySelectorAll('#page-bn .btn-divider');
-  dividers.forEach(function(d){ d.style.display = isDonVi ? 'none' : ''; });
+  dividers.forEach(function(d){ d.style.display = isFixedUnit ? 'none' : ''; });
 
-  if(isDonVi){
+  if(isFixedUnit){
     // Đảm bảo option đơn vị mình luôn có dù BN_DATA chưa load
     var hasMyUnit = Array.from(uSel.options).some(function(o){ return normalizeUnit(o.value) === myUnitNorm; });
     if(!hasMyUnit && myUnit){
@@ -8299,7 +8337,7 @@ function _fillBnFilters(){
     uSel.style.borderColor = '';
   }
 
-  var visibleData = isDonVi
+  var visibleData = isFixedUnit
     ? BN_DATA.filter(function(b){ return normalizeUnit(b.unit||b.donVi||'') === myUnitNorm; })
     : BN_DATA;
   var pds = [...new Set(visibleData.map(function(b){return b.pd||b.phacDo||'';}).filter(Boolean))].sort();
@@ -8310,23 +8348,32 @@ function _fillBnFilters(){
 function _filteredPatients(){
   var role = currentUser ? currentUser.role : 'admin';
   var myUnit = currentUser ? (currentUser.unit || '') : '';
+  if(role === 'bvph' && !myUnit) myUnit = BVPH;
   var myUnitNorm = normalizeUnit(myUnit);
   var unit = (document.getElementById('bn-filter-unit')||{}).value || '';
   var unitNorm = normalizeUnit(unit);
   var pd   = (document.getElementById('bn-filter-pd')||{}).value || '';
-  return BN_DATA.filter(function(b){
+  var result = BN_DATA.filter(function(b){
     var bUnit = (b.unit || b.donVi || '') || '';
     var bUnitNorm = normalizeUnit(bUnit);
     var bPd   = b.pd   || b.phacDo || '';
-    // Donvi: chỉ lọc theo đơn vị mình, bỏ qua filter dropdown
-    if(role === 'donvi'){
+    // Donvi hoặc bvph: chỉ lọc theo đơn vị mình, ẨN bệnh nhân đã Hoàn thành
+    if(role === 'donvi' || role === 'bvph'){
       var match = bUnitNorm === myUnitNorm;
       if(!match) return false;
+      if(bnStatus(b).label === 'Hoàn thành') return false;
       return !pd || bPd === pd;
     }
-    // Admin/bvph: lọc theo dropdown
+    // Admin: lọc theo dropdown
     return (!unit || bUnitNorm === unitNorm) && (!pd || bPd === pd);
   });
+  // Admin: đẩy BN Hoàn thành xuống cuối danh sách
+  if(role !== 'donvi' && role !== 'bvph'){
+    result.sort(function(a,b){
+      return (bnStatus(a).label==='Hoàn thành'?1:0) - (bnStatus(b).label==='Hoàn thành'?1:0);
+    });
+  }
+  return result;
 }
 
 // Tính ngày kết thúc thực tế (từ field hoặc suy từ phác đồ)
@@ -8371,14 +8418,14 @@ function renderPatientTable(){
 
   thead.innerHTML = '<tr style="background:#1a5276;color:white">'
     + '<th style="padding:9px 10px;text-align:center;white-space:nowrap">STT</th>'
-    + '<th style="padding:9px 10px;text-align:left;min-width:140px">Họ và tên</th>'
+    + '<th style="padding:9px 10px;text-align:center;min-width:140px">Họ và tên</th>'
     + '<th style="padding:9px 10px;text-align:center">Giới tính</th>'
     + '<th style="padding:9px 10px;text-align:center">Tuổi</th>'
-    + '<th style="padding:9px 10px;text-align:left;min-width:110px">Địa chỉ</th>'
+    + '<th style="padding:9px 10px;text-align:center;min-width:110px">Địa chỉ</th>'
     + '<th style="padding:9px 10px;text-align:center;white-space:nowrap">Ngày bắt đầu</th>'
     + '<th style="padding:9px 10px;text-align:center;white-space:nowrap;color:#f39c12">Ngày kết thúc</th>'
-    + '<th style="padding:9px 10px;text-align:left;min-width:130px">Phác đồ</th>'
-    + '<th style="padding:9px 10px;text-align:left;min-width:130px">Đơn vị quản lý</th>'
+    + '<th style="padding:9px 10px;text-align:center;min-width:130px">Phác đồ</th>'
+    + '<th style="padding:9px 10px;text-align:center;min-width:130px">Đơn vị quản lý</th>'
     + '<th style="padding:9px 10px;text-align:center">Trạng thái</th>'
     + '<th style="padding:9px 10px;text-align:center">Thao tác</th>'
     + '</tr>';
@@ -8418,7 +8465,8 @@ function renderPatientTable(){
   tbody.innerHTML = list.map(function(bn,i){
     var st = bnStatus(bn);
     var idx = BN_DATA.indexOf(bn);
-    var bg = i%2===0 ? '#fff' : '#f8f9fa';
+    var isCompleted = (st.label === 'Hoàn thành');
+    var bg = isCompleted ? '#f0f0f0' : (i%2===0 ? '#fff' : '#f8f9fa');
     var name = capName(bn.name || bn.hoTen || '');
     var gender = bn.gender || bn.gioiTinh || '';
     var age = bn.age || bn.tuoi || '';
@@ -8427,7 +8475,8 @@ function renderPatientTable(){
     var unit = bn.unit || bn.donVi || '';
     var sdFmt = fmtDate(bn.startDate || bn.ngayBD || '');
     var edFmt = calcEndStr(bn);
-    return '<tr style="background:'+bg+';border-bottom:1px solid #eee">'
+    var rowStyle = isCompleted ? 'background:'+bg+';border-bottom:1px solid #eee;opacity:0.55' : 'background:'+bg+';border-bottom:1px solid #eee';
+    return '<tr style="'+rowStyle+'">'
       + '<td style="padding:8px 10px;text-align:center;color:#888">'+(i+1)+'</td>'
       + '<td style="padding:8px 10px;font-weight:600">'+escH(name)+'</td>'
       + '<td style="padding:8px 10px;text-align:center">'+escH(gender)+'</td>'
@@ -8450,31 +8499,6 @@ function renderPatientTable(){
 
 function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// --- BỘ 3 HÀM DỰ TRÙ THUỐC THÔNG MINH (THEO 12 THÁNG) ---
-
-// Hàm phụ: Tính chính xác ngày kết thúc của bệnh nhân
-function getEndDate(bn) {
-    if (bn.endDate || bn.ngayKT) return new Date(bn.endDate || bn.ngayKT);
-    var start = bn.startDate || bn.ngayBD || bn.ngayBatDau;
-    var pd = bn.pd || bn.phacDo;
-    if (start && pd) {
-        var d = new Date(start);
-        if (!isNaN(d)) {
-            var m = 0;
-            if(pd.indexOf('6') === 0) m = 6;
-            else if(pd.indexOf('9') === 0 || pd.indexOf('4-6') === 0) m = 9;
-            else if(pd.indexOf('18') === 0 || pd.indexOf('20') === 0) m = 18;
-            if(m > 0){
-                d.setMonth(d.getMonth() + m);
-                d.setDate(d.getDate() - 1);
-                return d;
-            }
-        }
-    }
-    return null;
-}
-
-// 1. Hàm vẽ bảng dự trù (12 tháng)
 // --- BỘ 3 HÀM DỰ TRÙ THUỐC THÔNG MINH (THEO 12 THÁNG) ---
 
 // Hàm phụ: Tính chính xác ngày kết thúc của bệnh nhân
@@ -8591,12 +8615,21 @@ function renderDuTru(){
                     var pills = Math.ceil(daily * proratedDays);
                     stats[dName]['m'+m] += pills;
                     stats[dName]['total'] += pills;
+                    // Bedaquiline: tính note chi tiết theo ngày bắt đầu BN
+                    var _bdqNote = '';
+                    if(dName.indexOf('Bedaquiline') >= 0 && typeof calculateBedaquilineDetails === 'function'){
+                        var _bdqD = calculateBedaquilineDetails(bn.startDate || bn.ngayBD, bn.endDate || bn.ngayKT);
+                        if(_bdqD) _bdqNote = _bdqD.note || '';
+                    }
+                    var _isOng = dName.indexOf('Amikacin') >= 0 || dName.indexOf('Kanamycin') >= 0;
                     stats[dName]['p'+m].push({
                         name: bn.name || bn.hoTen || bn.tenBN,
                         pd: bn.pd || bn.phacDo,
                         daily: daily,
                         days: proratedDays,
-                        pills: pills
+                        pills: pills,
+                        bdqNote: _bdqNote,
+                        isOng: _isOng
                     });
                 }
             });
@@ -8609,9 +8642,9 @@ function renderDuTru(){
          + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px;">'
          + '<thead><tr style="background:#1a5276;color:white">'
          + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:40px">STT</th>'
-         + '<th style="padding:10px;text-align:left;border-right:1px solid #34495e;min-width:150px">Tên thuốc dự trù</th>'
+         + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;min-width:150px">Tên thuốc dự trù</th>'
          + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:80px;background:#0d6632">Số BN đang dùng</th>'
-         + '<th style="padding:10px;text-align:left;border-right:1px solid #34495e;min-width:220px;background:#1a4a6b">Diễn giải tính toán (Viên)</th>';
+         + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;min-width:220px;background:#1a4a6b">Diễn giải tính toán (Viên)</th>';
     for(var i=1; i<=12; i++) html += '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:55px">T' + i + '</th>';
     html += '<th style="padding:10px;text-align:right;width:90px;background:#154360">Tổng năm</th></tr></thead><tbody>';
 
@@ -8635,9 +8668,24 @@ function renderDuTru(){
             }
             var pList = stats[k]['p'+refM] || [];
             var bnCount = pList.length;
-            // Xây diễn giải: (d1 + d2 + ...) x 26 ngày
-            var dailyParts = pList.map(function(p){ return parseFloat(p.daily % 1 === 0 ? p.daily : p.daily.toFixed(2)); });
-            var diengiai = bnCount > 0 ? '(' + dailyParts.join(' + ') + ') × 26 ngày' : '—';
+            // Xây diễn giải theo từng loại thuốc
+            var diengiai;
+            if(k.indexOf('Bedaquiline') >= 0 && pList.length > 0){
+                // Bedaquiline: hiển thị lịch chi tiết theo ngày từng BN
+                var _bdqLines = [];
+                pList.forEach(function(p){
+                    if(p.bdqNote) _bdqLines.push(p.bdqNote);
+                });
+                diengiai = _bdqLines.length > 0 ? _bdqLines.join('<br>') : '—';
+            } else if((k.indexOf('Amikacin') >= 0 || k.indexOf('Kanamycin') >= 0) && pList.length > 0){
+                // Amikacin/Kanamycin: tính theo ống, làm tròn chẵn
+                var _tongOng = 0;
+                pList.forEach(function(p){ _tongOng += Math.ceil(p.pills); });
+                diengiai = _tongOng + ' ống/tháng';
+            } else {
+                var dailyParts = pList.map(function(p){ return parseFloat(p.daily % 1 === 0 ? p.daily : p.daily.toFixed(2)); });
+                diengiai = bnCount > 0 ? '(' + dailyParts.join(' + ') + ') × 26 ngày' : '—';
+            }
 
             // Encode drug name safely for onclick attribute
             var safeKey = encodeURIComponent(k);
@@ -8645,9 +8693,9 @@ function renderDuTru(){
                 ? '<span onclick="showBnDungThuoc(decodeURIComponent(\'' + safeKey + '\'),' + refM + ',' + selectedYear + ')" style="background:#d4edda;color:#155724;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline" title="Bấm để xem danh sách">' + bnCount + ' người</span>'
                 : '<span style="color:#ccc">—</span>';
             html += '<tr style="border-bottom:1px solid #eee"><td style="padding:10px;text-align:center;border-right:1px solid #eee">' + (stt++) + '</td>'
-                 + '<td style="padding:10px;border-right:1px solid #eee;font-weight:600;color:#2c3e50">' + k + '</td>'
+                 + '<td style="padding:10px;text-align:center;border-right:1px solid #eee;font-weight:600;color:#2c3e50">' + k + '</td>'
                  + '<td style="padding:10px;text-align:center;border-right:1px solid #eee;background:#f0fff4">' + bnBadge + '</td>'
-                 + '<td style="padding:8px 12px;border-right:1px solid #eee;color:#1a4a6b;font-size:12px;background:#f0f7ff;font-style:normal">' + diengiai + '</td>';
+                 + '<td style="padding:8px 12px;text-align:center;border-right:1px solid #eee;color:#1a4a6b;font-size:12px;background:#f0f7ff;font-style:normal">' + diengiai + '</td>';
             
             for(var i=1; i<=12; i++){
                 var val = stats[k]['m'+i];
@@ -8698,15 +8746,24 @@ function showBnDungThuoc(drugName, month, year){
         function capName(s){ if(!s) return ''; return s.toLowerCase().split(' ').map(function(w){ return w.charAt(0).toUpperCase()+w.slice(1); }).join(' '); }
         pList.forEach(function(p, idx){
             var dailyStr = (p.daily % 1 === 0) ? p.daily : parseFloat(p.daily.toFixed(2));
-            bodyHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:' + (idx%2===0?'#f8fafc':'#fff') + ';border:1px solid #e2e8f0">'
-                + '<div>'
+            var _isBdq = drugName.indexOf('Bedaquiline') >= 0;
+            var _noteHtml = (_isBdq && p.bdqNote)
+                ? '<div style="font-size:10.5px;color:#e67e22;font-style:italic;margin-top:5px;line-height:1.5">' + p.bdqNote + '</div>'
+                : '';
+            var _unitLbl = p.isOng ? 'ống/tháng' : 'viên/tháng';
+            var _dailyLbl = (p.isOng || _isBdq) ? '' : '<div style="font-size:10px;color:#aaa">('+dailyStr+' v/ngày)</div>';
+            bodyHtml += '<div style="padding:10px 12px;border-radius:8px;margin-bottom:6px;background:' + (idx%2===0?'#f8fafc':'#fff') + ';border:1px solid #e2e8f0">'
+                + '<div style="display:flex;align-items:' + (_isBdq?'flex-start':'center') + ';justify-content:space-between">'
+                + '<div style="flex:1;min-width:0">'
                 + '<div style="font-weight:700;color:#1e293b;font-size:13px">' + capName(p.name) + '</div>'
                 + '<div style="font-size:11px;color:#2980b9;font-weight:600;margin-top:2px">' + (p.pd||'') + '</div>'
+                + _noteHtml
                 + '</div>'
                 + '<div style="text-align:right;flex-shrink:0;margin-left:12px">'
                 + '<div style="font-size:16px;font-weight:800;color:#e74c3c">' + p.pills + '</div>'
-                + '<div style="font-size:10px;color:#888">viên/tháng</div>'
-                + '<div style="font-size:10px;color:#aaa">('+dailyStr+' v/ngày)</div>'
+                + '<div style="font-size:10px;color:#888">' + _unitLbl + '</div>'
+                + _dailyLbl
+                + '</div>'
                 + '</div>'
                 + '</div>';
         });
@@ -8748,9 +8805,9 @@ function showDrugPatients(drugName, month, year) {
     var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
         + '<thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">'
         + '<th style="padding:11px 10px;text-align:center;width:44px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">STT</th>'
-        + '<th style="padding:11px 10px;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Tên bệnh nhân</th>'
+        + '<th style="padding:11px 10px;text-align:center;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Tên bệnh nhân</th>'
         + '<th style="padding:11px 10px;text-align:center;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Ngày tính thuốc</th>'
-        + '<th style="padding:11px 16px;text-align:right;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Số lượng</th>'
+        + '<th style="padding:11px 16px;text-align:center;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Số lượng</th>'
         + '</tr></thead><tbody>';
     
     if(!pList.length) {
@@ -8761,7 +8818,7 @@ function showDrugPatients(drugName, month, year) {
             var rowBg = idx%2===0 ? '#fff' : '#f8fafc';
             html += '<tr style="background:'+rowBg+';transition:background .12s" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+rowBg+'\'">';
             html += '<td style="padding:12px 10px;text-align:center;color:#94a3b8;font-size:12px;width:44px;border-bottom:1px solid #f1f5f9">' + (idx+1) + '</td>';
-            html += '<td style="padding:12px 10px;border-bottom:1px solid #f1f5f9">';
+            html += '<td style="padding:12px 10px;text-align:center;border-bottom:1px solid #f1f5f9">';
             html +=   '<div style="font-weight:700;color:#1e293b;font-size:13px">' + capName(u.name) + '</div>';
             html +=   '<div style="font-size:11px;color:#e67e22;font-weight:600;margin-top:2px">' + u.pd + '</div>';
             html += '</td>';
@@ -8769,9 +8826,10 @@ function showDrugPatients(drugName, month, year) {
             html +=   '<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">' + u.days + ' ngày</span>';
             html +=   '<div style="color:#94a3b8;font-size:11px;margin-top:3px">' + dailyStr + ' v/ngày</div>';
             html += '</td>';
-            html += '<td style="padding:12px 16px;text-align:right;border-bottom:1px solid #f1f5f9">';
+            html += '<td style="padding:12px 16px;text-align:center;border-bottom:1px solid #f1f5f9">';
+            var _unitLabel = u.isOng ? 'ống' : 'viên';
             html +=   '<span style="font-size:18px;font-weight:800;color:#e74c3c">' + u.pills + '</span>';
-            html +=   '<span style="font-size:11px;color:#94a3b8;margin-left:3px">viên</span>';
+            html +=   '<span style="font-size:11px;color:#94a3b8;margin-left:3px">' + _unitLabel + '</span>';
             html += '</td></tr>';
         });
     }
@@ -8893,21 +8951,15 @@ function calculateBedaquilineDetails(startDateStr, endDateStr) {
 // 2. Thuật toán gợi ý TỔNG VIÊN/THÁNG và GHI CHÚ theo Tuổi & Cân Nặng (WHO 2022)
 function getDrugsByWeight(pd, weight, age) {
     var w = parseFloat(weight) || 50;
-    var a = parseInt(age) || 30;
     var drugs = [];
     var pdStr = String(pd || '').replace(/\s+/g, '');
     
-    // Bedaquiline: công thức cố định (188 viên/6 tháng)
-    // Tháng 1: 4v/ngày×14 ngày + 2v×3 lần×2 tuần = 56+12 = 68 viên
-    // Tháng 2-6: 2v×3 lần/tuần = 24 viên/tháng
     var vBdq = 24; // viên/tháng (giai đoạn ổn định từ tháng 2)
     var noteBdq = "Tháng 1: 68v (4v/14 ngày + 2v×3 lần×2 tuần); Tháng 2-6: 24v/tháng";
     
-    // Nếu là phác đồ chuẩn, lấy từ PHAC_DO
     if(PHAC_DO[pdStr]) {
        var pdo = PHAC_DO[pdStr];
        pdo.forEach(function(item){
-          // Bedaquiline: áp dụng công thức đặc biệt
           if(item.drug === 'Bedaquiline 100mg') {
              drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
           } else {
@@ -8917,12 +8969,10 @@ function getDrugsByWeight(pd, weight, age) {
        return drugs;
     }
     
-    // Thử match các key của PHAC_DO
     for(var k in PHAC_DO) {
-       if(pdStr.indexOf(k) >= 0) {
+       if(k !== 'Khác' && pdStr.indexOf(k) >= 0) {
           var pdo = PHAC_DO[k];
           pdo.forEach(function(item){
-             // Bedaquiline: áp dụng công thức đặc biệt
              if(item.drug === 'Bedaquiline 100mg') {
                 drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
              } else {
@@ -8933,79 +8983,90 @@ function getDrugsByWeight(pd, weight, age) {
        }
     }
 
-    // === Nếu không phải phác đồ chuẩn, dùng nameMap để giải mã ===
-    pdStr = pdStr.toUpperCase();
+    var pdUpper = pdStr.toUpperCase();
+    var pdAbbr = pdUpper.replace(/^[\d\-]+/, '');
+
     var nameMap = {
-        // Thuốc phác đồ MDR-TB chuẩn
+        LFX5:"Levofloxacin 500mg",
+        RFP: "Rifampicin 150mg",
+        PZA: "Pyrazinamid 500mg",
+        EMB: "Ethambutol 400mg",
+        PTO: "Prothionamide 250mg",
+        PAS: "Para-aminosalicylic acid 4g",
         BDQ: "Bedaquiline 100mg",           // Bedaquiline
-        PA:  "Pretomanid 200mg",           // Pretomanid (PA)
         DLM: "Delamanid 50mg",             // Delamanid
         LZD: "Linezolid 600mg",            // Linezolid
         MFX: "Moxifloxacin 400mg",         // Moxifloxacin 400mg
         LFX: "Levofloxacin 250mg",         // Levofloxacin 250mg
-        LFX5:"Levofloxacin 500mg",         // Levofloxacin 500mg
         CFZ: "Clofazimine 100mg",          // Clofazimine
         CS:  "Cycloserine 250mg",          // Cycloserine (TZ/CS)
         TZ:  "Cycloserine 250mg",          // Cycloserine (alias)
-        // Thuốc tiêm
         AM:  "Amikacin 500mg/2ml",         // Amikacin
         KM:  "Kanamycin 1g",               // Kanamycin
-        // Thuốc phác đồ TB thường (6BP)
-        H:   "Isoniazid 100mg",            // Isoniazid 100mg (liều thường)
         HH:  "Isoniazid 300mg",            // Isoniazid 300mg (liều cao)
-        RFP: "Rifampicin 150mg",           // Rifampicin
-        IN:  "Isonicotinamid",             // (nếu có)
-        PZA: "Pyrazinamid 500mg",          // Pyrazinamid
-        EMB: "Ethambutol 400mg",           // Ethambutol
+        PA:  "Pretomanid 200mg",           // Pretomanid (PA)
+        H:   "Isoniazid 100mg",            // Isoniazid 100mg (liều thường)
         E:   "Ethambutol 400mg",           // Ethambutol (alias)
-        Z:   "Pyrazinamid 500mg",          // Pyrazinamid (alias)
-        PTO: "Prothionamide 250mg",        // Prothionamide (Pto)
-        PAS: "Para-aminosalicylic acid 4g" // Para-aminosalicylic acid (PAS)
+        Z:   "Pyrazinamid 500mg"           // Pyrazinamid (alias)
     };
 
-    // Bedaquiline 100mg: tổng 188 viên cho toàn bộ 6 tháng điều trị.
-    // Liều: 4v/ngày x 14 ngày, sau đó 2v x 3 lần/tuần cho 22 tuần còn lại (tổng 24 tuần = 6 tháng).
-    // (vBdq và noteBdq đã định nghĩa ở đầu hàm)
-    
-    // Áp dụng Liều dùng 1 ngày (Chuẩn TCYTTG 2022)
+    var sortedAbbrs = Object.keys(nameMap).sort(function(a, b) { return b.length - a.length; });
+    var tempPdStr = pdAbbr;
+    var foundDrugs = {};
+
     var dLzd = (w < 24) ? 0.5 : ((w < 30) ? 0.75 : 1);
     var vLzd = dLzd * 26; var noteLzd = dLzd + " viên/ngày";
-    
     var vCfz = (w < 24) ? 11 : 26; var noteCfz = (w < 24) ? "1 viên x 3 ngày/tuần" : "1 viên/ngày";
-    
     var dPa = 1; var vPa = dPa * 26; var notePa = dPa + " viên/ngày";
     var dMfx = (w < 36) ? 0.75 : 1; var vMfx = dMfx * 26; var noteMfx = dMfx + " viên/ngày";
     var dLfx = (w < 24) ? 2 : ((w < 30) ? 3 : 4); var vLfx = dLfx * 26; var noteLfx = dLfx + " viên/ngày";
     var dCs = (w < 24) ? 2 : ((w < 70) ? 3 : 4); var vCs = dCs * 26; var noteCs = dCs + " viên/ngày";
     var dE = (w < 24) ? 1.5 : ((w < 36) ? 2 : ((w < 46) ? 3 : 4)); var vE = dE * 26; var noteE = dE + " viên/ngày";
     var dZ = (w < 24) ? 2 : ((w < 30) ? 2.5 : ((w < 36) ? 3 : 4)); var vZ = dZ * 26; var noteZ = dZ + " viên/ngày";
-    
-    // Quét kí hiệu viết tắt từ chuỗi phác đồ tự do (case-insensitive, so thứ tự quan trọng)
-    if(pdStr.indexOf('BDQ') !== -1) drugs.push({ d: nameMap.BDQ, monthTotal: vBdq, note: noteBdq });
-    if(pdStr.indexOf('DLM') !== -1) drugs.push({ d: nameMap.DLM, monthTotal: 26, note: "1 viên/ngày" });
-    if(pdStr.indexOf('PA') !== -1) drugs.push({ d: nameMap.PA, monthTotal: vPa, note: notePa });
-    if(pdStr.indexOf('LZD') !== -1) drugs.push({ d: nameMap.LZD, monthTotal: vLzd, note: noteLzd });
-    if(pdStr.indexOf('MFX') !== -1) drugs.push({ d: nameMap.MFX, monthTotal: vMfx, note: noteMfx });
-    if(pdStr.indexOf('LFX5') !== -1) drugs.push({ d: nameMap.LFX5, monthTotal: 26, note: "1 viên/ngày" });
-    if(pdStr.indexOf('LFX') !== -1 && pdStr.indexOf('LFX5') === -1) drugs.push({ d: nameMap.LFX, monthTotal: vLfx, note: noteLfx });
-    if(pdStr.indexOf('CFZ') !== -1) drugs.push({ d: nameMap.CFZ, monthTotal: vCfz, note: noteCfz });
-    if(pdStr.indexOf('CS') !== -1 || pdStr.indexOf('TZ') !== -1) drugs.push({ d: nameMap.CS, monthTotal: vCs, note: noteCs });
-    // Tiêm: Amikacin, Kanamycin
-    if(pdStr.indexOf('AM') !== -1) drugs.push({ d: nameMap.AM, monthTotal: 10, note: "~10 liều/tháng" });
-    if(pdStr.indexOf('KM') !== -1) drugs.push({ d: nameMap.KM, monthTotal: 10, note: "~10 liều/tháng" });
-    // Pyrazinamid: PZA trước Z để tránh match sai
-    if(pdStr.indexOf('PZA') !== -1 || (pdStr.indexOf('Z') !== -1 && pdStr.indexOf('LZD') === -1)) drugs.push({ d: nameMap.Z, monthTotal: vZ, note: noteZ });
-    // Ethambutol: EMB trước E để tránh match sai với mọi kí tự E
-    if(pdStr.indexOf('EMB') !== -1 || (pdStr.indexOf('E') !== -1 && pdStr.indexOf('EMBASE') === -1 && pdStr.indexOf('LZD') === -1)) drugs.push({ d: nameMap.E, monthTotal: vE, note: noteE });
-    // Isoniazid: HH (300mg) trước H (100mg) để tránh match sai
-    if(pdStr.indexOf('HH') !== -1) drugs.push({ d: nameMap.HH, monthTotal: 26, note: "1 viên/ngày (liều cao)" });
-    else if(pdStr.indexOf('H') !== -1 && pdStr.indexOf('HH') === -1 && pdStr.indexOf('MFX') === -1) drugs.push({ d: nameMap.H, monthTotal: 26, note: "1 viên/ngày" });
-    // Rifampicin
-    if(pdStr.indexOf('RFP') !== -1) drugs.push({ d: nameMap.RFP, monthTotal: 26, note: "1 viên/ngày" });
-    // Prothionamide: PTO (hoặc PRM/PTH nếu cũ)
-    if(pdStr.indexOf('PTO') !== -1 || pdStr.indexOf('PRM') !== -1 || pdStr.indexOf('PTH') !== -1) drugs.push({ d: nameMap.PTO, monthTotal: 26, note: "1 viên/ngày" });
-    // PASA (Para-aminosalicylic acid): PAS
-    if(pdStr.indexOf('PAS') !== -1 && pdStr.indexOf('PASA') === -1) drugs.push({ d: nameMap.PAS, monthTotal: 26, note: "1 viên/ngày" });
+
+    var dosageMap = {
+        "Bedaquiline 100mg": { monthTotal: vBdq, note: noteBdq },
+        "Pretomanid 200mg": { monthTotal: vPa, note: notePa },
+        "Delamanid 50mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Linezolid 600mg": { monthTotal: vLzd, note: noteLzd },
+        "Moxifloxacin 400mg": { monthTotal: vMfx, note: noteMfx },
+        "Levofloxacin 500mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Levofloxacin 250mg": { monthTotal: vLfx, note: noteLfx },
+        "Clofazimine 100mg": { monthTotal: vCfz, note: noteCfz },
+        "Cycloserine 250mg": { monthTotal: vCs, note: noteCs },
+        "Amikacin 500mg/2ml": { monthTotal: 10, note: "~10 liều/tháng" },
+        "Kanamycin 1g": { monthTotal: 10, note: "~10 liều/tháng" },
+        "Isoniazid 300mg": { monthTotal: 26, note: "1 viên/ngày (liều cao)" },
+        "Isoniazid 100mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Rifampicin 150mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Pyrazinamid 500mg": { monthTotal: vZ, note: noteZ },
+        "Ethambutol 400mg": { monthTotal: vE, note: noteE },
+        "Prothionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Para-aminosalicylic acid 4g": { monthTotal: 26, note: "1 viên/ngày" }
+    };
+
+    while (tempPdStr.length > 0) {
+        var matched = false;
+        for (var i = 0; i < sortedAbbrs.length; i++) {
+            var abbr = sortedAbbrs[i];
+            if (tempPdStr.startsWith(abbr)) {
+                var drugName = nameMap[abbr];
+                if (!foundDrugs[drugName]) {
+                    var doseInfo = dosageMap[drugName];
+                    if (doseInfo) {
+                        drugs.push({ d: drugName, monthTotal: doseInfo.monthTotal, note: doseInfo.note });
+                    }
+                    foundDrugs[drugName] = true;
+                }
+                tempPdStr = tempPdStr.substring(abbr.length);
+                matched = true;
+                break; 
+            }
+        }
+        if (!matched) {
+            tempPdStr = tempPdStr.substring(1);
+        }
+    }
     
     return drugs;
 }
@@ -9088,14 +9149,18 @@ function editPatient(idx) {
   document.getElementById('pt-status').value = pt.status || 'Đang điều trị';
 
   // Chỉnh lý phác đồ
-  var standardPds = ['6BPaLM', '18-20BdqLfxLzdCfzCs', '18-20LfxLzdCfzCsE', '18-20LfxZCfzCsE'];
+  populatePdSelect();
   var currentPd = pt.pd || pt.phacDo || '6BPaLM';
-  if (standardPds.includes(currentPd)) {
-    document.getElementById('pt-pd').value = currentPd;
+  var pdSelect = document.getElementById('pt-pd');
+  var pdOptions = [];
+  for(var i=0; i<pdSelect.options.length; i++) pdOptions.push(pdSelect.options[i].value);
+  
+  if (pdOptions.indexOf(currentPd) !== -1 && currentPd !== 'Khác') {
+    pdSelect.value = currentPd;
     document.getElementById('pt-pd-custom').style.display = 'none';
     document.getElementById('pt-pd-custom').value = '';
   } else {
-    document.getElementById('pt-pd').value = 'Khác';
+    pdSelect.value = 'Khác';
     document.getElementById('pt-pd-custom').style.display = 'block';
     document.getElementById('pt-pd-custom').value = currentPd;
   }
@@ -9159,20 +9224,14 @@ function savePatient(){
   });
 
   var pt = {
-    name: nameVal, hoTen: nameVal, tenBN: nameVal,
-    gender: genderVal, gioiTinh: genderVal,
-    age: ageVal, tuoi: ageVal, weight: weightVal, canNang: weightVal,
-    address: addressVal, diaChi: addressVal,
-    pd: pdVal, phacDo: pdVal,
-    startDate: startVal, ngayBD: startVal, ngayBatDau: startVal,
-    endDate: endVal, ngayKT: endVal, ngayKetThuc: endVal,
-    status: statusVal,
-    unit: unitVal, donVi: unitVal, customDrugs: myDrugs 
+    name: nameVal, hoTen: nameVal, tenBN: nameVal, gender: genderVal, gioiTinh: genderVal,
+    age: ageVal, tuoi: ageVal, weight: weightVal, canNang: weightVal, address: addressVal, diaChi: addressVal,
+    pd: pdVal, phacDo: pdVal, startDate: startVal, ngayBD: startVal, ngayBatDau: startVal,
+    endDate: endVal, ngayKT: endVal, ngayKetThuc: endVal, status: statusVal,
+    unit: unitVal, donVi: unitVal, customDrugs: myDrugs
   };
 
   if(idx >= 0) BN_DATA[idx] = pt; else BN_DATA.push(pt);
-  _scheduleBnSync();
-  closeModal('modal-patient');
   // Cập nhật giao diện
   if (typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
@@ -9185,9 +9244,7 @@ function savePatient(){
       saveLocalCache(typeof buildPayload === 'function' ? buildPayload() : {});
   }
   
-  if (typeof _scheduleBnSync === 'function') {
-      _scheduleBnSync();
-  } else if (typeof _savePatientsToCloud === 'function') {
+  if (typeof _savePatientsToCloud === 'function') {
       _savePatientsToCloud();
   } else {
       console.warn("Chưa tìm thấy hàm đồng bộ Cloud cho bệnh nhân.");
@@ -9277,11 +9334,6 @@ function exportPatientExcel(){
 }
 // --- TÍNH NĂNG TẢI LÊN DANH SÁCH BỆNH NHÂN TỪ EXCEL ---
 
-function triggerImportPatient() {
-    document.getElementById('import-patient-file').value = '';
-    document.getElementById('import-patient-file').click();
-}
-
 function parseExcelDate(val) {
     if (!val) return '';
     if (typeof val === 'number') {
@@ -9311,7 +9363,10 @@ function parseExcelDate(val) {
 // Nút bấm kích hoạt mở file
 function triggerImportPatient() {
   var input = document.getElementById('import-patient-file');
-  if (input) input.click();
+  if (input) {
+      input.value = '';
+      input.click();
+  }
 }
 
 // Hàm xử lý file Excel sau khi chọn
@@ -9430,13 +9485,8 @@ function importPatientExcel(input) {
                 }
             }
             if (!isNaN(startDateObj)) {
-                var monthsToAdd = 6;
-                var pdUpper = String(pdVal).toUpperCase();
-                if (pdUpper.indexOf('18') !== -1 || pdUpper.indexOf('20') !== -1) {
-                    monthsToAdd = 18;
-                } else if (pdUpper.indexOf('9') !== -1 && pdUpper.indexOf('18') === -1 && pdUpper.indexOf('20') === -1) {
-                    monthsToAdd = 9;
-                }
+                var m = typeof _getPhacDoMonths === 'function' ? _getPhacDoMonths(pdVal) : 0;
+                var monthsToAdd = m > 0 ? m : 6;
                 var eDateObj = new Date(startDateObj);
                 eDateObj.setMonth(eDateObj.getMonth() + monthsToAdd);
                 eDateObj.setDate(eDateObj.getDate() - 1);
