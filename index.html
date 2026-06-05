@@ -184,14 +184,6 @@ th.hdr-out{border-left:3px solid #6b1414!important}
 .input-section-title{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .input-row-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 
-/* AUTOCOMPLETE */
-.acwrap{position:relative}
-.aclist{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--border);border-radius:6px;z-index:500;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:none}
-.aclist div{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8}
-.aclist div:hover{background:#e6f1fb;color:var(--accent2);font-weight:600}
-.aclist div:last-child{border:none}
-.freq-badge{font-size:10px;background:#e6f1fb;color:var(--accent2);padding:1px 5px;border-radius:4px;margin-left:6px}
-
 /* ADMIN ZONE */
 .admin-zone{border:2px dashed #e74c3c;border-radius:10px;padding:14px;background:#fff8f8;margin-bottom:16px}
 .admin-zone-title{font-size:12px;font-weight:700;color:#e74c3c;margin-bottom:8px;display:flex;align-items:center;gap:6px}
@@ -359,6 +351,7 @@ th.hdr-out{border-left:3px solid #6b1414!important}
 }
 
 @media (max-width: 480px){
+  .login-box { padding: 24px 20px; width: 90vw; }
   .sb-item{ padding:7px 8px; min-width:50px; font-size:9px; }
   .sb-item svg{ width:18px; height:18px; }
   .page-header h1{ font-size:13px; }
@@ -1961,16 +1954,11 @@ var ACCOUNTS=[
   {name:"",user:"bachlongvy",pass:"1",unit:"Trung tâm Y tế Bạch Long Vỹ",role:"donvi"}
 ];
 
-var drugFreq={};
-DRUGS.forEach(function(d){drugFreq[d]=0;});
-["Levofloxacin 250mg","Linezolid 600mg","Cycloserine 250mg","Bedaquiline 100mg","Levofloxacin 500mg","Moxifloxacin 400mg"].forEach(function(d){drugFreq[d]=10;});
-
 var threshold={low:200,expMonths:6};
 
 var bvphData=[];  // Dữ liệu kho chính BVPH — tải từ localStorage/cloud
 var bcData=[];    // Dữ liệu 22 đơn vị — tải từ localStorage/cloud
 
-var twData=[];
 var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
 var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
@@ -3422,50 +3410,6 @@ function deleteAccount(i){
 }
 
 // ============================================================
-// AUTOCOMPLETE
-// ============================================================
-function getSortedDrugs(){
-  return DRUGS.slice().sort(function(a,b){return(drugFreq[b]||0)-(drugFreq[a]||0);});
-}
-function acShow(inputId,listId,allowNew){
-  var val=document.getElementById(inputId).value.toLowerCase().trim();
-  var list=document.getElementById(listId);
-  var drugs=getSortedDrugs();
-  var filtered=val?drugs.filter(function(d){return d.toLowerCase().indexOf(val)>=0;}):drugs.slice(0,8);
-  list.innerHTML='';
-  // Nếu admin + allowNew + val mới hoàn toàn: hiện tuỳ chọn "Thêm tên mới"
-  if(allowNew&&isAdmin()&&val&&filtered.length===0){
-    var divNew=document.createElement('div');
-    divNew.style.cssText='color:var(--success);font-style:italic';
-    divNew.innerHTML='+ Thêm thuốc mới: <strong>'+document.getElementById(inputId).value+'</strong>';
-    divNew.onclick=function(){
-      var newDrug=document.getElementById(inputId).value.trim();
-      if(newDrug&&DRUGS.indexOf(newDrug)<0){
-        DRUGS.push(newDrug);drugFreq[newDrug]=5;
-        toast('Đã thêm thuốc mới: '+newDrug,'var(--success)');
-      }
-      list.style.display='none';
-    };
-    list.appendChild(divNew);
-    list.style.display='block';
-    return;
-  }
-  if(!filtered.length){list.style.display='none';return;}
-  filtered.forEach(function(d){
-    var div=document.createElement('div');
-    div.innerHTML=d+(drugFreq[d]>0?'<span class="freq-badge">Hay dùng</span>':'');
-    div.onclick=function(){document.getElementById(inputId).value=d;list.style.display='none';drugFreq[d]=(drugFreq[d]||0)+1;};
-    list.appendChild(div);
-  });
-  list.style.display='block';
-}
-// BVPH: admin được thêm tên thuốc mới
-function acShowBVPH(){acShow('bvph-drug','bvph-ac',true);}
-// Đơn vị: chỉ chọn từ danh sách có sẵn
-function acShowDonVi(){acShow('bc-drug','bc-ac',false);}
-function hideAc(id){var e=document.getElementById(id);if(e)e.style.display='none';}
-
-// ============================================================
 // TỔNG QUAN — toàn bộ số liệu lấy từ bvphData + bcData thực tế
 // ============================================================
 
@@ -3885,30 +3829,6 @@ function syncDrugMonth(){
   }
   renderDrugTable();
 }
-
-// ============================================================
-// KHO TRUNG ƯƠNG
-// ============================================================
-function renderTWTable_obsolete_DISABLED(){
-  var tbody=document.getElementById('tw-body');tbody.innerHTML='';
-  if(!twData.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--muted);font-style:italic;padding:10px">Chưa có dữ liệu kho Trung ương</td></tr>';return;}
-  twData.forEach(function(r,i){
-    tbody.innerHTML+='<tr><td class="left">'+r.drug+'</td><td>'+r.lot+'</td><td>'+expFmt(r.exp)+'</td><td style="color:var(--success);font-weight:700">'+r.qty.toLocaleString()+'</td><td>'+r.note+'</td><td>'+r.date+'</td><td><button class="btn btn-danger btn-xs" onclick="delTW('+i+')">Xóa</button></td></tr>';
-  });
-}
-function addTW_obsolete_DISABLED(){
-  if(!isAdmin()){toast('Chỉ Admin mới được nhập kho Trung ương!','var(--danger)');return;}
-  var drug=document.getElementById('tw-drug').value.trim(),lot=document.getElementById('tw-lot').value.trim(),exp=document.getElementById('tw-exp').value,qty=parseInt(document.getElementById('tw-qty').value)||0,note=document.getElementById('tw-note').value.trim();
-  if(!drug||!lot||!exp||!qty){toast('Vui lòng nhập đủ: tên thuốc, số lô, hạn dùng, số lượng!','var(--danger)');return;}
-  var t=new Date();
-  twData.push({drug:drug,lot:lot,exp:exp,qty:qty,note:note||'—',date:t.getDate()+'/'+(t.getMonth()+1)+'/'+t.getFullYear()});
-  drugFreq[drug]=(drugFreq[drug]||0)+1;
-  ['tw-drug','tw-lot','tw-qty','tw-note'].forEach(function(id){document.getElementById(id).value='';});
-  document.getElementById('tw-exp').value='';
-  toast('Đã thêm kho TW: '+drug+' — Lô '+lot,'var(--success)');
-}
-function delTW(i){ delTW_obsolete_DISABLED(i); }
-function delTW_obsolete_DISABLED(i){if(!isAdmin()){toast('Chỉ Admin mới xóa được!','var(--danger)');return;}if(confirm('Xóa "'+twData[i].drug+'"?')){twData.splice(i,1);toast('Đã xóa','var(--danger)');}}
 
 // Tính Xuất Tổ CL của BVPH theo từng thuốc = tổng tinh (nhập tỉnh cấp) của bcData cùng tên thuốc
 // Tính tổng tinh của bcData theo drug+lot+exp (3 chiều)
@@ -5139,7 +5059,6 @@ function addBVPHRow(){
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
   if(!canEditBVPH()){toast('Bạn không có quyền nhập BVPHP!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
-  drugFreq[drug] = (drugFreq[drug]||0) + 1;
   var newRowBV={unit:BVPH,drug:drug,lot:lot,exp:exp,open:open,
     tinh:tinh,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
     locked:false,editing:false,bcMonth:mon,openLocked:false};
@@ -5151,8 +5070,6 @@ function addBVPHRow(){
    'bvph-tinh','bvph-dc','bvph-sd','bvph-dc3','bvph-hh'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
-  var _bp=document.getElementById('bvph-preview');if(_bp)_bp.textContent='—';
-  hideAc('bvph-ac');
   renderBVPH();
   saveLocalCache(buildPayload());
   _syncPeriodToCloud();
@@ -5178,7 +5095,6 @@ function addBcRow(){
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
   if(!canEditUnit(unit)){toast('Bạn không có quyền nhập đơn vị này!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
-  drugFreq[drug] = (drugFreq[drug]||0) + 1;
   var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
     tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
     locked:false,editing:false,bcMonth:mon,openLocked:false};
@@ -5190,8 +5106,6 @@ function addBcRow(){
    'bc-tinh','bc-dc','bc-sd','bc-dc2','bc-hh'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
-  var _bcp=document.getElementById('bc-preview');if(_bcp)_bcp.textContent='—';
-  hideAc('bc-ac');
   var fu=document.getElementById('filter-unit-bc');
   if(fu&&unit!==BVPH){for(var k=0;k<fu.options.length;k++){if(fu.options[k].value===unit){fu.selectedIndex=k;break;}}}
   var fm=document.getElementById('filter-month-bc');
@@ -5206,7 +5120,7 @@ function addBcRow(){
 function buildPayload(){
   return {
     bvphData:bvphData, bcData:bcData, extraTP:extraTP, catalogData:catalogData,
-    ACCOUNTS:ACCOUNTS, drugFreq:drugFreq, threshold:threshold,
+    ACCOUNTS:ACCOUNTS, threshold:threshold,
     lockedPeriods:lockedPeriods, catalogLocked:catalogLocked,
     reportLocked: isCurrentPeriodLocked(),
     savedAt: new Date().toISOString()
@@ -5467,11 +5381,9 @@ function applyPayload(p){
   if(!p) return;
   if(p.bvphData)    bvphData    = p.bvphData;
   if(p.bcData)      bcData      = p.bcData;
-  if(p.twData)      twData      = p.twData;
   if(p.ACCOUNTS)    ACCOUNTS    = p.ACCOUNTS;
   if(p.catalogData && p.catalogData.length) catalogData = p.catalogData;
   if(typeof p.catalogLocked === 'boolean') catalogLocked = p.catalogLocked;
-  if(p.drugFreq)    drugFreq    = p.drugFreq;
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
   if(p.lockedPeriods && typeof p.lockedPeriods === 'object'){
@@ -7878,9 +7790,6 @@ function toast(msg,color){
 }
 
 
-// Preview tồn cuối khi gõ form
-function updatePreview(prefix){  }
-
 
 // Login Enter key — lp đã có onkeydown trong HTML, dòng này dự phòng
 var lpEl = document.getElementById('lp');
@@ -7898,12 +7807,6 @@ document.addEventListener('change',function(e){
 // Tự tổng hợp từ bvphData + bcData theo drug+lot+exp+kỳ
 // Nhập TW, Tỉnh khác, Hỏng/HH: có thể sửa từng dòng (inline)
 // ============================================================
-
-function onTPDrugChange(){} // placeholder
-
-function addTPRowReal(){
-  toast('Bảng Tổng toàn TP tự tổng hợp từ dữ liệu Kho chính và 22 đơn vị.\nKhông cần nhập thêm.','#6c3483');
-}
 
 // Render toàn bộ sau khi load cloud xong
 function fullRender(){
@@ -8104,10 +8007,6 @@ function editTPInline(btn){
     btn.style.background = 'var(--success)';
   }
 }
-
-function updTPField(){} // không dùng nữa
-function editTPRow(){}  // không dùng nữa
-function delTPRow(){}   // không dùng nữa
 
 // ── Khởi động ──────────────────────────────────────────────
 
