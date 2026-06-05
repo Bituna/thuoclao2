@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quản lý Thuốc Lao — Bệnh viện Phổi Hải Phòng</title>
+<title>Quản lý Thuốc Lao — BV Phổi Hải Phòng</title>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1518,6 +1518,42 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   </div>
 </div>
 
+<!-- MODAL CHỌN KỲ BÁO CÁO LÚC KHỞI ĐỘNG -->
+<div class="modal-overlay" id="modal-startup-period" style="background:linear-gradient(135deg,#1a2332 0%,#2c3e5a 100%);">
+  <div class="modal" style="width:360px;padding:30px">
+    <h3 style="font-size:18px;margin-bottom:8px;text-align:center;color:var(--text)">📅 Chọn kỳ làm việc</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;text-align:center">
+      Vui lòng chọn tháng và năm báo cáo mà bạn muốn làm việc
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:24px">
+      <div class="fg" style="flex:1">
+        <label style="font-size:11px;font-weight:700">Tháng</label>
+        <select id="startup-month" style="width:100%;padding:10px;border-radius:8px">
+          <option value="01">Tháng 1</option>
+          <option value="02">Tháng 2</option>
+          <option value="03">Tháng 3</option>
+          <option value="04">Tháng 4</option>
+          <option value="05">Tháng 5</option>
+          <option value="06">Tháng 6</option>
+          <option value="07">Tháng 7</option>
+          <option value="08">Tháng 8</option>
+          <option value="09">Tháng 9</option>
+          <option value="10">Tháng 10</option>
+          <option value="11">Tháng 11</option>
+          <option value="12">Tháng 12</option>
+        </select>
+      </div>
+      <div class="fg" style="flex:1">
+        <label style="font-size:11px;font-weight:700">Năm</label>
+        <input type="number" id="startup-year" value="2026" style="width:100%;padding:10px;border-radius:8px;text-align:center">
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:0">
+      <button class="btn btn-primary" onclick="confirmStartupPeriod()" style="width:100%;justify-content:center;padding:12px;font-size:14px;border-radius:8px">🚀 Bắt đầu làm việc</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -2760,14 +2796,49 @@ function doLogin(){
   errEl.style.display='none';
   currentUser = acc;
   document.getElementById('login-screen').style.display='none';
+  
+  var now = new Date();
+  var cm = now.getMonth() + 1;
+  document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
+  document.getElementById('startup-year').value = now.getFullYear();
+  
+  var modal = document.getElementById('modal-startup-period');
+  if(modal){
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+  }
+}
+
+function confirmStartupPeriod() {
+  var m = document.getElementById('startup-month').value;
+  var y = document.getElementById('startup-year').value;
+  
+  var selY = document.getElementById('sel-year');
+  if (selY) selY.value = y;
+  var selM = document.getElementById('sel-month');
+  if (selM) selM.value = m;
+  
+  var tqY = document.getElementById('tq-year');
+  if (tqY) tqY.value = y;
+  var tqM = document.getElementById('tq-month');
+  if (tqM) tqM.value = m;
+  
+  var modal = document.getElementById('modal-startup-period');
+  if(modal){
+    modal.style.display = 'none';
+    modal.classList.remove('open');
+  }
+  
   document.getElementById('app').style.display='flex';
-  var displayName = acc.name || acc.unit || acc.user;
+  var displayName = currentUser.name || currentUser.unit || currentUser.user;
   var initials = displayName.split(' ').map(function(w){return w[0];}).filter(Boolean).slice(-2).join('').toUpperCase() || '?';
   document.getElementById('sb-av').textContent=initials;
-  document.getElementById('sb-av').style.background=ROLE_COLORS[acc.role]||'var(--accent)';
-  document.getElementById('sb-name').textContent=acc.name || acc.unit;
-  document.getElementById('sb-role').textContent=ROLE_LABELS[acc.role]||acc.role;
+  document.getElementById('sb-av').style.background=ROLE_COLORS[currentUser.role]||'var(--accent)';
+  document.getElementById('sb-name').textContent=currentUser.name || currentUser.unit;
+  document.getElementById('sb-role').textContent=ROLE_LABELS[currentUser.role]||currentUser.role;
+  
   initApp();
+  onGlobalMonthChange();
 }
 
 function doLogout(){
@@ -2922,7 +2993,9 @@ function initApp(){
   // Đồng bộ thuoc-month với kỳ báo cáo mặc định khi khởi động
   var _initPeriod = getSelectedPeriod();
   var _tmEl = document.getElementById('thuoc-month');
-  if(_tmEl && _initPeriod.type === 'month') _tmEl.value = _initPeriod.val;
+  if(_tmEl && _initPeriod.type === 'month') {
+    if(currentUser && currentUser.role === 'admin') _tmEl.value = _initPeriod.val;
+  }
 
   loadSaved();
   if(role === 'donvi'){
