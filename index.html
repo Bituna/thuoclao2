@@ -2804,11 +2804,7 @@ function doLogin(){
   document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
   document.getElementById('startup-year').value = now.getFullYear();
   
-  var modal = document.getElementById('modal-startup-period');
-  if(modal){
-    modal.style.display = 'flex';
-    modal.classList.add('open');
-  }
+  openModal('modal-startup-period');
 }
 
 async function confirmStartupPeriod() {
@@ -2835,11 +2831,7 @@ async function confirmStartupPeriod() {
     var tqM = document.getElementById('tq-month');
     if (tqM) tqM.value = m;
     
-    var modal = document.getElementById('modal-startup-period');
-    if(modal){
-      modal.style.display = 'none';
-      modal.classList.remove('open');
-    }
+    closeModal('modal-startup-period');
     
     document.getElementById('app').style.display='flex';
     var displayName = currentUser.name || currentUser.unit || currentUser.user;
@@ -8050,23 +8042,23 @@ function _confirmModal(title, body, onOk, onCancel, okLabel, onOk2, ok2Label){
   // Hủy
   var bc=document.createElement('button'); bc.textContent='Hủy';
   bc.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
-  bc.onclick=function(){ ov.remove(); if(onCancel) onCancel(); };
+  bc.onclick=function(){ ov.remove(); if(onCancel) onCancel(); document.removeEventListener('keydown',esc); };
   r.appendChild(bc);
   // Nút 2 (nếu có)
   if(onOk2 && ok2Label){
     var bo2=document.createElement('button'); bo2.textContent=ok2Label;
     bo2.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
-    bo2.onclick=function(){ ov.remove(); onOk2(); };
+    bo2.onclick=function(){ ov.remove(); onOk2(); document.removeEventListener('keydown',esc); };
     r.appendChild(bo2);
   }
   // Nút chính
   var bo=document.createElement('button'); bo.textContent=okLabel||'Xác nhận';
   bo.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
-  bo.onclick=function(){ ov.remove(); onOk(); };
+  bo.onclick=function(){ ov.remove(); onOk(); document.removeEventListener('keydown',esc); };
   r.appendChild(bo);
   box.appendChild(h); box.appendChild(b); box.appendChild(r);
   ov.appendChild(box); document.body.appendChild(ov);
-  ov.onclick=function(e){ if(e.target===ov){ ov.remove(); if(onCancel) onCancel(); } };
+  ov.onclick=function(e){ if(e.target===ov){ ov.remove(); if(onCancel) onCancel(); document.removeEventListener('keydown',esc); } };
   var esc=function(e){ if(e.key==='Escape'){ ov.remove(); if(onCancel) onCancel(); document.removeEventListener('keydown',esc); }};
   document.addEventListener('keydown',esc);
 }
@@ -8946,8 +8938,8 @@ function showBnDungThuoc(drugName, month, year){
             + '</div></div>';
         document.body.insertAdjacentHTML('beforeend', mHtml);
         modal = document.getElementById(modalId);
-        document.getElementById('bnd-close-btn').addEventListener('click', function(){ modal.style.display='none'; });
-        modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
+        document.getElementById('bnd-close-btn').addEventListener('click', function(){ modal.style.display='none'; document.body.classList.remove('modal-open'); });
+        modal.addEventListener('click', function(e){ if(e.target===modal) { modal.style.display='none'; document.body.classList.remove('modal-open'); } });
     }
 
     var pList = (window._dutruStats && window._dutruStats[drugName]) ? (window._dutruStats[drugName]['p'+month] || []) : [];
@@ -8986,6 +8978,7 @@ function showBnDungThuoc(drugName, month, year){
     }
     document.getElementById('bnd-body').innerHTML = bodyHtml;
     modal.style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
 // 2. Hàm Cửa sổ Popup (Modal) chi tiết từng tháng
@@ -9005,8 +8998,8 @@ function showDrugPatients(drugName, month, year) {
             + '</div></div>';
         document.body.insertAdjacentHTML('beforeend', mHtml);
         modal = document.getElementById(modalId);
-        document.getElementById('ddt-close-btn').addEventListener('click', function(){ modal.style.display='none'; });
-        modal.addEventListener('click', function(e){ if(e.target===modal) modal.style.display='none'; });
+        document.getElementById('ddt-close-btn').addEventListener('click', function(){ modal.style.display='none'; document.body.classList.remove('modal-open'); });
+        modal.addEventListener('click', function(e){ if(e.target===modal) { modal.style.display='none'; document.body.classList.remove('modal-open'); } });
     }
 
     var pList = window._dutruStats && window._dutruStats[drugName] ? window._dutruStats[drugName]['p'+month] : [];
@@ -9053,6 +9046,7 @@ function showDrugPatients(drugName, month, year) {
     
     document.getElementById('drug-detail-content').innerHTML = html;
     modal.style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 // 2. Hàm vẽ bảng Bệnh nhân (Đã ép buộc đồng bộ với bảng Thuốc)
 // (duplicate renderPatientTable removed — using the one defined above)
