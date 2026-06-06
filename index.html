@@ -509,7 +509,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="hide-diengiai">
 
 <!-- ===== LOGIN SCREEN ===== -->
 <div id="login-screen">
@@ -8772,6 +8772,13 @@ function getRealStatus(bn){
   return bnStatus(bn).label;
 }
 
+function toggleDienGiai() {
+    document.body.classList.toggle('hide-diengiai');
+    var isHidden = document.body.classList.contains('hide-diengiai');
+    var btnText = document.getElementById('diengiai-btn-text');
+    if(btnText) btnText.innerHTML = isHidden ? '👁 Hiện diễn giải' : '👁 Ẩn diễn giải';
+}
+
 function renderDuTru(){
     var dtDiv = document.getElementById('bn-dutru');
     if(!dtDiv) return;
@@ -8807,6 +8814,8 @@ function renderDuTru(){
         + '<svg width="12" height="12" viewBox="0 0 12 8" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);pointer-events:none" fill="none"><path d="M1 1l5 5 5-5" stroke="#1a5276" stroke-width="1.8" stroke-linecap="round"/></svg>'
         + '</div></div>'
         + '<span style="font-size:12px;color:#94a3b8;font-style:normal">ℹ️ Tháng đã qua reset về 0 — BN kết thúc giữa tháng tự động ngắt liều</span>'
+     + '<button class="btn btn-outline btn-sm" onclick="toggleDienGiai()" style="margin-left:auto;background:white">'
+     + '<span id="diengiai-btn-text">' + (document.body.classList.contains("hide-diengiai") ? "👁 Hiện diễn giải" : "👁 Ẩn diễn giải") + '</span></button>'
         + '</div>';
 
     if(!activeList.length){
@@ -8884,7 +8893,7 @@ function renderDuTru(){
          + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:40px">STT</th>'
          + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;min-width:150px">Tên thuốc dự trù</th>'
          + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:80px;background:#0d6632">Số BN đang dùng</th>'
-         + '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;min-width:220px;background:#1a4a6b">Diễn giải tính toán (Viên)</th>';
+     + '<th class="col-diengiai" style="padding:10px;text-align:center;border-right:1px solid #34495e;min-width:220px;background:#1a4a6b">Diễn giải tính toán (Viên)</th>';
     for(var i=1; i<=12; i++) html += '<th style="padding:10px;text-align:center;border-right:1px solid #34495e;width:55px">T' + i + '</th>';
     html += '<th style="padding:10px;text-align:right;width:90px;background:#154360">Tổng năm</th></tr></thead><tbody>';
 
@@ -8935,7 +8944,7 @@ function renderDuTru(){
             html += '<tr style="border-bottom:1px solid #eee"><td style="padding:10px;text-align:center;border-right:1px solid #eee">' + (stt++) + '</td>'
                  + '<td style="padding:10px;text-align:center;border-right:1px solid #eee;font-weight:600;color:#2c3e50">' + k + '</td>'
                  + '<td style="padding:10px;text-align:center;border-right:1px solid #eee;background:#f0fff4">' + bnBadge + '</td>'
-                 + '<td style="padding:8px 12px;text-align:center;border-right:1px solid #eee;color:#1a4a6b;font-size:12px;background:#f0f7ff;font-style:normal">' + diengiai + '</td>';
+         + '<td class="col-diengiai" style="padding:8px 12px;text-align:center;border-right:1px solid #eee;color:#1a4a6b;font-size:12px;background:#f0f7ff;font-style:normal">' + diengiai + '</td>';
             
             for(var i=1; i<=12; i++){
                 var val = stats[k]['m'+i];
@@ -9229,6 +9238,51 @@ function getDrugsByWeight(pd, weight, age) {
     var pdAbbr = pdUpper.replace(/^[\d\-]+/, '');
 
     var nameMap = {
+        // Bổ sung tên đầy đủ viết liền để tránh bị cắt chữ nhầm thành chữ viết tắt
+        "LEVOFLOXACIN500MG": "Levofloxacin 500mg",
+        "LEVOFLOXACIN250MG": "Levofloxacin 250mg",
+        "LEVOFLOXACIN": "Levofloxacin 250mg",
+        "RIFAMPICIN150MG": "Rifampicin 150mg",
+        "RIFAMPICIN": "Rifampicin 150mg",
+        "PYRAZINAMID500MG": "Pyrazinamid 500mg",
+        "PYRAZINAMIDE500MG": "Pyrazinamid 500mg",
+        "PYRAZINAMID": "Pyrazinamid 500mg",
+        "PYRAZINAMIDE": "Pyrazinamid 500mg",
+        "ETHAMBUTOL400MG": "Ethambutol 400mg",
+        "ETHAMBUTOL": "Ethambutol 400mg",
+        "PROTHIONAMIDE250MG": "Prothionamide 250mg",
+        "PROTHIONAMIDE": "Prothionamide 250mg",
+        "PARA-AMINOSALICYLICACID4G": "Para-aminosalicylic acid 4g",
+        "PARAAMINOSALICYLICACID": "Para-aminosalicylic acid 4g",
+        "BEDAQUILINE100MG": "Bedaquiline 100mg",
+        "BEDAQUILINE": "Bedaquiline 100mg",
+        "DELAMANID50MG": "Delamanid 50mg",
+        "DELAMANID": "Delamanid 50mg",
+        "LINEZOLID600MG": "Linezolid 600mg",
+        "LINEZOLID300MG": "Linezolid 300mg",
+        "LINEZOLID": "Linezolid 600mg",
+        "MOXIFLOXACIN400MG": "Moxifloxacin 400mg",
+        "MOXIFLOXACIN": "Moxifloxacin 400mg",
+        "CLOFAZIMINE100MG": "Clofazimine 100mg",
+        "CLOFAZIMINE": "Clofazimine 100mg",
+        "CYCLOSERINE250MG": "Cycloserine 250mg",
+        "CYCLOSERINE": "Cycloserine 250mg",
+        "AMIKACIN500MG/2ML": "Amikacin 500mg/2ml",
+        "AMIKACIN1G/4ML": "Amikacin 1g/4ml",
+        "AMIKACIN": "Amikacin 500mg/2ml",
+        "KANAMYCIN1G": "Kanamycin 1g",
+        "KANAMYCIN": "Kanamycin 1g",
+        "ISONIAZID300MG": "Isoniazid 300mg",
+        "ISONIAZID100MG": "Isoniazid 100mg",
+        "ISONIAZID": "Isoniazid 100mg",
+        "PRETOMANID200MG": "Pretomanid 200mg",
+        "PRETOMANID": "Pretomanid 200mg",
+        "STREPTOMYCIN1G": "Streptomycin 1g",
+        "STREPTOMYCIN": "Streptomycin 1g",
+        "CAPREOMYCIN": "Capreomycin 1g",
+        "PANTOPRAZOLE": "Pantoprazole",
+        "CAPTOPRIL": "Captopril",
+        // Từ khóa viết tắt gốc
         LFX5:"Levofloxacin 500mg",
         RFP: "Rifampicin 150mg",
         PZA: "Pyrazinamid 500mg",
@@ -9284,7 +9338,9 @@ function getDrugsByWeight(pd, weight, age) {
         "Pyrazinamid 500mg": { monthTotal: vZ, note: noteZ },
         "Ethambutol 400mg": { monthTotal: vE, note: noteE },
         "Prothionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Para-aminosalicylic acid 4g": { monthTotal: 26, note: "1 viên/ngày" }
+        "Para-aminosalicylic acid 4g": { monthTotal: 26, note: "1 viên/ngày" },
+        "Streptomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" },
+        "Capreomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" }
     };
 
     while (tempPdStr.length > 0) {
