@@ -2144,7 +2144,7 @@ function isCurrentPeriodLocked(){
   if (role === 'admin') {
     var selUnit = document.getElementById('filter-unit-bc');
     var unitVal = selUnit ? selUnit.value : '__all__';
-    if (unitVal === '__all__') return false; // Đang xem tất cả thì form nhập liệu vốn đã bị ẩn sẵn
+            if (unitVal === '__all__') return !!lockedPeriods[periodKey]; // Bắt cờ khóa toàn cục
     if (unitVal === 'bvph') return !!lockedPeriods[periodKey + '_bvph'];
     return !!lockedPeriods[periodKey + '_' + unitVal];
   } else if (role === 'bvph') {
@@ -5440,6 +5440,11 @@ async function saveBC(){
   var periodKey = _currentPeriodKey();
   if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--danger)'); return; }
 
+  if(isCurrentPeriodLocked()){
+      toast('Báo cáo đã khóa, không thể lưu!', 'var(--danger)');
+      return;
+  }
+
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
 
@@ -5565,6 +5570,12 @@ function _createNextPeriodRows(curKey, nextKey){
 function openReport(){
   var role = currentUser ? currentUser.role : '';
   var periodKey = _currentPeriodKey();
+
+  if (role !== 'admin') {
+      toast('Chỉ Admin Phòng Kế hoạch mới có quyền mở khóa báo cáo!', 'var(--danger)');
+      return;
+  }
+
   var label = _keyToLabel(periodKey);
   
   var selUnit = document.getElementById('filter-unit-bc');
@@ -5652,10 +5663,11 @@ function updateFooterByRole(){
 
 function updateSaveBtnUI(){
   var locked   = isCurrentPeriodLocked();
+  var role     = currentUser ? currentUser.role : '';
   var saveBtn  = document.getElementById('btn-save-bc');
   var openBtn  = document.getElementById('btn-open-bc');
   if(saveBtn) saveBtn.style.display = locked ? 'none' : '';
-  if(openBtn) openBtn.style.display = locked ? ''     : 'none';
+  if(openBtn) openBtn.style.display = (locked && role === 'admin') ? '' : 'none';
   updateLockedUI();
 }
 
