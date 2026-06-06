@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quản lý Thuốc Lao — Bệnh viện Phổi Hải Phòng</title>
+<title>Quản lý Thuốc Lao — Bệnh viện Phổi Hải Phòng</title>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -517,8 +517,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <div class="login-logo">
       <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 3a1 1 0 110 2 1 1 0 010-2zm3 12H9v-1h2v-5H9v-1h4v6h2v1z"/></svg>
     </div>
-    <h2>Hệ thống Quản lý thuốc Lao hàng 2</h2>
-    <p>Bệnh viện Phổi Hải Phòng — Phòng Chỉ đạo tuyến</p>
+    <h2>Hệ thống Quản lý Thuốc Lao</h2>
+    <p>Bệnh viện Phổi Hải Phòng — Phòng Chỉ đạo tuyến</p>
 
     <div class="login-field">
       <label for="l-unit">Trung tâm Y tế / Bệnh viện</label>
@@ -542,7 +542,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 <div class="sidebar">
   <div class="sb-brand">
     <div class="sb-logo"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 3a1 1 0 110 2 1 1 0 010-2zm3 12H9v-1h2v-5H9v-1h4v6h2v1z"/></svg></div>
-    <h3>Phòng Chỉ đạo tuyến</h3><p>BV Phổi Hải Phòng</p>
+    <h3>Phòng Chỉ đạo tuyến</h3><p>Bệnh viện Phổi Hải Phòng</p>
   </div>
   <div class="sb-sec" id="sb-sec-main">Chính</div>
   <button id="sb-tq" class="sb-item active" onclick="nav('tq',this)">
@@ -557,7 +557,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   </button>
   <div class="sb-sec">Bệnh nhân</div>
   <button id="sb-bn" class="sb-item" onclick="nav('bn',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Bệnh nhân & Dự trù
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Dự trù thuốc theo bệnh nhân
   </button>
   <div class="sb-sec" id="sb-sec-system">Hệ thống</div>
   <button id="sb-tk" class="sb-item" onclick="nav('tk',this)">
@@ -800,7 +800,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
     <div>
       <h1>Báo cáo thuốc</h1>
-      <p>BV Phổi HP — báo cáo riêng | 22 đơn vị còn lại — tổng hợp chung</p>
+      <p>Bệnh viện Phổi Hải Phòng — báo cáo riêng | 22 đơn vị còn lại — tổng hợp chung</p>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
       <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ báo cáo:</label>
@@ -943,7 +943,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <div class="input-section" id="form-bvph" style="border-color:#1a5276;background:#f0f7ff;padding:12px 14px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBVPHRow();}">
       <div class="input-section-title" style="color:#1a5276;margin-bottom:10px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-        Thêm dòng — Kho chính BV Phổi HP
+      Thêm dòng — Kho chính Bệnh viện Phổi Hải Phòng
         <span id="bvph-drug-hint" style="font-size:10px;color:var(--accent);font-weight:400;margin-left:6px">(Admin: thêm tên thuốc mới tại Danh sách thuốc)</span>
       </div>
       <input type="hidden" id="bvph-month" value="2026-05">
@@ -971,7 +971,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </div>
 
         <div style="display:flex;gap:6px;background:#e8f5e9;border-radius:6px;padding:4px 8px;border:1px solid #c8e6c9">
-          <div class="fg"><label for="bvph-tinh" style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bvph-tinh" aria-label="Nhập tỉnh cấp" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label for="bvph-tinh" style="color:#1b5e20;font-weight:700">Nhập TW (+)</label><input type="number" id="bvph-tinh" aria-label="Nhập tỉnh cấp" placeholder="0" min="0" style="width:64px"></div>
           <div class="fg"><label for="bvph-dc" style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bvph-dc" aria-label="Điều chuyển vào" placeholder="0" min="0" style="width:72px"></div>
         </div>
 
@@ -1039,7 +1039,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
               <th class="hdr-act no-print" rowspan="2" style="min-width:70px">Thao tác</th>
             </tr>
             <tr>
-              <th class="hdr-in-sub" style="min-width:75px">Tỉnh cấp</th><th class="hdr-in-sub" style="min-width:75px">Điều chuyển</th><th class="hdr-in-sub" style="min-width:80px">Tổng nhập</th>
+              <th class="hdr-in-sub" style="min-width:75px">Nhập TW</th><th class="hdr-in-sub" style="min-width:75px">Điều chuyển</th><th class="hdr-in-sub" style="min-width:80px">Tổng nhập</th>
               <th class="hdr-out-sub" style="min-width:75px">Sử dụng</th><th class="hdr-out-sub" title="Nhập tay" style="min-width:80px">Xuất Tổ CL</th><th class="hdr-out-sub" style="min-width:80px">Xuất tỉnh khác</th><th class="hdr-out-sub" style="min-width:70px">Hỏng/HH</th><th class="hdr-out-sub" style="min-width:80px">Tổng xuất</th>
             </tr>
           </thead>
@@ -1323,7 +1323,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="page-header">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div>
-        <h1>Bệnh nhân &amp; Dự trù thuốc</h1>
+        <h1>Dự trù thuốc theo bệnh nhân</h1>
         <p>Danh sách bệnh nhân điều trị lao kháng thuốc — Dự trù tiêu thụ thuốc hàng tháng</p>
       </div>
       <span id="bn-sync-status" style="font-size:12px;font-weight:600;transition:color .3s"></span>
@@ -1441,7 +1441,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <label for="role-select" style="margin-bottom:6px;display:block">Quyền truy cập</label>
       <select id="role-select" title="Chọn quyền truy cập" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif;background:var(--surface)">
         <option value="admin">🔑 Quản trị viên — toàn quyền</option>
-        <option value="bvph">🏥 Nhập liệu BV Phổi HP</option>
+      <option value="bvph">🏥 Nhập liệu Bệnh viện Phổi Hải Phòng</option>
         <option value="donvi">🏨 Nhập liệu đơn vị tuyến</option>
       </select>
       <div id="role-desc" style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 8px;background:#f0f4f8;border-radius:5px"></div>
@@ -1472,7 +1472,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <label id="print-opt-bvph" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
         <input type="radio" name="print-choice" value="bvph" style="margin-top:2px;flex-shrink:0">
         <div>
-          <div style="font-weight:600;font-size:13px">Kho chính BV Phổi Hải Phòng</div>
+          <div style="font-weight:600;font-size:13px">Kho chính Bệnh viện Phổi Hải Phòng</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Bảng báo cáo riêng của Kho chính BVPHP</div>
         </div>
       </label>
@@ -2012,7 +2012,26 @@ function _currentPeriodKey(){
   }catch(e){ return ''; }
 }
 function isCurrentPeriodLocked(){
-  return !!lockedPeriods[_currentPeriodKey()];
+  var periodKey = _currentPeriodKey();
+  if (!periodKey) return false;
+  
+  // 1. Kiểm tra khóa toàn cục (áp dụng khi tất cả các đơn vị đều bị khóa)
+  if (lockedPeriods[periodKey]) return true;
+  
+  // 2. Kiểm tra khóa theo từng đơn vị cụ thể đang được xem/đăng nhập
+  if (!currentUser) return false;
+  var role = currentUser.role;
+  if (role === 'admin') {
+    var selUnit = document.getElementById('filter-unit-bc');
+    var unitVal = selUnit ? selUnit.value : '__all__';
+    if (unitVal === '__all__') return false; // Đang xem tất cả thì form nhập liệu vốn đã bị ẩn sẵn
+    if (unitVal === 'bvph') return !!lockedPeriods[periodKey + '_bvph'];
+    return !!lockedPeriods[periodKey + '_' + unitVal];
+  } else if (role === 'bvph') {
+    return !!lockedPeriods[periodKey + '_bvph'];
+  } else {
+    return !!lockedPeriods[periodKey + '_' + currentUser.unit];
+  }
 }
 
 // Danh mục lô thuốc (admin quản lý) — nguồn chính cho chọn số lô
@@ -3208,7 +3227,7 @@ function renderAccounts(){
     admin:{ border:'#e74c3c', rowBg:'#fff8f8', avatarBg:'linear-gradient(135deg,#e74c3c,#c0392b)', icon:'🔑', label:'Quản trị viên',
             badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#fde8e8;color:#c0392b;border:1px solid #f5c6cb">🔑 Quản trị</span>' },
     bvph: { border:'#2980b9', rowBg:'#f0f7ff', avatarBg:'linear-gradient(135deg,#2980b9,#1a5276)', icon:'🏥', label:'Nhập liệu BVPH',
-            badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d1ecf1;color:#0c5460;border:1px solid #bee5eb">🏥 BV Phổi HP</span>' },
+            badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d1ecf1;color:#0c5460;border:1px solid #bee5eb">🏥 Bệnh viện Phổi Hải Phòng</span>' },
     donvi:{ border:'#27ae60', rowBg:'#f0fff5', avatarBg:'linear-gradient(135deg,#27ae60,#1e8449)', icon:'🏨', label:'Nhập liệu đơn vị',
             badge:'<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;background:#d4edda;color:#155724;border:1px solid #c3e6cb">🏨 Đơn vị</span>' }
   };
@@ -4674,7 +4693,7 @@ async function loadNotifications(){
     // Admin: xem tất cả rejected/confirmed trong kỳ
     url = SUPA_URL+'/rest/v1/transfers'
       +'?period=eq.'+encodeURIComponent(periodKey)
-      +'&status=in.(rejected,confirmed,cancelled)'
+      +'&status=in.(rejected,confirmed,cancelled,locked)'
       +'&order=created_at.desc&limit=50';
   } else {
     // Đơn vị: xem cả thông báo gửi cho mình (confirmed/rejected) + phiếu pending chờ xác nhận
@@ -4743,6 +4762,12 @@ function renderNotifPanel(notifs){
         // Thông báo cho bên NHẬN: đơn vị xuất đã thu hồi
         msg = '<b>'+t.from_unit+'</b> đã <span style="color:#e74c3c;font-weight:600">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> cho bạn';
       }
+    } else if(t.status==='locked'){
+      icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🔒</span>';
+      msg = 'Đơn vị <b>'+t.from_unit+'</b> đã <span style="color:#27ae60;font-weight:600">IN VÀ CHỐT</span> báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '');
+    } else if(t.status==='unlocked'){
+      icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🔓</span>';
+      msg = 'Admin đã <span style="color:#e67e22;font-weight:600">MỞ KHÓA</span> báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + ' cho đơn vị bạn.';
     }
     if(!msg) return '';
 
@@ -4791,7 +4816,8 @@ async function markNotifRead(transferId){
 // Đánh dấu tất cả đã đọc
 async function markAllNotifsRead(){
   if(!_supaOnline || !currentUser) return;
-  var myUnit = currentUser.unit || (currentUser.role==='bvph'?BVPH:'');
+  var myUnit = currentUser.role === 'admin' ? 'admin' : (currentUser.unit || (currentUser.role==='bvph'?BVPH:''));
+  if(!myUnit) return;
   try{
     await fetch(SUPA_URL+'/rest/v1/transfers?notif_for=eq.'+encodeURIComponent(myUnit)+'&notif_read=eq.false', {
       method:'PATCH',
@@ -4833,7 +4859,7 @@ function _startNotifPolling(){
   clearInterval(_notifTimer);
   _notifTimer = setInterval(async function(){
     if(!_supaOnline || !currentUser) return;
-    var myUnit = currentUser.unit || (currentUser.role==='bvph'?BVPH:'');
+    var myUnit = currentUser.role === 'admin' ? 'admin' : (currentUser.unit || (currentUser.role==='bvph'?BVPH:''));
     if(!myUnit) return;
     try{
       var r = await fetch(
@@ -5468,16 +5494,22 @@ function _createNextPeriodRows(curKey, nextKey){
 
 // Mở lại báo cáo kỳ đang chọn (chỉ Admin)
 function openReport(){
-  if(!isAdmin()){toast('Chỉ Admin mới mở lại báo cáo!','var(--danger)');return;}
+  var role = currentUser ? currentUser.role : '';
   var periodKey = _currentPeriodKey();
   var label = _keyToLabel(periodKey);
   
   var selUnit = document.getElementById('filter-unit-bc');
   var unitVal = selUnit ? selUnit.value : '__all__';
 
-  var title = '🔓 Mở khóa báo cáo';
+  if (role === 'donvi') {
+      unitVal = currentUser.unit;
+  } else if (role === 'bvph') {
+      unitVal = 'bvph';
+  }
+
+  var title = '🔓 Mở để sửa';
   var msg = '';
-  var unitDisplay = unitVal === 'bvph' ? 'Kho chính BV Phổi HP' : unitVal;
+  var unitDisplay = unitVal === 'bvph' ? 'Kho chính Bệnh viện Phổi Hải Phòng' : unitVal;
 
   if (unitVal !== '__all__') {
       msg = 'Mở khóa báo cáo <b>'+label+'</b> cho đơn vị:<br><strong style="color:var(--accent);font-size:14px;display:block;margin-top:4px">' + unitDisplay + '</strong>';
@@ -5518,7 +5550,7 @@ function openReport(){
       renderBVPH(); renderBC();
       updateSaveBtnUI();
       updateLockedUI();
-      toast('Đã mở lại báo cáo '+label+' để chỉnh sửa','var(--warning)');
+      toast('Bạn có thể sửa dữ liệu ngay bây giờ','var(--success)');
   }, null, 'Mở khóa');
 }
 
@@ -6936,7 +6968,7 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
 
     function _short(u) {
       if(!u) return '';
-      if(u === BVPH || u === 'bvph') return 'BV Phổi HP';
+      if(u === BVPH || u === 'bvph') return 'Bệnh viện Phổi Hải Phòng';
       return u.replace(/Trung\s*tâm\s*Y\s*tế\s*/i, '')
               .replace(/Bệnh\s*viện\s*Đa\s*khoa\s*/i, 'BVĐK ')
               .replace(/Bệnh\s*viện\s*/i, 'BV ')
@@ -7124,7 +7156,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'<th rowspan="3" class="mn" style="'+gcStyle+'">Ghi chú</th>'
     +'</tr>'
     +'<tr>'
-    +'<th class="hn" style="width:55px">Tỉnh cấp</th>'
+    +'<th class="hn" style="width:55px">'+(isBVPH?'Nhập TW':'Tỉnh cấp')+'</th>'
     +'<th class="hn" style="width:65px">Điều chuyển/<br>trả lại</th>'
     +'<th class="hn" style="width:45px">Thừa</th>'
     +'<th class="hn" style="width:55px">Cộng</th>'
@@ -7577,7 +7609,7 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
     // Header
     aoa.push([
       'STT','Tên thuốc','Số lô','Hạn dùng','Tồn đầu',
-      'Tỉnh cấp','Điều chuyển vào','Tổng nhập',
+      'Nhập TW','Điều chuyển vào','Tổng nhập',
       'Sử dụng','Xuất Tổ CL','Xuất tỉnh khác','Hỏng/HH','Tổng xuất',
       'Tồn cuối'
     ]);
