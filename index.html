@@ -1696,7 +1696,7 @@ async function _autoLoadOnLogin(){
     if(!rows.length){
       // Load PATIENTS rồi return
       try{
-        var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
+        var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache: 'no-store'});
         var pdE = prE.ok ? await prE.json() : [];
         if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value;
       }catch(e3){}
@@ -1741,7 +1741,7 @@ async function _autoLoadOnLogin(){
 
     // Load PATIENTS (BN_DATA) sau khi cloud đã online — cho tất cả role
     try{
-      var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
+      var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache: 'no-store'});
       var pd2 = pr.ok ? await pr.json() : [];
       if(pd2.length && Array.isArray(pd2[0].value)) BN_DATA = pd2[0].value;
     }catch(e2){}
@@ -8533,7 +8533,7 @@ async function _savePatientsToCloud(){
   try{
     await fetch(SUPA_URL+'/rest/v1/settings',{
       method:'POST', headers:hdr,
-      body:JSON.stringify({key:'PATIENTS',value:BN_DATA})
+      body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
     });
   }catch(e){}
 }
@@ -8544,7 +8544,7 @@ async function _loadPatientsFromCloud(){
     return;
   }
   try{
-    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache: 'no-store'});
     var d = r.ok ? await r.json() : [];
     if(d.length && Array.isArray(d[0].value)){
       BN_DATA = d[0].value;
