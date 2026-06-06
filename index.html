@@ -782,16 +782,6 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
           </tr>
         </thead>
         <tbody id="thuoc-body"></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4" class="left" style="padding-left:10px">Tổng cộng</td>
-            <td id="dt-fo">0</td>
-            <td id="dt-tnhap" style="color:var(--success)">0</td>
-            <td id="dt-txuat" style="color:var(--danger)">0</td>
-            <td id="dt-ff" style="color:var(--accent)">0</td>
-            <td></td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   </div>
@@ -4103,10 +4093,10 @@ function renderDrugTable(){
   if(q && q.value.trim()) filterDrugTable();
 }
 function setDrugTotals(o,i,x,f){
-  document.getElementById('dt-fo').textContent=fmtNum(o);
-  document.getElementById('dt-tnhap').textContent=fmtNum(i);
-  document.getElementById('dt-txuat').textContent=fmtNum(x);
-  document.getElementById('dt-ff').textContent=fmtNum(f);
+  var el1 = document.getElementById('dt-fo'); if(el1) el1.textContent=fmtNum(o);
+  var el2 = document.getElementById('dt-tnhap'); if(el2) el2.textContent=fmtNum(i);
+  var el3 = document.getElementById('dt-txuat'); if(el3) el3.textContent=fmtNum(x);
+  var el4 = document.getElementById('dt-ff'); if(el4) el4.textContent=fmtNum(f);
 }
 function filterDrugTable(){
   var q = (document.getElementById('search-drug').value||'').toLowerCase().trim();
@@ -4203,11 +4193,11 @@ function buildTbl(data, bodyId, prefix){
     var expired   = isExpiredStr(row.exp);
     var finalCls  = res.final < threshold.low ? 'final-low' : 'final-ok';
     var canEdit   = currentUser ? (isBVPH ? canEditBVPH() : canEditUnit(row.unit)) : false;
-    var isLocked  = (row.locked  === true);
     var isEditing = (row.editing === true);
     // Tồn đầu khoá với non-admin sau khi chốt
     var openRO    = (!isAdmin() && row.openLocked === true);
     var isPeriodLocked = isCurrentPeriodLocked();
+    var isLocked  = isPeriodLocked; // Bắt buộc phụ thuộc 100% vào khóa của Tháng, không dùng cờ rác cục bộ
 
     // Nút thao tác
     var btns = '';
@@ -4301,29 +4291,6 @@ function buildTbl(data, bodyId, prefix){
     tr += '<td class="no-print" style="white-space:nowrap">'+btns+'</td>';
     tr += '</tr>';
     tbody.innerHTML += tr;
-  }
-
-  // Hàng tổng cộng - thêm vào cuối tbody nếu có nhiều hơn 1 dòng
-  if(data.length > 1){
-    var ncols_before_sd = isBVPH ? 8 : 8;
-    var sumRow='<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">';
-    sumRow+='<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+data.length+' lô)</td>';
-    sumRow+='<td class="open-stock">'+sumOpen+'</td>';
-    sumRow+='<td>'+sumTinh+'</td>';
-    sumRow+='<td>'+sumDC+'</td>';
-    sumRow+='<td class="calc-cell">'+sumTIN+'</td>';
-    sumRow+='<td>'+sumSD+'</td>';
-    if(isBVPH){
-      sumRow+='<td class="calc-cell">'+sumDC2+'</td>';
-      sumRow+='<td>'+sumDC3+'</td>';
-    } else {
-      sumRow+='<td>'+sumDC2+'</td>';
-    }
-    sumRow+='<td>'+sumHH+'</td>';
-    sumRow+='<td class="calc-cell">'+sumTOUT+'</td>';
-    sumRow+='<td style="color:var(--accent);font-size:13px">'+sumFinal+'</td>';
-    sumRow+='<td></td></tr>';
-    tbody.innerHTML+=sumRow;
   }
 }
 function setFoot(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
@@ -5748,9 +5715,12 @@ function updateLockedUI(){
   document.querySelectorAll('th.hdr-act').forEach(function(th){
     th.style.display = locked ? 'none' : '';
   });
+  
+  // Reset lại trạng thái hiển thị của toàn bộ các ô cột thao tác
   document.querySelectorAll('td.no-print').forEach(function(td){
-    if(td.querySelector('button, span') && !td.querySelector('input')){
-      td.style.display = locked ? 'none' : '';
+    // Đảm bảo không ẩn nhầm các ô input hoặc dropdown
+    if(!td.querySelector('input') && !td.querySelector('select')){
+        td.style.display = locked ? 'none' : '';
     }
   });
 }
@@ -6646,12 +6616,7 @@ async function showDcDetail(prefix, rowIdx){
       tbody.appendChild(tr);
       total+=(t.qty||0);
     });
-    var tfr=document.createElement('tr'); tfr.style.background='#eef7ff';
-    var tfc=document.createElement('td'); tfc.style.cssText='padding:6px 8px;font-weight:700'; tfc.textContent='Tổng cộng';
-    var tfq=document.createElement('td'); tfq.style.cssText='padding:6px 8px;text-align:center;font-weight:700;color:#1a5276'; tfq.textContent=total.toLocaleString()+' viên';
-    var tfe=document.createElement('td'); tfe.colSpan=2;
-    tfr.appendChild(tfc); tfr.appendChild(tfq); tfr.appendChild(tfe);
-    tbody.appendChild(tfr); tbl.appendChild(tbody); listEl.appendChild(tbl);
+    tbl.appendChild(tbody); listEl.appendChild(tbl);
   }
   // Tính tổng thực tế từ DB
   var realTotal = transfers.reduce(function(s,t){ return s+(t.qty||0); }, 0);
@@ -7528,20 +7493,6 @@ function exportBaoCaoDonVi(){
 
   var dataEndRow = ws_data.length - 1;
 
-  // ── Dòng tổng cộng ───────────────────────────────────────────
-  var totArr = new Array(18).fill('');
-  totArr[0] = 'Tổng cộng';
-  for(var c=6; c<=16; c++){
-    var tot=0;
-    for(var ri=dataStartRow; ri<=dataEndRow; ri++){
-      tot += (parseInt(ws_data[ri][c])||0);
-    }
-    totArr[c] = tot||'';
-  }
-  ws_data.push(totArr);
-  var totRowIdx = ws_data.length-1;
-  merges.push({s:{r:totRowIdx,c:0},e:{r:totRowIdx,c:5}});
-
   // ── Ngày ký ──────────────────────────────────────────────────
   ws_data.push(new Array(18).fill(''));
   var today = new Date();
@@ -7751,8 +7702,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
         r.tinh||0,r.dc||0,cc.tin,
         r.sd||0,r.dc2||0,r.hh||0,cc.tout,cc.final]);
     });
-    aoa.push([]);
-    aoa.push(['TỔNG','','','',sO,'','',sTIN,sSD,'','',sTOUT,sFin]);
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols']=[{wch:4},{wch:26},{wch:12},{wch:12},{wch:9},
                   {wch:9},{wch:10},{wch:9},{wch:9},{wch:9},{wch:9},{wch:9},{wch:9}];
@@ -7793,14 +7742,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
       ]);
     });
 
-    // Dòng tổng
-    aoa.push([
-      'TỔNG','','','', sO,
-      sT, sDC, sTIN,
-      sSD, sDC2, sDC3, sHH, sTOUT,
-      sFin
-    ]);
-
     var ws = XLSX.utils.aoa_to_sheet(aoa);
 
     // Độ rộng cột
@@ -7824,10 +7765,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
     // Style header row (row 4 = index 3)
     var hCols = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
     hCols.forEach(function(c){ _styleCell(ws, c+'4', hdrStyle('155724')); });
-
-    // Style dòng tổng cuối
-    var lastRow = aoa.length;
-    hCols.forEach(function(c){ _styleCell(ws, c+lastRow, {font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'D4EDDA'}}}); });
 
     XLSX.utils.book_append_sheet(wb, ws, 'Kho chính BVPH');
   })();
@@ -7862,8 +7799,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
       ]);
     });
 
-    aoa.push(['TỔNG','','','','', sO, sT, sDC, sTIN, sSD, sDC2, sHH, sTOUT, sFin]);
-
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       {wch:5},{wch:26},{wch:30},{wch:14},{wch:12},{wch:10},
@@ -7875,8 +7810,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
     _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
     var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
     hCols.forEach(function(c){ _styleCell(ws,c+'4',hdrStyle('1a5276')); });
-    var lastRow=aoa.length;
-    hCols.forEach(function(c){ _styleCell(ws,c+lastRow,{font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'D1ECF1'}}}); });
 
     XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo 22 đơn vị');
   })();
@@ -7935,8 +7868,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
       ]);
     });
 
-    aoa.push(['TỔNG','','','', sO, sTW, sDC, sTIN, sSD, sDC3, sHH, sTOUT, sFin]);
-
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       {wch:5},{wch:32},{wch:14},{wch:12},{wch:10},
@@ -7948,8 +7879,6 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
     _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
     var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M'];
     hCols.forEach(function(c){ _styleCell(ws,c+'4',hdrStyle('6f1a1a')); });
-    var lastRow=aoa.length;
-    hCols.forEach(function(c){ _styleCell(ws,c+lastRow,{font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'F8D7DA'}}}); });
 
     XLSX.utils.book_append_sheet(wb, ws, 'Tổng hợp toàn TP');
   })();
@@ -8379,23 +8308,6 @@ function renderTP(){
       +'</td>'
       +'</tr>';
   });
-
-  if(keys.length > 1){
-    tbody.innerHTML +=
-      '<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">'
-      +'<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+keys.length+' lô)</td>'
-      +'<td class="open-stock">'+sO+'</td>'
-      +'<td>'+sTW+'</td>'
-      +'<td>'+sDC+'</td>'
-      +'<td class="calc-cell">'+sTIN+'</td>'
-      +'<td>'+sSD+'</td>'
-      +'<td>'+sDC3+'</td>'
-      +'<td>'+sHH+'</td>'
-      +'<td class="calc-cell">'+sTOUT+'</td>'
-      +'<td style="color:var(--accent);font-size:13px">'+sFin+'</td>'
-      +'<td></td>'
-      +'</tr>';
-  }
 }
 
 function onAdminUnitFilterChange() {
