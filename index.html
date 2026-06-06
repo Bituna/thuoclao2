@@ -1771,11 +1771,91 @@ async function _autoLoadOnLogin(){
   }
 }
 
+// --- HÀM MỚI: Đồng bộ khóa báo cáo độc lập để tránh bị ghi đè do autosave ---
+async function toggleLockOnCloud(periodKey, targetUnit, isLock) {
+    if(!_supaOnline) return;
+    try {
+        var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
+        var sv = await sr.json();
+        var serverLocked = (sv.length && sv[0].value) ? sv[0].value : {};
+
+        if (targetUnit === '__all__') {
+            if (isLock) { serverLocked[periodKey] = true; } 
+            else {
+                delete serverLocked[periodKey];
+                Object.keys(serverLocked).forEach(function(k){ if(k.startsWith(periodKey + '_')) delete serverLocked[k]; });
+            }
+        } else {
+            var lockKey = periodKey + '_' + targetUnit;
+            if (isLock) { serverLocked[lockKey] = true; } 
+            else {
+                delete serverLocked[lockKey];
+                if (serverLocked[periodKey]) {
+                    delete serverLocked[periodKey];
+                    UNITS.forEach(function(u){
+                        var uid = (u === BVPH) ? 'bvph' : u;
+                        if(uid !== targetUnit) serverLocked[periodKey + '_' + uid] = true;
+                    });
+                }
+            }
+        }
+        await fetch(SUPA_URL+'/rest/v1/settings', {
+          method: 'POST',
+          headers: Object.assign({}, _supaHdr, {'Prefer': 'resolution=merge-duplicates,return=minimal', 'Content-Type': 'application/json'}),
+          body: JSON.stringify({key:'lockedPeriods', value:serverLocked})
+        });
+        lockedPeriods = serverLocked;
+    } catch(e) { console.error("Lỗi đồng bộ khóa:", e); }
+}
+
+// --- ĐỒNG BỘ KHÓA BÁO CÁO ĐỘC LẬP TRÊN CLOUD ---
+async function toggleLockOnCloud(periodKey, targetUnit, isLock) {
+    if(!_supaOnline) return;
+    try {
+        var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
+        var sv = await sr.json();
+        var serverLocked = (sv.length && sv[0].value) ? sv[0].value : {};
+
+        if (targetUnit === '__all__') {
+            if (isLock) { serverLocked[periodKey] = true; } 
+            else {
+                delete serverLocked[periodKey];
+                Object.keys(serverLocked).forEach(function(k){ if(k.startsWith(periodKey + '_')) delete serverLocked[k]; });
+            }
+        } else {
+            var lockKey = periodKey + '_' + targetUnit;
+            if (isLock) { serverLocked[lockKey] = true; } 
+            else {
+                delete serverLocked[lockKey];
+                if (serverLocked[periodKey]) {
+                    delete serverLocked[periodKey];
+                    UNITS.forEach(function(u){
+                        var uid = (u === BVPH) ? 'bvph' : u;
+                        if(uid !== targetUnit) serverLocked[periodKey + '_' + uid] = true;
+                    });
+                }
+            }
+        }
+        await fetch(SUPA_URL+'/rest/v1/settings', {
+          method: 'POST',
+          headers: Object.assign({}, _supaHdr, {'Prefer': 'resolution=merge-duplicates,return=minimal', 'Content-Type': 'application/json'}),
+          body: JSON.stringify({key:'lockedPeriods', value:serverLocked})
+        });
+        lockedPeriods = serverLocked; // Cập nhật lại local cache sau khi merge với server
+    } catch(e) { console.error("Lỗi đồng bộ khóa:", e); }
+}
+
 // ── LƯU LÊN SUPABASE ──────────────────────────────────────
 async function saveToSupabase(periodKey){
   if(!_supaOnline) return false;
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
+  var targetUnitAdmin = '__all__';
+
+  if (role === 'admin') {
+    var selUnit = document.getElementById('filter-unit-bc');
+    targetUnitAdmin = selUnit ? selUnit.value : '__all__';
+  }
 
   try{
     // Header cơ bản (không có Prefer để tránh conflict)
@@ -1787,17 +1867,20 @@ async function saveToSupabase(periodKey){
 
     // Gom rows theo quyền
     var rows = [];
-    if(role==='bvph' || role==='admin'){
+    if(role==='bvph' || (role==='admin' && (targetUnitAdmin==='__all__' || targetUnitAdmin==='bvph'))){
       bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
         rows.push({period:periodKey, unit:'bvph', drug:r.drug, lot:r.lot,
           exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
           dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
     }
-    if(role==='donvi' || role==='admin'){
-      var bcF = role==='donvi'
-        ? bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;})
-        : bcData.filter(function(r){return r.bcMonth===periodKey;});
+    if(role==='donvi' || (role==='admin' && targetUnitAdmin!=='bvph')){
+      var bcF = bcData.filter(function(r){
+        if (r.bcMonth !== periodKey) return false;
+        if (role === 'donvi') return r.unit === unit;
+        if (role === 'admin' && targetUnitAdmin !== '__all__') return r.unit === targetUnitAdmin;
+        return true;
+      });
       bcF.forEach(function(r){
         rows.push({period:periodKey, unit:r.unit||unit, drug:r.drug, lot:r.lot,
           exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, dc:r.dc||0, sd:r.sd||0,
@@ -1809,6 +1892,10 @@ async function saveToSupabase(periodKey){
     var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey);
     if(role==='donvi')  delUrl += '&unit=eq.'+encodeURIComponent(unit);
     else if(role==='bvph') delUrl += '&unit=eq.bvph';
+    else if(role==='admin' && targetUnitAdmin !== '__all__') {
+        var tUnit = targetUnitAdmin === 'bvph' ? 'bvph' : targetUnitAdmin;
+        delUrl += '&unit=eq.'+encodeURIComponent(tUnit);
+    }
 
     var delRes = await fetch(delUrl, {method:'DELETE', headers:hdBase});
     if(!delRes.ok){
@@ -1829,12 +1916,7 @@ async function saveToSupabase(periodKey){
       }
     }
 
-    // Bước 3: Lưu lockedPeriods vào settings
-    await fetch(SUPA_URL+'/rest/v1/settings', {
-      method: 'POST',
-      headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
-      body: JSON.stringify({key:'lockedPeriods', value:lockedPeriods})
-    });
+    // ĐÃ BỎ BƯỚC 3: Việc khóa được tách riêng để tránh Autosave ghi đè khóa của nhau.
 
     // Bước 4: Admin lưu catalog
     if(role==='admin') await _saveSupaCatalog();
@@ -1877,6 +1959,9 @@ async function loadFromSupabase(periodKey){
   try{
     toast('Đang tải từ cloud...','#1a5276');
 
+    var role = currentUser ? currentUser.role : 'admin';
+    var unit = currentUser ? currentUser.unit : '';
+
     // Xử lý "Cả năm" — query theo pattern
     var p = getSelectedPeriod();
     var filterPart;
@@ -1886,10 +1971,26 @@ async function loadFromSupabase(periodKey){
       filterPart = 'period=eq.' + encodeURIComponent(periodKey);
     }
 
-    var r = await fetch(
-      SUPA_URL+'/rest/v1/reports?'+filterPart+'&order=unit,drug,lot',
-      {headers:_supaHdr}
-    );
+    var url = SUPA_URL+'/rest/v1/reports?'+filterPart+'&order=unit,drug,lot';
+
+    // Đơn vị tuyến: chỉ tải data của mình
+    if(role === 'donvi'){
+      url += '&unit=eq.'+encodeURIComponent(unit);
+    }
+    // BVPH: chỉ tải data unit bvph
+    else if(role === 'bvph'){
+      url += '&unit=eq.bvph';
+    } else {
+      var selUnit = document.getElementById('filter-unit-bc');
+      var unitVal = selUnit ? selUnit.value : '__all__';
+      if (unitVal !== '__all__' && unitVal !== 'bvph') {
+         url += '&unit=eq.'+encodeURIComponent(unitVal);
+      } else if (unitVal === 'bvph') {
+         url += '&unit=eq.bvph';
+      }
+    }
+
+    var r = await fetch(url, {headers:_supaHdr});
     if(!r.ok) throw new Error('HTTP '+r.status);
     var rows = await r.json();
 
@@ -1899,13 +2000,24 @@ async function loadFromSupabase(periodKey){
     var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
     var newBc   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
 
-    // Giữ data kỳ/năm khác, thay kỳ/năm này
-    if(p.type === 'year'){
-      bvphData = bvphData.filter(function(r){return !r.bcMonth||!r.bcMonth.startsWith(p.year+'-');}).concat(newBvph);
-      bcData   = bcData.filter(function(r){  return !r.bcMonth||!r.bcMonth.startsWith(p.year+'-');}).concat(newBc);
+    // Merge vào data hiện tại theo role
+    if(role === 'donvi'){
+      bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unit); })
+               .concat(newBc);
+    } else if(role === 'bvph'){
+      bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
+                 .concat(newBvph);
     } else {
-      bvphData = bvphData.filter(function(r){return r.bcMonth!==periodKey;}).concat(newBvph);
-      bcData   = bcData.filter(function(r){  return r.bcMonth!==periodKey;}).concat(newBc);
+      var selUnit2 = document.getElementById('filter-unit-bc');
+      var unitVal2 = selUnit2 ? selUnit2.value : '__all__';
+      if (unitVal2 === '__all__') {
+        bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); }).concat(newBvph);
+        bcData   = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); }).concat(newBc);
+      } else if (unitVal2 === 'bvph') {
+        bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); }).concat(newBvph);
+      } else {
+        bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unitVal2); }).concat(newBc);
+      }
     }
 
     // Tải lockedPeriods
@@ -1917,12 +2029,18 @@ async function loadFromSupabase(periodKey){
     var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
     var cd = await cr.json();
     if(cd.length){
-      catalogData = cd;
+      var seenC={}, cleanC=[];
+      cd.forEach(function(r){
+        var k=r.drug+'|'+r.lot+'|'+(r.exp||'');
+        if(!seenC[k]){seenC[k]=true;cleanC.push(r);}
+      });
+      catalogData = cleanC;
     }
-    // Chỉ lưu localStorage khi catalog có data
-    if(catalogData.length) saveLocalCache(buildPayload());
+    // Chỉ lưu localStorage khi tải xong
+    saveLocalCache(buildPayload());
     fillDrugSelects();
-    renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable();
+    _cacheTransfers(periodKey); // load lại ghi chú điều chuyển
+    fullRender();
     updateSaveBtnUI();
     toast('✓ Đã tải '+rows.length+' dòng từ cloud (kỳ '+periodKey+')','#27ae60');
   }catch(e){
@@ -2909,9 +3027,12 @@ async function confirmStartupPeriod() {
               missingList.push('Tháng ' + mM + '/' + mY);
           }
 
-          var missingHtml = missingList.map(function(s){
+          var missingHtml = missingList.slice(0, 12).map(function(s){
               return '<span style="display:inline-block;background:#fdecea;color:#c0392b;border-radius:6px;padding:3px 10px;margin:3px 4px;font-weight:700;font-size:13px">' + s + '</span>';
           }).join('');
+          if (missingList.length > 12) {
+              missingHtml += '<span style="display:inline-block;background:#f5f5f5;color:#666;border-radius:6px;padding:3px 10px;margin:3px 4px;font-weight:700;font-size:13px">... và ' + (missingList.length - 12) + ' tháng khác</span>';
+          }
 
           var msgHtml = '<div style="text-align:center;">'
                       + '<div style="font-size:38px;margin-bottom:10px;">⚠️</div>'
@@ -2932,7 +3053,18 @@ async function confirmStartupPeriod() {
 
       // Lấy từ Supabase — bắt buộc online
       var _getPeriods = async function() {
-          var r = await fetch(SUPA_URL + '/rest/v1/reports?unit=eq.' + encodeURIComponent(myUnit) + '&locked=eq.true&select=period', {headers: _supaHdr});
+          var controller;
+          var fetchOpts = { headers: _supaHdr, cache: 'no-store' };
+          if (window.AbortController) {
+              controller = new AbortController();
+              fetchOpts.signal = controller.signal;
+          }
+          var fetchPromise = fetch(SUPA_URL + '/rest/v1/reports?unit=eq.' + encodeURIComponent(myUnit) + '&locked=eq.true&select=period', fetchOpts);
+          var timeoutPromise = new Promise(function(_, reject) {
+              setTimeout(function() { if(controller) controller.abort(); reject(new Error('Timeout')); }, 3500); // Tự động ngắt nếu quá 3.5 giây
+          });
+          
+          var r = await Promise.race([fetchPromise, timeoutPromise]);
           if(!r.ok) throw new Error('HTTP ' + r.status);
           var data = await r.json();
           var periods = [];
@@ -4583,83 +4715,14 @@ function onUnitChange(){
 // ============================================================
 // ============================================================
 // LƯU / MỞ FILE TRÊN Ổ CỨNG — TỰ ĐỘNG, KHÔNG HỎI LẠI
-// PM tự tạo file lần đầu, mọi lần lưu ghi thẳng vào file đó
-// File System Access API + IndexedDB lưu handle qua sessions
+// Đã vô hiệu hóa hoàn toàn — Chỉ đồng bộ và tải dữ liệu online
 // ============================================================
-var _fileHandle = null;
-
-// ── IndexedDB: lưu/đọc handle file ──────────────────────────
-var _IDB = 'thuoclao_db', _IDB_ST = 'handles', _IDB_KEY = 'dataFile';
-function _openDB(){
-  return new Promise(function(res,rej){
-    var r = indexedDB.open(_IDB,1);
-    r.onupgradeneeded = function(e){ e.target.result.createObjectStore(_IDB_ST); };
-    r.onsuccess = function(e){ res(e.target.result); };
-    r.onerror   = function(){ rej(r.error); };
-  });
-}
-async function _saveHandle(h){
-  try{ var db=await _openDB(); return new Promise(function(res){ var tx=db.transaction(_IDB_ST,'readwrite'); tx.objectStore(_IDB_ST).put(h,_IDB_KEY); tx.oncomplete=res; }); }catch(e){}
-}
-async function _loadHandle(){
-  try{ var db=await _openDB(); return new Promise(function(res){ var r=db.transaction(_IDB_ST,'readonly').objectStore(_IDB_ST).get(_IDB_KEY); r.onsuccess=function(){ res(r.result||null); }; r.onerror=function(){ res(null); }; }); }catch(e){ return null; }
-}
-
-// ── Ghi dữ liệu vào file ──────────────────────────────────
-async function _writeToFile(payload){
-  if(!_fileHandle) return false;
-  try{
-    var w = await _fileHandle.createWritable();
-    await w.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-    await w.close();
-    return true;
-  }catch(e){
-    try{
-      var perm = await _fileHandle.requestPermission({mode:'readwrite'});
-      if(perm==='granted'){
-        var w2=await _fileHandle.createWritable();
-        await w2.write(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-        await w2.close();
-        return true;
-      }
-    }catch(e2){}
-    return false;
-  }
-}
-
-// ── Cập nhật UI thanh trạng thái file ─────────────────────
-function _updateFileStatus(){
-  var el=document.getElementById('file-status-bar');
-  if(!el) return;
-  if(_fileHandle){
-    el.innerHTML='<span style="color:#27ae60;font-size:11px">💾 File dữ liệu: <strong>'+_fileHandle.name+'</strong> &nbsp;<a href="#" onclick="rechoseFile();return false;" style="color:#aaa;font-size:10px">[đổi]</a></span>';
-  } else if(window.showSaveFilePicker){
-    el.innerHTML='<span style="color:#e67e22;font-size:11px">⚠ Chưa chọn file — <a href="#" onclick="rechoseFile();return false;" style="color:#e67e22;font-weight:600">Chọn file lưu ngay</a></span>';
-  } else {
-    el.innerHTML='<span style="color:#999;font-size:11px">ℹ Dùng Chrome/Edge để lưu file tự động</span>';
-  }
-}
-
-// ── Khởi tạo file khi mở PM ───────────────────────────────
 async function initFileHandle(){
-  // Không dùng file ổ cứng nữa — chỉ cloud
-  var el = document.getElementById('file-status-bar');
-  if(el) el.innerHTML = '<span style="color:#27ae60;font-size:11px">💾 Tự động lưu cloud</span>';
+  // Đã bỏ tính năng lưu offline
 }
 
-// ── Đổi file lưu ──────────────────────────────────────────
 async function rechoseFile(){
-  if(!window.showSaveFilePicker){ toast('Trình duyệt không hỗ trợ. Dùng Chrome/Edge.','var(--warning)'); return; }
-  try{
-    var h = await window.showSaveFilePicker({
-      suggestedName: _fileHandle ? _fileHandle.name : 'thuoclao_data.json',
-      types:[{description:'Dữ liệu Hệ thống Thuốc Lao',accept:{'application/json':['.json']}}],
-      startIn:'documents'
-    });
-    _fileHandle=h; await _saveHandle(h); await _writeToFile(buildPayload());
-    _updateFileStatus();
-    toast('✓ Đã đổi file lưu sang: '+h.name,'var(--success)');
-  }catch(e){}
+  toast('Tính năng lưu offline đã bị vô hiệu hóa, chỉ sử dụng Cloud.','var(--warning)');
 }
 
 // ============================================================
@@ -4856,6 +4919,39 @@ async function _sendConfirmNotif(transfer){
   }catch(e){}
 }
 
+// Gửi thông báo khi đơn vị chốt số liệu (in báo cáo)
+async function _sendLockNotification(periodKey, unitName) {
+  if(!_supaOnline) return;
+  try {
+    await fetch(SUPA_URL+'/rest/v1/transfers', {
+      method: 'POST',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+      body: JSON.stringify([{
+        period: periodKey, from_unit: unitName, to_unit: 'admin',
+        drug: 'Hệ thống', lot: '', exp: '', qty: 0,
+        type: 'system_notif', status: 'locked', notif_for: 'admin', notif_read: false
+      }])
+    });
+  } catch(e) {}
+}
+
+// Gửi thông báo khi Admin mở khóa cho đơn vị
+async function _sendUnlockNotification(periodKey, unitName) {
+  if(!_supaOnline) return;
+  var _toUnit = (unitName === 'bvph' || unitName === BVPH) ? BVPH : unitName;
+  try {
+    await fetch(SUPA_URL+'/rest/v1/transfers', {
+      method: 'POST',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+      body: JSON.stringify([{
+        period: periodKey, from_unit: 'admin', to_unit: _toUnit,
+        drug: 'Hệ thống', lot: '', exp: '', qty: 0,
+        type: 'system_notif', status: 'unlocked', notif_for: _toUnit, notif_read: false
+      }])
+    });
+  } catch(e) {}
+}
+
 // Poll thông báo mới mỗi 60 giây
 function _startNotifPolling(){
   clearInterval(_notifTimer);
@@ -4949,7 +5045,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
 
   var ov = document.createElement('div');
   ov.id = '_pending_transfer_modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center';
 
   var box = document.createElement('div');
   box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:520px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto';
@@ -5060,29 +5156,12 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
 }
 
 // ── API công khai ──────────────────────────────────────────
-async function quickSaveToFile(){ await _writeToFile(buildPayload()); }
-async function saveToFile(){ await rechoseFile(); }
-async function _promptSaveFile(){ await rechoseFile(); } // backward compat alias
+async function quickSaveToFile(){ toast('Chỉ sử dụng lưu dữ liệu qua Cloud.','var(--warning)'); }
+async function saveToFile(){ toast('Chỉ sử dụng lưu dữ liệu qua Cloud.','var(--warning)'); }
+async function _promptSaveFile(){ toast('Chỉ sử dụng lưu dữ liệu qua Cloud.','var(--warning)'); } // backward compat alias
 
 async function loadFromFile(){
-  if(window.showOpenFilePicker){
-    try{
-      var [h]=await window.showOpenFilePicker({types:[{description:'Dữ liệu Thuốc Lao',accept:{'application/json':['.json']}}]});
-      var text=await (await h.getFile()).text();
-      var p=JSON.parse(text);
-      applyPayload(p); saveLocalCache(p);
-      toast('✓ Đã tải dữ liệu từ: '+h.name,'var(--success)');
-      return;
-    }catch(e){ if(e.name==='AbortError') return; toast('Lỗi: '+(e.message||e),'var(--danger)'); return; }
-  }
-  var inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
-  inp.onchange=function(){
-    var f=inp.files[0]; if(!f) return;
-    var fr=new FileReader(); fr.onload=function(){
-      try{ var p=JSON.parse(fr.result); applyPayload(p); saveLocalCache(p); toast('✓ Đã tải: '+f.name,'var(--success)'); }
-      catch(e){ toast('File không hợp lệ!','var(--danger)'); }
-    }; fr.readAsText(f);
-  }; inp.click();
+  toast('Tính năng tải offline đã bị vô hiệu hóa, chỉ sử dụng tải qua Cloud.','var(--warning)');
 }
 
 
@@ -5364,55 +5443,44 @@ async function saveBC(){
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
 
+  // Chỉ tắt chế độ "đang sửa" (editing=false) để update giao diện, KHÔNG khóa cứng
   if (role === 'donvi') {
-      lockedPeriods[periodKey + '_' + unit] = true;
-      bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;}).forEach(function(r){ r.editing=false; });
   } else if (role === 'bvph') {
-      lockedPeriods[periodKey + '_bvph'] = true;
-      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.editing=false; });
   } else {
       var selUnit = document.getElementById('filter-unit-bc');
       var unitVal = selUnit ? selUnit.value : '__all__';
       if(unitVal === '__all__') {
-          lockedPeriods[periodKey] = true;
-          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
-          bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.editing=false; });
+          bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.editing=false; });
       } else if (unitVal === 'bvph') {
-          lockedPeriods[periodKey + '_bvph'] = true;
-          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+          bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.editing=false; });
       } else {
-          lockedPeriods[periodKey + '_' + unitVal] = true;
-          bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unitVal;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+          bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unitVal;}).forEach(function(r){ r.editing=false; });
       }
   }
 
-  // 3. Tính kỳ tiếp theo
-  var nextKey = _nextPeriodKey(periodKey);
-
-  // 4. Tạo rows tồn đầu kỳ tiếp (nếu chưa có)
-  if(nextKey){
-    _createNextPeriodRows(periodKey, nextKey);
-  }
-
-  // 5. Lưu localStorage trước
+  // Lưu localStorage trước
   var payload = buildPayload();
   saveLocalCache(payload);
   if(window.electronAPI && window.electronAPI.saveData){
     window.electronAPI.saveData(payload).catch(function(){});
   }
 
-  // 6. Lưu file ổ cứng
+  // Lưu file ổ cứng
   var saved = await _writeToFile(payload);
   if(!saved && !_fileHandle){
     toast('⚠ Chưa có file lưu. Bấm [Chọn file lưu ngay] ở thanh dưới.','var(--warning)');
   }
 
-  // 7. Đồng bộ lên Supabase (song song, không chặn UI)
+  // Đồng bộ lên Supabase (song song, không chặn UI)
   if(_supaOnline){
     saveToSupabase(periodKey)
       .then(function(ok){
-        if(ok) toast('☁ Đã đồng bộ lên cloud','#27ae60');
-        else   toast('⚠ Lưu cloud thất bại — dữ liệu vẫn an toàn trên máy','orange');
+            if(ok) {
+                toast('☁ Đã lưu dữ liệu nháp lên cloud (chưa chốt)','#27ae60');
+            } else toast('⚠ Lưu cloud thất bại — dữ liệu vẫn an toàn trên máy','orange');
       })
       .catch(function(e){ toast('⚠ Lỗi cloud: '+e.message,'orange'); });
   }
@@ -5420,8 +5488,7 @@ async function saveBC(){
   renderBVPH(); renderBC();
   updateSaveBtnUI();
 
-  var nextLabel = nextKey ? ' — Kỳ '+_keyToLabel(nextKey)+' đã tự động tạo tồn đầu.' : '';
-  toast('✓ Đã lưu & khoá kỳ '+_keyToLabel(periodKey)+'.'+nextLabel,'#1a5276');
+  toast('✓ Đã lưu nháp kỳ '+_keyToLabel(periodKey)+'. Bấm IN BÁO CÁO để chốt và khóa số liệu.','#1a5276');
 }
 
 // Tính key kỳ tiếp theo: "2026-05" → "2026-06"
@@ -5519,7 +5586,7 @@ function openReport(){
       msg = 'Mở khóa báo cáo <b>'+label+'</b> cho <strong style="color:var(--danger);font-size:14px;">TẤT CẢ</strong> các đơn vị?';
   }
 
-  _confirmModal(title, msg, function() {
+  _confirmModal(title, msg, async function() {
       if (unitVal !== '__all__') {
           delete lockedPeriods[periodKey + '_' + unitVal];
           if (lockedPeriods[periodKey]) {
@@ -5547,7 +5614,14 @@ function openReport(){
       if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display=(_role==='admin'||_role==='donvi')?'block':'none'; }
       
       saveLocalCache(buildPayload());
-      if(_supaOnline) saveToSupabase(periodKey).catch(function(){});
+      if(_supaOnline) {
+          await toggleLockOnCloud(periodKey, unitVal, false);
+          saveToSupabase(periodKey).catch(function(){});
+          if (role === 'admin' && unitVal !== '__all__') {
+              var targetUnit = (unitVal === 'bvph') ? BVPH : unitVal;
+              _sendUnlockNotification(periodKey, targetUnit);
+          }
+      }
 
       renderBVPH(); renderBC();
       updateSaveBtnUI();
@@ -5649,14 +5723,12 @@ function updateLockedUI(){
   if(banner){
     banner.style.display = locked ? 'flex' : 'none';
     if(locked){
-      var savedAt = '';
-      try{
-        var raw = localStorage.getItem('thuoclao_data');
-        if(raw){ var pld=JSON.parse(raw); if(pld.savedAt) savedAt=' lúc '+new Date(pld.savedAt).toLocaleString('vi-VN'); }
-      }catch(e){}
       var msgEl = document.getElementById('report-locked-msg');
-      var fileInfo = _fileHandle ? ' · File: <strong>'+_fileHandle.name+'</strong>' : ' · <em>Chưa lưu ra file ổ cứng</em>';
-      if(msgEl) msgEl.innerHTML = '🔒 Báo cáo '+_keyToLabel(_currentPeriodKey())+' đã được lưu'+savedAt+fileInfo+'. Bấm "Mở lại để sửa" để chỉnh sửa (chỉ Admin).';
+      if(msgEl) msgEl.innerHTML = '🔒 Báo cáo '+_keyToLabel(_currentPeriodKey())+' đã được chốt và khóa trên hệ thống Cloud. ' + (role === 'admin' ? 'Bấm "Mở lại để sửa" để chỉnh sửa.' : 'Chỉ Admin mới có thể mở khóa.');
+      var bannerBtn = banner.querySelector('button');
+      if (bannerBtn) {
+        bannerBtn.style.display = (role === 'admin') ? '' : 'none';
+      }
     }
   }
 
@@ -5681,12 +5753,7 @@ function applyPayload(p){
   if(p.threshold)   threshold   = p.threshold;
   if(p.extraTP)     extraTP     = p.extraTP;
   if(p.lockedPeriods && typeof p.lockedPeriods === 'object'){
-    // Đơn vị tuyến không áp dụng lockedPeriods từ localStorage/file (chỉ từ Supabase)
-    if(!currentUser || currentUser.role === 'donvi'){
-      lockedPeriods = {};
-    } else {
-      lockedPeriods = p.lockedPeriods;
-    }
+    lockedPeriods = p.lockedPeriods;
   }
   // backward compat: file cũ chỉ có reportLocked boolean (không biết kỳ nào) → bỏ qua
   // Gọi fillDrugSelects ngay sau khi catalogData đã được gán
@@ -5830,7 +5897,7 @@ function onFormDc2BCChange(inp){
 function _showFormTransferPopup(opts){
   var old=document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov=document.createElement('div'); ov.id='_transfer_modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
 
@@ -5932,7 +5999,7 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov = document.createElement('div');
   ov.id='_transfer_modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box = document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
@@ -6031,7 +6098,7 @@ function onDc2Change(prefix, rowIdx, inp){
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov = document.createElement('div');
   ov.id = '_transfer_modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box = document.createElement('div');
   box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
@@ -6253,7 +6320,7 @@ function onDc3Change(prefix, rowIdx, inp){
   var old = document.getElementById('_transfer_modal'); if(old) old.remove();
   var ov = document.createElement('div');
   ov.id = '_transfer_modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box = document.createElement('div');
   box.style.cssText = 'background:white;border-radius:12px;padding:22px 26px;max-width:480px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto';
 
@@ -6527,7 +6594,7 @@ async function showDcDetail(prefix, rowIdx){
   var old=document.getElementById('_dc_detail_modal'); if(old) old.remove();
   var ov=document.createElement('div');
   ov.id='_dc_detail_modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:500px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
   var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#1a2332;margin-bottom:6px'; h.textContent='↙ Chi tiết Nhập điều chuyển';
@@ -6812,6 +6879,27 @@ function _showPrintUnitPicker(periodKey){
   var role = currentUser ? currentUser.role : 'admin';
   h.textContent='🖨 In báo cáo';
 
+  // Chọn kỳ in
+  var pLabel = document.createElement('div'); pLabel.style.cssText='font-size:12px;font-weight:600;color:#555;margin-bottom:5px';
+  pLabel.textContent='Kỳ báo cáo in:';
+  var pWrap = document.createElement('div'); pWrap.style.cssText='display:flex;gap:8px;margin-bottom:12px';
+  var pParts = periodKey.split('-');
+  var pMonth = pParts[1] || ('0' + (new Date().getMonth() + 1)).slice(-2);
+  var pYear = pParts[0] || new Date().getFullYear();
+  var pMonthSel = document.createElement('select');
+  pMonthSel.style.cssText='flex:1;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px';
+  for(var m=1; m<=12; m++) {
+      var mm = (m<10?'0':'')+m;
+      var opt = document.createElement('option');
+      opt.value = mm; opt.textContent = 'Tháng ' + m;
+      if (mm === pMonth) opt.selected = true;
+      pMonthSel.appendChild(opt);
+  }
+  var pYearInp = document.createElement('input');
+  pYearInp.type = 'number'; pYearInp.value = pYear;
+  pYearInp.style.cssText='width:90px;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;text-align:center';
+  pWrap.appendChild(pMonthSel); pWrap.appendChild(pYearInp);
+
   // Label + Select đơn vị
   var lbl=document.createElement('div'); lbl.style.cssText='font-size:12px;font-weight:600;color:#555;margin-bottom:5px';
   lbl.textContent='Chọn đơn vị:';
@@ -6849,6 +6937,7 @@ function _showPrintUnitPicker(periodKey){
   btnO.style.cssText='padding:8px 20px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:700';
   btnO.onclick=async function(){
     var hideTCL=!chk.checked;
+    var printPeriod = pYearInp.value + '-' + pMonthSel.value;
     ov.remove();
     var unit;
     if(role==='bvph'){
@@ -6858,16 +6947,75 @@ function _showPrintUnitPicker(periodKey){
     } else {
       unit=sel.value;
     }
+
+    var isCurrentPeriod = (printPeriod === periodKey);
+    var printBvphData = bvphData;
+    var printBcData = bcData;
+
+    if (!isCurrentPeriod && _supaOnline) {
+       toast('Đang tải dữ liệu kỳ ' + printPeriod + ' từ máy chủ để in...', 'var(--warning)');
+       try {
+           var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(printPeriod)+'&order=unit,drug,lot';
+           if(role === 'donvi') url += '&unit=eq.'+encodeURIComponent(unit);
+           else if(role === 'bvph') url += '&unit=eq.bvph';
+           var r = await fetch(url, {headers:_supaHdr});
+           var rows = await r.json();
+           printBvphData = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
+           printBcData   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
+       } catch(e) {
+           toast('Không tải được dữ liệu tháng ' + printPeriod, 'var(--danger)');
+           return;
+       }
+    }
+
     // Luôn re-fetch transfers mới nhất trước khi in để có ghi chú điều chuyển đầy đủ
-    if(_supaOnline) await _cacheTransfers(periodKey);
+    if(_supaOnline) await _cacheTransfers(printPeriod);
+
+      // --- LOGIC CHỐT (KHÓA) SỐ LIỆU SAU KHI IN ---
+      var isLocking = false;
+      if (role === 'bvph' && unit === 'bvph') {
+        lockedPeriods[printPeriod + '_bvph'] = true;
+        printBvphData.filter(function(r){return r.bcMonth===printPeriod;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+        isLocking = true;
+      } else if (role === 'donvi' && unit === (currentUser.unit || '')) {
+        lockedPeriods[printPeriod + '_' + unit] = true;
+        printBcData.filter(function(r){return r.bcMonth===printPeriod && r.unit===unit;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+        isLocking = true;
+      } else if (role === 'admin') {
+        if (unit === 'bvph') {
+          lockedPeriods[printPeriod + '_bvph'] = true;
+          printBvphData.filter(function(r){return r.bcMonth===printPeriod;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+        } else if (unit !== '__all__') {
+          lockedPeriods[printPeriod + '_' + unit] = true;
+          printBcData.filter(function(r){return r.bcMonth===printPeriod && r.unit===unit;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+        } else {
+          lockedPeriods[printPeriod] = true; // Khóa cờ toàn tỉnh
+          printBvphData.filter(function(r){return r.bcMonth===printPeriod;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+          printBcData.filter(function(r){return r.bcMonth===printPeriod;}).forEach(function(r){ r.locked = true; r.editing = false; r.openLocked = true; });
+        }
+        isLocking = true;
+      }
+
+      if (isLocking) {
+        saveLocalCache(buildPayload());
+        if (_supaOnline) {
+          saveToSupabase(printPeriod).catch(function(){});
+          if (role !== 'admin') _sendLockNotification(printPeriod, currentUser.unit || BVPH);
+        }
+        if (isCurrentPeriod) {
+            renderBVPH(); renderBC();
+            updateSaveBtnUI();
+        }
+      }
+
     if(unit==='bvph'||unit===BVPH){
-      _doPrint(BVPH, bvphData.filter(function(r){ return r.bcMonth===periodKey; }), periodKey, hideTCL);
+      _doPrint(BVPH, printBvphData.filter(function(r){ return r.bcMonth===printPeriod; }), printPeriod, hideTCL);
     } else {
-      _doPrint(unit, bcData.filter(function(r){ return r.bcMonth===periodKey&&r.unit===unit; }), periodKey, hideTCL);
+      _doPrint(unit, printBcData.filter(function(r){ return r.bcMonth===printPeriod&&r.unit===unit; }), printPeriod, hideTCL);
     }
   };
   btnRow.appendChild(btnC); btnRow.appendChild(btnO);
-  box.appendChild(h); box.appendChild(lbl); box.appendChild(sel); box.appendChild(chkWrap); box.appendChild(btnRow);
+  box.appendChild(h); box.appendChild(pLabel); box.appendChild(pWrap); box.appendChild(lbl); box.appendChild(sel); box.appendChild(chkWrap); box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   setTimeout(function(){ sel.focus(); },100);
@@ -6893,7 +7041,7 @@ function _doPrint(unitName, rows, periodKey, hideTCL){
 function _confirmPrintDate(unitName, rows, periodKey, month, year, today, onConfirm){
   var old=document.getElementById('_print_date_modal'); if(old) old.remove();
   var ov=document.createElement('div'); ov.id='_print_date_modal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:24px 28px;max-width:420px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,.25)';
 
@@ -8066,7 +8214,7 @@ function _confirmModal(title, body, onOk, onCancel, okLabel, onOk2, ok2Label){
   var old=document.getElementById('_cm_ov'); if(old) old.remove();
   var ov=document.createElement('div');
   ov.id='_cm_ov';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
   box.style.cssText='background:white;border-radius:12px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
   var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:#1a2332;margin-bottom:8px'; h.textContent=title;
@@ -9384,30 +9532,62 @@ function generateDrugInputs(existingCustomDrugs) {
     
     var html = '';
     if(!drugsToRender || drugsToRender.length === 0) {
-       html = '<div style="color:#888; font-size:12px; font-style:italic">Vui lòng chọn phác đồ, nhập Tuổi và Cân nặng.</div>';
+       html = '<div style="color:#888; font-size:12px; font-style:italic" id="pt-empty-drug-msg">Vui lòng chọn phác đồ, nhập Tuổi và Cân nặng.</div>';
     } else {
        drugsToRender.forEach(function(item) {
-          // Nếu là Bedaquiline, tính chi tiết dựa trên ngày bắt đầu
-          if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0) {
+          // Nếu là Bedaquiline, tính chi tiết dựa trên ngày bắt đầu (chỉ tính nếu là tự động quét)
+          if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0 && !existingCustomDrugs) {
              var bdqDetail = calculateBedaquilineDetails(startDate);
              item.monthTotal = bdqDetail.monthTotal;
              item.note = bdqDetail.note;
           }
           
-          var noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;">'+item.note+'</div>' : '';
+          var noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;" class="pt-drug-note">'+item.note+'</div>' : '<div style="display:none" class="pt-drug-note"></div>';
           var val = item.monthTotal !== undefined ? item.monthTotal : item.daily;
+          var dName = item.d || item.drug;
 
-          html += '<div style="margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:6px;">'
+          html += '<div style="margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:6px;" class="pt-drug-row">'
                 + '<div style="display:flex; justify-content:space-between; align-items:center;">'
-                +   '<span style="font-weight:600; color:#1a5276; font-size:13px;">' + (item.d || item.drug) + '</span>'
-                +   '<div><input type="number" step="0.5" class="pt-drug-val" data-drug="'+(item.d || item.drug)+'" value="'+val+'" style="width:65px; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;"> <span style="color:#888; font-size:12px;">viên/Tháng</span></div>'
+                +   '<span style="font-weight:600; color:#1a5276; font-size:13px;">' + dName + '</span>'
+                +   '<div style="display:flex; align-items:center; gap:6px;"><input type="number" step="0.5" class="pt-drug-val" data-drug="'+dName+'" value="'+val+'" style="width:65px; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;"> <span style="color:#888; font-size:12px;">viên/Tháng</span>'
+                +   (isAdmin() ? '<button class="btn btn-xs" style="background:#e74c3c;color:white;padding:2px 6px;border-radius:4px;border:none" onclick="this.closest(\'.pt-drug-row\').remove()" title="Xóa thuốc này">✕</button>' : '')
+                +   '</div>'
                 + '</div>'
                 + noteStr
                 + '</div>';
        });
     }
+    
+    if (isAdmin()) {
+        html += '<div style="margin-top:10px;text-align:center;" class="pt-drug-add-btn-wrap">'
+             + '<button class="btn btn-xs btn-outline" style="font-size:11px;padding:4px 8px;border-radius:4px;border-color:#1a5276;color:#1a5276;background:white" onclick="ptAddCustomDrugRow(this)">+ Thêm thuốc thủ công</button>'
+             + '</div>';
+    }
     container.innerHTML = html;
 }
+
+window.ptAddCustomDrugRow = function(btn) {
+    var emptyMsg = document.getElementById('pt-empty-drug-msg');
+    if(emptyMsg) emptyMsg.style.display = 'none';
+    
+    var options = DRUGS.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join('');
+    
+    var row = document.createElement('div');
+    row.className = 'pt-drug-row';
+    row.style.cssText = 'margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:6px;';
+    row.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">'
+        + '<select class="pt-custom-drug-sel" style="flex:1; padding:4px; border:1px solid #ccc; border-radius:4px; font-size:12px;" onchange="this.closest(\'.pt-drug-row\').querySelector(\'.pt-drug-val\').setAttribute(\'data-drug\', this.value);">'
+        + '<option value="">-- Chọn thuốc --</option>' + options + '</select>'
+        + '<div style="display:flex; align-items:center; gap:6px;">'
+        +   '<input type="number" step="0.5" class="pt-drug-val" data-drug="" value="0" style="width:65px; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;">'
+        +   '<span style="color:#888; font-size:12px;">viên/Tháng</span>'
+        +   '<button class="btn btn-xs" style="background:#e74c3c;color:white;padding:2px 6px;border-radius:4px;border:none" onclick="this.closest(\'.pt-drug-row\').remove()" title="Xóa thuốc này">✕</button>'
+        + '</div>'
+        + '</div>'
+        + '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:4px;" class="pt-drug-note">Thuốc thêm thủ công</div>';
+        
+    btn.parentElement.insertAdjacentElement('beforebegin', row);
+};
 
 function openAddPatient(){
   document.getElementById('pt-index').value = '-1';
@@ -9449,7 +9629,6 @@ function editPatient(idx) {
   document.getElementById('pt-status').value = pt.status || 'Đang điều trị';
 
   // Chỉnh lý phác đồ
-  populatePdSelect();
   var currentPd = pt.pd || pt.phacDo || '6BPaLM';
   var pdSelect = document.getElementById('pt-pd');
   var pdOptions = [];
@@ -9517,10 +9696,12 @@ function savePatient(){
   var myDrugs = [];
   var drugInputs = document.querySelectorAll('.pt-drug-val');
   drugInputs.forEach(function(inp) {
+      var row = inp.closest('.pt-drug-row');
       var noteText = "";
-      var noteDiv = inp.closest('div').nextElementSibling;
-      if(noteDiv && noteDiv.style.fontStyle === 'italic') noteText = noteDiv.innerText;
-      myDrugs.push({ drug: inp.getAttribute('data-drug'), monthTotal: parseFloat(inp.value) || 0, note: noteText });
+      var noteDiv = row ? row.querySelector('.pt-drug-note') : null;
+      if(noteDiv && noteDiv.style.display !== 'none') noteText = noteDiv.innerText;
+      var dName = inp.getAttribute('data-drug');
+      if (dName) myDrugs.push({ drug: dName, monthTotal: parseFloat(inp.value) || 0, note: noteText });
   });
 
   var pt = {
