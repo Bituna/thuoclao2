@@ -300,7 +300,7 @@ th.hdr-out{border-left:3px solid #6b1414!important}
   #file-status-bar,#cloud-status{ font-size:9px; width:100%; }
 
   /* Bảng → scroll ngang */
-  .tbl-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; max-height:none; }
+  .tbl-wrap{ overflow-x:auto; max-height:none; }
   .tbl-wrap table{ min-width:600px; font-size:11px; }
   .tbl-wrap thead th{ font-size:10px; padding:5px 4px; white-space:nowrap; }
   .tbl-wrap tbody td{ padding:4px 4px; }
@@ -457,8 +457,8 @@ body.modal-open { overflow: hidden !important; }
   top: 0; left: 0; right: 0; bottom: 0;
   width: 100%; height: 100%;
   background: rgba(15,23,42,0.6);
-  backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   z-index: 99999;
   align-items: center;
   justify-content: center;
@@ -497,8 +497,8 @@ body.modal-open { overflow: hidden !important; }
 /* Lớp phủ popup động từ JS */
 div[id^="_"][id$="_modal"], div[id="_cm_ov"], div[id="_print_picker"] {
   background: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(5px) !important;
   -webkit-backdrop-filter: blur(5px) !important;
+  backdrop-filter: blur(5px) !important;
 }
 div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"] > div {
   border-radius: 16px !important;
@@ -521,15 +521,15 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <p>BV Phổi Hải Phòng — Phòng Chỉ đạo tuyến</p>
 
     <div class="login-field">
-      <label>Trung tâm Y tế / Bệnh viện</label>
-      <select id="l-unit" onchange="onLoginUnitChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath d=\'M1 1l5 5 5-5\' stroke=\'%23666\' stroke-width=\'1.5\' fill=\'none\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;padding-right:32px">
+      <label for="l-unit">Trung tâm Y tế / Bệnh viện</label>
+      <select id="l-unit" title="Chọn đơn vị đăng nhập" onchange="onLoginUnitChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath d=\'M1 1l5 5 5-5\' stroke=\'%23666\' stroke-width=\'1.5\' fill=\'none\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;padding-right:32px">
         <option value="">-- Chọn đơn vị --</option>
       </select>
     </div>
 
     <div class="login-field">
-      <label>Mật khẩu</label>
-      <input type="password" id="lp" placeholder="Nhập mật khẩu..." onkeydown="if(event.key==='Enter')doLogin()">
+      <label for="lp">Mật khẩu</label>
+      <input type="password" id="lp" aria-label="Mật khẩu" placeholder="Nhập mật khẩu..." onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <p id="login-err">Sai mật khẩu!</p>
     <button class="btn-login" onclick="doLogin()">ĐĂNG NHẬP</button>
@@ -602,7 +602,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <datalist id="tq-year-list">
         <option value="2025"></option><option value="2026"></option><option value="2027"></option>
       </datalist>
-      <select id="tq-month" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
+      <select id="tq-month" title="Chọn tháng thống kê" style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface)" onchange="onTQPeriodChange()">
         <option value="__year__">Cả năm</option>
         <option value="01">Tháng 1</option>
         <option value="02">Tháng 2</option>
@@ -697,24 +697,24 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div id="catalog-form" style="margin-bottom:12px;padding:12px;background:#fff;border-radius:8px;border:1px solid #c8d5e3">
         <div class="input-row-form" style="flex-wrap:wrap;gap:8px">
           <div class="fg" id="cat-drug-wrap" class="cat-edit-zone">
-            <label>Tên thuốc / Hàm lượng</label>
+            <label for="cat-drug">Tên thuốc / Hàm lượng</label>
             <!-- select được tạo động bởi fillCatDrugSelect() -->
-            <select id="cat-drug" style="width:230px" onchange="onCatDrugChange()">
+            <select id="cat-drug" title="Chọn tên thuốc" style="width:230px" onchange="onCatDrugChange()">
               <option value="">-- Chọn thuốc --</option>
             </select>
           </div>
           <div class="fg" id="cat-drug-custom-wrap" style="display:none">
-            <label>Tên thuốc khác</label>
-            <input type="text" id="cat-drug-custom" placeholder="Gõ tên thuốc..." style="width:200px">
+            <label for="cat-drug-custom">Tên thuốc khác</label>
+            <input type="text" id="cat-drug-custom" aria-label="Tên thuốc khác" placeholder="Gõ tên thuốc..." style="width:200px">
           </div>
-          <div class="fg cat-edit-zone"><label>Số lô SX</label><input type="text" id="cat-lot" placeholder="VD: L2026-01" style="width:120px"></div>
+          <div class="fg cat-edit-zone"><label for="cat-lot">Số lô SX</label><input type="text" id="cat-lot" aria-label="Số lô sản xuất" placeholder="VD: L2026-01" style="width:120px"></div>
           <div class="fg cat-edit-zone">
-            <label>Hạn dùng (mm/yyyy)</label>
-            <input type="text" id="cat-exp" placeholder="07/2027" style="width:96px" maxlength="7"
+            <label for="cat-exp">Hạn dùng (mm/yyyy)</label>
+            <input type="text" id="cat-exp" aria-label="Hạn dùng (mm/yyyy)" placeholder="07/2027" style="width:96px" maxlength="7"
               oninput="onExpInput(this)"
               onkeydown="if(event.key==='Enter'){event.preventDefault();addCatalog();}">
           </div>
-          <div class="fg cat-edit-zone"><label>Ghi chú</label><input type="text" id="cat-note" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
+          <div class="fg cat-edit-zone"><label for="cat-note">Ghi chú</label><input type="text" id="cat-note" aria-label="Ghi chú" placeholder="Nguồn gốc, đợt cấp..." style="width:160px"></div>
           <div style="margin-top:auto" class="cat-edit-zone"><button class="btn btn-success" onclick="addCatalog()">+ Thêm vào danh mục</button></div>
           <div style="margin-top:auto" id="btn-clear-catalog" class="cat-edit-zone">
             <button class="btn btn-danger btn-sm" onclick="clearAllCatalog()" title="Xóa toàn bộ danh mục thuốc (chỉ Admin)">🗑 Xóa tất cả</button>
@@ -753,15 +753,15 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <h3>Bảng tổng hợp tồn kho — 23 đơn vị &nbsp;<span id="thuoc-month-label" style="font-size:12px;font-weight:400;color:var(--accent)"></span></h3>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
         <div class="fg">
-          <label>Lọc theo tháng</label>
-          <input type="month" id="thuoc-month" value="2026-05" style="padding:6px 8px;font-size:12px"
+          <label for="thuoc-month">Lọc theo tháng</label>
+          <input type="month" id="thuoc-month" aria-label="Lọc theo tháng" value="2026-05" style="padding:6px 8px;font-size:12px"
             oninput="renderDrugTable()" onchange="renderDrugTable()">
         </div>
         <div class="fg" style="margin-top:auto">
           <button class="btn btn-outline btn-sm" title="Đồng bộ với kỳ báo cáo đang chọn"
             onclick="syncDrugMonth()" style="font-size:11px;white-space:nowrap">⇄ Theo kỳ BC</button>
         </div>
-        <div class="fg"><label>Tìm thuốc</label><input type="text" id="search-drug" placeholder="Gõ để lọc..." style="width:170px" oninput="filterDrugTable()"></div>
+        <div class="fg"><label for="search-drug">Tìm thuốc</label><input type="text" id="search-drug" aria-label="Tìm kiếm thuốc" placeholder="Gõ để lọc..." style="width:170px" oninput="filterDrugTable()"></div>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -807,7 +807,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
       <!-- Tháng + Năm trong 1 khung liền -->
       <div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)">
-        <select id="sel-month"
+        <select id="sel-month" title="Chọn tháng báo cáo"
           style="padding:7px 28px 7px 12px;border:none;font-size:13px;font-weight:600;color:var(--text);background:transparent;cursor:pointer;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\' %3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%23888\' stroke-width=\'1.2\' fill=\'none\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 8px center;min-width:110px"
           onchange="onGlobalMonthChange()">
           <option value="__year__">Cả năm</option>
@@ -887,8 +887,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <!-- THANH CHỌN ĐƠN VỊ DÀNH CHO ADMIN -->
     <div class="filter-bar admin-only-filter" style="margin-bottom:14px; display:none; background:#eef7ff; border-color:#b3d4f0">
       <div class="fg">
-        <label style="color:#1a5276">Xem và quản lý báo cáo của đơn vị:</label>
-        <select id="filter-unit-bc" style="width:300px; font-weight:600; color:#1a5276" onchange="onAdminUnitFilterChange()">
+        <label for="filter-unit-bc" style="color:#1a5276">Xem và quản lý báo cáo của đơn vị:</label>
+        <select id="filter-unit-bc" title="Lọc theo đơn vị" style="width:300px; font-weight:600; color:#1a5276" onchange="onAdminUnitFilterChange()">
           <option value="__all__">-- Tổng hợp tất cả đơn vị --</option>
         </select>
         <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
@@ -950,48 +950,48 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <!-- Tất cả ngang hàng -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="fg">
-          <label>Tên thuốc</label>
-          <select id="bvph-drug" style="width:160px" onchange="onBVPHDrugChange()">
+          <label for="bvph-drug">Tên thuốc</label>
+          <select id="bvph-drug" title="Chọn tên thuốc BVPH" style="width:160px" onchange="onBVPHDrugChange()">
             <option value="">-- Chọn thuốc --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Số lô</label>
-          <select id="bvph-lot-sel" style="width:110px">
+          <label for="bvph-lot-sel">Số lô</label>
+          <select id="bvph-lot-sel" title="Chọn số lô BVPH" style="width:110px">
             <option value="">-- Chọn lô --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Hạn</label>
-          <input type="text" id="bvph-exp" placeholder="tự điền" style="width:55px;background:#eef7ff;text-align:center" readonly>
+          <label for="bvph-exp">Hạn</label>
+          <input type="text" id="bvph-exp" aria-label="Hạn dùng" placeholder="tự điền" style="width:55px;background:#eef7ff;text-align:center" readonly>
         </div>
         <div class="fg" style="margin-right:4px">
-          <label>Tồn đầu</label>
-          <input type="number" id="bvph-open" placeholder="0" min="0" style="width:60px">
+          <label for="bvph-open">Tồn đầu</label>
+          <input type="number" id="bvph-open" aria-label="Tồn đầu kỳ" placeholder="0" min="0" style="width:60px">
         </div>
 
         <div style="display:flex;gap:6px;background:#e8f5e9;border-radius:6px;padding:4px 8px;border:1px solid #c8e6c9">
-          <div class="fg"><label style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bvph-tinh" placeholder="0" min="0" style="width:64px"></div>
-          <div class="fg"><label style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bvph-dc" placeholder="0" min="0" style="width:72px"></div>
+          <div class="fg"><label for="bvph-tinh" style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bvph-tinh" aria-label="Nhập tỉnh cấp" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label for="bvph-dc" style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bvph-dc" aria-label="Điều chuyển vào" placeholder="0" min="0" style="width:72px"></div>
         </div>
 
         <div style="display:flex;gap:6px;background:#fff3f3;border-radius:6px;padding:4px 8px;border:1px solid #ffcdd2">
-          <div class="fg"><label style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bvph-sd" placeholder="0" min="0" style="width:60px"></div>
+          <div class="fg"><label for="bvph-sd" style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bvph-sd" aria-label="Sử dụng trong kỳ" placeholder="0" min="0" style="width:60px"></div>
             <div class="fg">
-            <label style="color:#b71c1c;font-weight:700">Xuất TCL (-)</label>
+            <label for="bvph-dc2" style="color:#b71c1c;font-weight:700">Xuất TCL (-)</label>
               <input type="number" id="bvph-dc2" placeholder="0" min="0" readonly
               style="width:64px;border:1px solid #27ae60;background:#f0fff4;cursor:pointer"
                 title="Click để tạo phiếu Xuất Tổ CL"
                 onfocus="onFormDc2BVPHChange(this)">
             </div>
             <div class="fg">
-            <label style="color:#b71c1c;font-weight:700">Tỉnh khác (-)</label>
+            <label for="bvph-dc3" style="color:#b71c1c;font-weight:700">Tỉnh khác (-)</label>
               <input type="number" id="bvph-dc3" placeholder="0" min="0" readonly
               style="width:64px;border:1px solid #8e44ad;background:#f9f0ff;cursor:pointer"
                 title="Click để tạo phiếu Xuất tỉnh khác"
                 onfocus="onFormDc3BVPHChange(this)">
             </div>
-          <div class="fg"><label style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bvph-hh" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label for="bvph-hh" style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bvph-hh" aria-label="Hỏng/Hết hạn" placeholder="0" min="0" style="width:64px"></div>
         </div>
 
         <button class="btn btn-primary" style="background:#1a5276;padding:8px 14px;white-space:nowrap;height:34px" onclick="addBVPHRow()">+ Thêm</button>
@@ -1058,46 +1058,46 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <!-- Tất cả ngang hàng -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="fg" id="bc-unit-wrap">
-          <label>Đơn vị</label>
-          <select id="bc-unit" style="width:180px" onchange="onUnitChange()"><option value="">-- Chọn đơn vị --</option></select>
+          <label for="bc-unit">Đơn vị</label>
+          <select id="bc-unit" title="Chọn đơn vị báo cáo" style="width:180px" onchange="onUnitChange()"><option value="">-- Chọn đơn vị --</option></select>
           <div id="bc-unit-fixed" style="display:none;padding:6px 10px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276;width:auto;min-width:180px;height:32px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
         </div>
         <div class="fg">
-          <label>Tên thuốc</label>
-          <select id="bc-drug" style="width:220px" onchange="onBCDrugChange()">
+          <label for="bc-drug">Tên thuốc</label>
+          <select id="bc-drug" title="Chọn tên thuốc" style="width:220px" onchange="onBCDrugChange()">
             <option value="">-- Chọn thuốc --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Số lô</label>
-          <select id="bc-lot-sel" style="width:130px">
+          <label for="bc-lot-sel">Số lô</label>
+          <select id="bc-lot-sel" title="Chọn số lô" style="width:130px">
             <option value="">-- Chọn lô --</option>
           </select>
         </div>
         <div class="fg">
-          <label>Hạn</label>
-          <input type="text" id="bc-exp" placeholder="tự điền" style="width:75px;background:#eef7ff;text-align:center" readonly>
+          <label for="bc-exp">Hạn</label>
+          <input type="text" id="bc-exp" aria-label="Hạn dùng" placeholder="tự điền" style="width:75px;background:#eef7ff;text-align:center" readonly>
         </div>
         <div class="fg" style="margin-right:4px">
-          <label>Tồn đầu</label>
-          <input type="number" id="bc-open" placeholder="0" min="0" style="width:60px">
+          <label for="bc-open">Tồn đầu</label>
+          <input type="number" id="bc-open" aria-label="Tồn đầu kỳ" placeholder="0" min="0" style="width:60px">
         </div>
 
         <div style="display:flex;gap:6px;background:#e8f5e9;border-radius:6px;padding:4px 8px;border:1px solid #c8e6c9">
-          <div class="fg"><label style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bc-tinh" placeholder="0" min="0" style="width:64px"></div>
-          <div class="fg"><label style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bc-dc" placeholder="0" min="0" style="width:72px"></div>
+          <div class="fg"><label for="bc-tinh" style="color:#1b5e20;font-weight:700">Tỉnh cấp (+)</label><input type="number" id="bc-tinh" aria-label="Nhập tỉnh cấp" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label for="bc-dc" style="color:#1b5e20;font-weight:700">Điều chuyển (+)</label><input type="number" id="bc-dc" aria-label="Điều chuyển vào" placeholder="0" min="0" style="width:72px"></div>
         </div>
 
         <div style="display:flex;gap:6px;background:#fff3f3;border-radius:6px;padding:4px 8px;border:1px solid #ffcdd2">
-          <div class="fg"><label style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bc-sd" placeholder="0" min="0" style="width:60px"></div>
+          <div class="fg"><label for="bc-sd" style="color:#b71c1c;font-weight:700">Sử dụng (-)</label><input type="number" id="bc-sd" aria-label="Sử dụng trong kỳ" placeholder="0" min="0" style="width:60px"></div>
             <div class="fg">
-            <label style="color:#b71c1c;font-weight:700">Xuất ĐC (-)</label>
+            <label for="bc-dc2" style="color:#b71c1c;font-weight:700">Xuất ĐC (-)</label>
               <input type="number" id="bc-dc2" placeholder="0" min="0" readonly
                 style="width:64px;border:1px solid #f59e0b;background:#fffbeb;cursor:pointer"
                 title="Click để tạo phiếu điều chuyển"
                 onfocus="onFormDc2BCChange(this)">
             </div>
-          <div class="fg"><label style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bc-hh" placeholder="0" min="0" style="width:64px"></div>
+          <div class="fg"><label for="bc-hh" style="color:#b71c1c;font-weight:700">Hỏng/HH (-)</label><input type="number" id="bc-hh" aria-label="Hỏng/Hết hạn" placeholder="0" min="0" style="width:64px"></div>
         </div>
 
         <div style="display:flex;gap:6px;align-items:flex-end">
@@ -1213,8 +1213,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="tab-pane" id="tab-thongke">
     <div class="filter-bar">
       <div class="fg">
-        <label>Chiều thống kê</label>
-        <select id="view-by" onchange="onFilterChange()">
+        <label for="view-by">Chiều thống kê</label>
+        <select id="view-by" title="Chọn chiều thống kê" onchange="onFilterChange()">
           <option value="drug-by-unit">Chọn thuốc → Tồn cuối từng đơn vị</option>
           <option value="unit-by-drug">Chọn đơn vị → Tồn cuối từng thuốc</option>
           <option value="all-drugs-final">Tất cả thuốc — Tồn cuối kỳ</option>
@@ -1224,15 +1224,15 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </select>
       </div>
       <div class="fg" id="fw-drug">
-        <label>Chọn thuốc</label>
-        <select id="sel-drug" style="width:220px"></select>
+        <label for="sel-drug">Chọn thuốc</label>
+        <select id="sel-drug" title="Chọn thuốc thống kê" style="width:220px"></select>
       </div>
       <div class="fg" id="fw-unit" style="display:none">
-        <label>Chọn đơn vị</label>
-        <select id="sel-unit-stat" style="width:230px"></select>
+        <label for="sel-unit-stat">Chọn đơn vị</label>
+        <select id="sel-unit-stat" title="Chọn đơn vị thống kê" style="width:230px"></select>
       </div>
-      <div class="fg"><label>Nguồn dữ liệu</label>
-        <select id="sel-source">
+      <div class="fg"><label for="sel-source">Nguồn dữ liệu</label>
+        <select id="sel-source" title="Chọn nguồn dữ liệu">
           <option value="all">Tất cả (BVPHP + 22 ĐV)</option>
           <option value="bvph">Chỉ BV Phổi HP</option>
           <option value="other">Chỉ 22 đơn vị tuyến</option>
@@ -1304,15 +1304,15 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="page-body">
     <div class="card" style="max-width:480px;margin-bottom:14px">
       <div class="card-title" style="color:var(--text)">Thông tin đơn vị</div>
-      <div class="fg" style="margin-bottom:10px"><label>Tên đơn vị</label><input type="text" value="Bệnh viện Phổi Hải Phòng" style="width:100%"></div>
-      <div class="fg" style="margin-bottom:10px"><label>Địa chỉ</label><input type="text" value="TP. Hải Phòng" style="width:100%"></div>
-      <div class="fg" style="margin-bottom:12px"><label>Điện thoại</label><input type="text" value="0225 123 456" style="width:100%"></div>
+      <div class="fg" style="margin-bottom:10px"><label for="info-unit-name">Tên đơn vị</label><input type="text" id="info-unit-name" aria-label="Tên đơn vị" value="Bệnh viện Phổi Hải Phòng" style="width:100%"></div>
+      <div class="fg" style="margin-bottom:10px"><label for="info-address">Địa chỉ</label><input type="text" id="info-address" aria-label="Địa chỉ" value="TP. Hải Phòng" style="width:100%"></div>
+      <div class="fg" style="margin-bottom:12px"><label for="info-phone">Điện thoại</label><input type="text" id="info-phone" aria-label="Điện thoại" value="0225 123 456" style="width:100%"></div>
       <button class="btn btn-primary btn-sm" onclick="toast('Tính năng lưu thông tin đơn vị chưa được kết nối với cơ sở dữ liệu.','var(--warning)')">Lưu thông tin</button>
     </div>
     <div class="card" style="max-width:480px">
       <div class="card-title" style="color:var(--text)">Ngưỡng cảnh báo</div>
-      <div class="fg" style="margin-bottom:10px"><label>Tồn kho thấp (viên) — hiện: <strong id="cur-low">200</strong></label><input type="number" id="threshold-low" value="200" style="width:130px"></div>
-      <div class="fg" style="margin-bottom:12px"><label>Hạn dùng sắp hết (tháng) — hiện: <strong id="cur-exp">6</strong></label><input type="number" id="threshold-exp" value="6" style="width:130px"></div>
+      <div class="fg" style="margin-bottom:10px"><label for="threshold-low">Tồn kho thấp (viên) — hiện: <strong id="cur-low">200</strong></label><input type="number" id="threshold-low" aria-label="Ngưỡng tồn kho thấp" value="200" style="width:130px"></div>
+      <div class="fg" style="margin-bottom:12px"><label for="threshold-exp">Hạn dùng sắp hết (tháng) — hiện: <strong id="cur-exp">6</strong></label><input type="number" id="threshold-exp" aria-label="Ngưỡng hạn dùng sắp hết" value="6" style="width:130px"></div>
       <button class="btn btn-primary btn-sm" onclick="saveSettings()">Lưu cài đặt</button>
     </div>
   </div>
@@ -1368,13 +1368,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <div style="position:relative">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
-          <select id="bn-filter-unit" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:160px;appearance:none;-webkit-appearance:none;cursor:pointer">
+          <select id="bn-filter-unit" title="Lọc theo đơn vị bệnh nhân" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:160px;appearance:none;-webkit-appearance:none;cursor:pointer">
             <option value="">Tất cả đơn vị</option>
           </select>
         </div>
         <div style="position:relative">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <select id="bn-filter-pd" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:140px;appearance:none;-webkit-appearance:none;cursor:pointer">
+          <select id="bn-filter-pd" title="Lọc theo phác đồ" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:140px;appearance:none;-webkit-appearance:none;cursor:pointer">
             <option value="">Tất cả phác đồ</option>
           </select>
         </div>
@@ -1403,25 +1403,25 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="modal">
     <h3>Thêm tài khoản mới</h3>
     <div class="fg" style="margin-bottom:10px">
-      <label>Đơn vị</label>
-      <select id="acc-unit" style="width:100%"></select>
+      <label for="acc-unit">Đơn vị</label>
+      <select id="acc-unit" title="Chọn đơn vị tài khoản" style="width:100%"></select>
       <div style="font-size:11px;color:var(--muted);margin-top:3px">Tên đăng nhập sẽ tự động tạo từ tên đơn vị</div>
     </div>
     <div class="fg" style="margin-bottom:10px">
-      <label>Vai trò</label>
-      <select id="acc-role" style="width:100%" onchange="onAccRoleChange()">
+      <label for="acc-role">Vai trò</label>
+      <select id="acc-role" title="Chọn vai trò" style="width:100%" onchange="onAccRoleChange()">
         <option value="donvi">Nhập liệu đơn vị</option>
         <option value="bvph">Nhập liệu BVPHP</option>
         <option value="admin">Quản trị viên</option>
       </select>
     </div>
     <div class="fg" style="margin-bottom:10px">
-      <label>Mật khẩu</label>
-      <input type="password" id="acc-pass" placeholder="Nhập mật khẩu...">
+      <label for="acc-pass">Mật khẩu</label>
+      <input type="password" id="acc-pass" aria-label="Mật khẩu tài khoản" placeholder="Nhập mật khẩu...">
     </div>
     <div class="fg" style="margin-bottom:4px">
-      <label>Tên dược sĩ <span style="font-weight:400;color:var(--muted)">(tuỳ chọn)</span></label>
-      <input type="text" id="acc-name" placeholder="Để trống nếu chưa có">
+      <label for="acc-name">Tên dược sĩ <span style="font-weight:400;color:var(--muted)">(tuỳ chọn)</span></label>
+      <input type="text" id="acc-name" aria-label="Tên dược sĩ" placeholder="Để trống nếu chưa có">
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-acc')">Hủy</button>
@@ -1438,8 +1438,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <strong id="role-acc-name">—</strong> &nbsp;·&nbsp; <span id="role-acc-user" style="font-family:monospace">—</span>
     </div>
     <div class="fg" style="margin-bottom:10px">
-      <label style="margin-bottom:6px;display:block">Quyền truy cập</label>
-      <select id="role-select" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif;background:var(--surface)">
+      <label for="role-select" style="margin-bottom:6px;display:block">Quyền truy cập</label>
+      <select id="role-select" title="Chọn quyền truy cập" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif;background:var(--surface)">
         <option value="admin">🔑 Quản trị viên — toàn quyền</option>
         <option value="bvph">🏥 Nhập liệu BV Phổi HP</option>
         <option value="donvi">🏨 Nhập liệu đơn vị tuyến</option>
@@ -1447,8 +1447,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div id="role-desc" style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 8px;background:#f0f4f8;border-radius:5px"></div>
     </div>
     <div class="fg" style="margin-bottom:14px">
-      <label style="margin-bottom:6px;display:block">Đổi mật khẩu <span style="font-size:10px;color:var(--muted)">(bỏ trống = giữ nguyên)</span></label>
-      <input type="password" id="role-new-pass" placeholder="Mật khẩu mới..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif">
+      <label for="role-new-pass" style="margin-bottom:6px;display:block">Đổi mật khẩu <span style="font-size:10px;color:var(--muted)">(bỏ trống = giữ nguyên)</span></label>
+      <input type="password" id="role-new-pass" aria-label="Mật khẩu mới" placeholder="Mật khẩu mới..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Be Vietnam Pro',sans-serif">
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-role')">Hủy</button>
@@ -1506,12 +1506,12 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       Tên đăng nhập: <span id="self-edit-user" style="font-family:monospace">—</span>
     </div>
     <div class="fg" style="margin-bottom:10px">
-      <label>Tên dược sĩ phụ trách</label>
-      <input type="text" id="self-edit-name" placeholder="Nhập họ và tên...">
+      <label for="self-edit-name">Tên dược sĩ phụ trách</label>
+      <input type="text" id="self-edit-name" aria-label="Tên dược sĩ phụ trách" placeholder="Nhập họ và tên...">
     </div>
     <div class="fg" style="margin-bottom:4px">
-      <label>Mật khẩu mới <span style="font-weight:400;color:var(--muted)">(để trống nếu không đổi)</span></label>
-      <input type="password" id="self-edit-pass" placeholder="Nhập mật khẩu mới...">
+      <label for="self-edit-pass">Mật khẩu mới <span style="font-weight:400;color:var(--muted)">(để trống nếu không đổi)</span></label>
+      <input type="password" id="self-edit-pass" aria-label="Mật khẩu mới" placeholder="Nhập mật khẩu mới...">
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-self-edit')">Hủy</button>
@@ -1529,8 +1529,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     </div>
     <div style="display:flex;gap:12px;margin-bottom:24px">
       <div class="fg" style="flex:1">
-        <label style="font-size:11px;font-weight:700">Tháng</label>
-        <select id="startup-month" style="width:100%;padding:10px;border-radius:8px">
+        <label for="startup-month" style="font-size:11px;font-weight:700">Tháng</label>
+        <select id="startup-month" title="Chọn tháng làm việc" style="width:100%;padding:10px;border-radius:8px">
           <option value="01">Tháng 1</option>
           <option value="02">Tháng 2</option>
           <option value="03">Tháng 3</option>
@@ -1546,8 +1546,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </select>
       </div>
       <div class="fg" style="flex:1">
-        <label style="font-size:11px;font-weight:700">Năm</label>
-        <input type="number" id="startup-year" value="2026" style="width:100%;padding:10px;border-radius:8px;text-align:center">
+        <label for="startup-year" style="font-size:11px;font-weight:700">Năm</label>
+        <input type="number" id="startup-year" aria-label="Năm làm việc" value="2026" style="width:100%;padding:10px;border-radius:8px;text-align:center">
       </div>
     </div>
     <div class="modal-actions" style="margin-top:0">
@@ -5215,27 +5215,62 @@ function addBcRow(){
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
   if(!canEditUnit(unit)){toast('Bạn không có quyền nhập đơn vị này!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
-  var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
-    tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
-    locked:false,editing:false,bcMonth:mon,openLocked:false};
-  applyAutoOpen(newRowBC,bcData);
-  bcData.push(newRowBC);
-  var ls2=document.getElementById('bc-lot-sel');if(ls2)ls2.value='';
-  var bd2=document.getElementById('bc-drug');if(bd2)bd2.value='';
-  ['bc-exp','bc-open',
-   'bc-tinh','bc-dc','bc-sd','bc-dc2','bc-hh'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  var fu=document.getElementById('filter-unit-bc');
-  if(fu&&unit!==BVPH){for(var k=0;k<fu.options.length;k++){if(fu.options[k].value===unit){fu.selectedIndex=k;break;}}}
-  var fm=document.getElementById('filter-month-bc');
-  if(fm&&mon) fm.value=mon;
-  renderBC();
-  // Cập nhật dc2 của bvphData (Xuất Tổ CL auto)
-  renderBVPH();
-  saveLocalCache(buildPayload());
-  _syncPeriodToCloud();
-  toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
+
+  function doAdd(){
+    var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
+      tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
+      locked:false,editing:false,bcMonth:mon,openLocked:false};
+    applyAutoOpen(newRowBC,bcData);
+    bcData.push(newRowBC);
+    var ls2=document.getElementById('bc-lot-sel');if(ls2)ls2.value='';
+    var bd2=document.getElementById('bc-drug');if(bd2)bd2.value='';
+    ['bc-exp','bc-open',
+     'bc-tinh','bc-dc','bc-sd','bc-dc2','bc-hh'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    var fu=document.getElementById('filter-unit-bc');
+    if(fu&&unit!==BVPH){for(var k=0;k<fu.options.length;k++){if(fu.options[k].value===unit){fu.selectedIndex=k;break;}}}
+    var fm=document.getElementById('filter-month-bc');
+    if(fm&&mon) fm.value=mon;
+    renderBC();
+    renderBVPH();
+    saveLocalCache(buildPayload());
+    _syncPeriodToCloud();
+    toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
+  }
+
+  // Kiểm tra tỉnh cấp có khớp với dc2 kho chính BVPH không
+  if(tinh > 0){
+    var bvphDc2 = 0;
+    bvphData.filter(matchPeriod).forEach(function(r){
+      if(r.drug===drug && r.lot===lot && (r.exp||'')===(exp||''))
+        bvphDc2 += (r.dc2||0);
+    });
+    if(bvphDc2 > 0 && tinh !== bvphDc2){
+      var diff = tinh - bvphDc2;
+      var sign = diff > 0 ? '+' : '';
+      var expLabel = expToMMYYYY(exp);
+      var html =
+        '<div style="background:#fff8e1;border-radius:10px;padding:20px 22px;border:2px solid #f39c12">'
+        +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
+        +'BV Phổi Hải Phòng đã xuất cho <b style="color:#1a5276;font-size:15px">'+unit+'</b>'
+        +'<br><b style="font-size:22px;color:#1a5276">'+bvphDc2.toLocaleString()+' viên</b>'
+        +' <span style="font-size:13px;color:#555">'+drug+'</span>'
+        +' — lô <b style="color:#1a2332">'+lot+'</b>'
+        +' — hạn <b style="color:#1a2332">'+expLabel+'</b>'
+        +'</p>'
+        +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
+        +'Bạn đang nhập <b style="font-size:22px;color:#e74c3c">'+tinh.toLocaleString()+' viên</b>'
+        +' — không khớp, lệch <b style="font-size:18px;color:#c0392b">'+sign+diff.toLocaleString()+' viên</b>.'
+        +'</p>'
+        +'<p style="font-size:14px;font-weight:700;color:#7d4e00;margin:0">Bạn có chắc chắn với số lượng này không?</p>'
+        +'</div>';
+      _confirmModal('Cảnh báo: Tỉnh cấp không khớp', html, doAdd, null, 'Chắc chắn, tiếp tục');
+      return;
+    }
+  }
+
+  doAdd();
 }
 function buildPayload(){
   return {
@@ -8716,7 +8751,7 @@ function renderDuTru(){
         + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
         + '<span style="font-size:12px;font-weight:600;color:#64748b;white-space:nowrap">Năm dự trù</span>'
         + '<div style="position:relative">'
-        + '<select onchange="window._dutruYear=parseInt(this.value);renderDuTru()" style="appearance:none;-webkit-appearance:none;background:transparent;border:none;font-size:14px;font-weight:800;color:#1a5276;padding:0 22px 0 2px;cursor:pointer;outline:none">'+yearOpts+'</select>'
+        + '<select title="Chọn năm dự trù" onchange="window._dutruYear=parseInt(this.value);renderDuTru()" style="appearance:none;-webkit-appearance:none;background:transparent;border:none;font-size:14px;font-weight:800;color:#1a5276;padding:0 22px 0 2px;cursor:pointer;outline:none">'+yearOpts+'</select>'
         + '<svg width="12" height="12" viewBox="0 0 12 8" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);pointer-events:none" fill="none"><path d="M1 1l5 5 5-5" stroke="#1a5276" stroke-width="1.8" stroke-linecap="round"/></svg>'
         + '</div></div>'
         + '<span style="font-size:12px;color:#94a3b8;font-style:normal">ℹ️ Tháng đã qua reset về 0 — BN kết thúc giữa tháng tự động ngắt liều</span>'
@@ -9755,33 +9790,33 @@ document.addEventListener('DOMContentLoaded', function(){
       <!-- Row 1: Tên + Giới tính + Tuổi -->
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fg">
-          <label>Họ và tên</label>
-          <input type="text" id="pt-name" placeholder="Nhập tên bệnh nhân...">
+          <label for="pt-name">Họ và tên</label>
+          <input type="text" id="pt-name" aria-label="Họ và tên bệnh nhân" placeholder="Nhập tên bệnh nhân...">
         </div>
         <div class="fg">
-          <label>Giới tính</label>
-          <select id="pt-gender">
+          <label for="pt-gender">Giới tính</label>
+          <select id="pt-gender" title="Chọn giới tính">
             <option value="Nam">Nam</option>
             <option value="Nữ">Nữ</option>
           </select>
         </div>
         <div class="fg">
-          <label>Tuổi</label>
-          <input type="number" id="pt-age" placeholder="VD: 45" oninput="generateDrugInputs(null)">
+          <label for="pt-age">Tuổi</label>
+          <input type="number" id="pt-age" aria-label="Tuổi bệnh nhân" placeholder="VD: 45" oninput="generateDrugInputs(null)">
         </div>
       </div>
 
       <!-- Row 2: Địa chỉ -->
       <div class="fg" style="margin-bottom:10px">
-        <label>Địa chỉ</label>
-        <input type="text" id="pt-address" placeholder="Quận/Huyện, Xã/Phường...">
+        <label for="pt-address">Địa chỉ</label>
+        <input type="text" id="pt-address" aria-label="Địa chỉ bệnh nhân" placeholder="Quận/Huyện, Xã/Phường...">
       </div>
 
       <!-- Row 3: Phác đồ + Cân nặng -->
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fg">
-          <label>Phác đồ điều trị</label>
-          <select id="pt-pd" onchange="handlePdChange()">
+          <label for="pt-pd">Phác đồ điều trị</label>
+          <select id="pt-pd" title="Chọn phác đồ điều trị" onchange="handlePdChange()">
             <option value="6BPaLM">6BPaLM</option>
             <option value="18-20BdqLfxLzdCfzCs">18-20BdqLfxLzdCfzCs</option>
             <option value="18-20LfxLzdCfzCsE">18-20LfxLzdCfzCsE</option>
@@ -9791,8 +9826,8 @@ document.addEventListener('DOMContentLoaded', function(){
           <input type="text" id="pt-pd-custom" style="display:none;margin-top:6px" placeholder="VD: 9BdqLfx... (Hệ thống tự quét thuốc)" oninput="handlePdChange()">
         </div>
         <div class="fg">
-          <label>Cân nặng (kg)</label>
-          <input type="number" id="pt-weight" placeholder="VD: 50" oninput="generateDrugInputs(null)">
+          <label for="pt-weight">Cân nặng (kg)</label>
+          <input type="number" id="pt-weight" aria-label="Cân nặng (kg)" placeholder="VD: 50" oninput="generateDrugInputs(null)">
         </div>
       </div>
 
@@ -9810,24 +9845,24 @@ document.addEventListener('DOMContentLoaded', function(){
       <!-- Row 5: Ngày bắt đầu + Kết thúc -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fg">
-          <label>Ngày bắt đầu</label>
-          <input type="date" id="pt-start" onchange="calculateEndDate(); generateDrugInputs(null)">
+          <label for="pt-start">Ngày bắt đầu</label>
+          <input type="date" id="pt-start" aria-label="Ngày bắt đầu điều trị" onchange="calculateEndDate(); generateDrugInputs(null)">
         </div>
         <div class="fg">
-          <label>Ngày kết thúc (Dự kiến)</label>
-          <input type="date" id="pt-end">
+          <label for="pt-end">Ngày kết thúc (Dự kiến)</label>
+          <input type="date" id="pt-end" aria-label="Ngày kết thúc dự kiến">
         </div>
       </div>
 
       <!-- Row 6: Đơn vị + Trạng thái -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
         <div class="fg">
-          <label>Đơn vị quản lý</label>
-          <select id="pt-unit"></select>
+          <label for="pt-unit">Đơn vị quản lý</label>
+          <select id="pt-unit" title="Chọn đơn vị quản lý"></select>
         </div>
         <div class="fg">
-          <label>Trạng thái điều trị</label>
-          <select id="pt-status">
+          <label for="pt-status">Trạng thái điều trị</label>
+          <select id="pt-status" title="Chọn trạng thái điều trị">
             <option value="Đang điều trị">Đang điều trị</option>
             <option value="Hoàn thành">Hoàn thành / Kết thúc</option>
             <option value="Bỏ trị">Bỏ trị / Mất dấu</option>
