@@ -1690,7 +1690,7 @@ async function _autoLoadOnLogin(){
         bvphData.some(function(r){return r.bcMonth===prevKey;}) ||
         bcData.some(function(r){return r.bcMonth===prevKey;})
       );
-      if(hasPrevLocal){
+      if(hasPrevLocal && !window._loginGapConfirmed){
         _createNextPeriodRows(prevKey, periodKey);
         saveLocalCache(buildPayload());
         renderBVPH(); renderBC(); renderTP(); renderTQ();
@@ -2859,66 +2859,88 @@ async function confirmStartupPeriod() {
     btn.textContent = oldText;
   };
 
-  // Kiểm tra chuỗi báo cáo liên tục cho đơn vị và kho chính
-  if(currentUser && (currentUser.role === 'donvi' || currentUser.role === 'bvph')) {
+  // Kiểm tra chuỗi báo cáo liên tục (tất cả role trừ admin)
+  if(currentUser && currentUser.role !== 'admin') {
       var myUnit = currentUser.role === 'bvph' ? 'bvph' : currentUser.unit;
       var targetM = parseInt(m, 10);
       var targetY = parseInt(y, 10);
       var targetValue = targetY * 12 + targetM;
 
-      try {
-          // Chỉ tìm các kỳ có ít nhất 1 dòng locked = true (đã khóa/lưu báo cáo)
-          var r = await fetch(SUPA_URL + '/rest/v1/reports?unit=eq.' + encodeURIComponent(myUnit) + '&locked=eq.true&select=period', {headers: _supaHdr});
-          if(r.ok) {
-              var data = await r.json();
-              var periods = [];
-              data.forEach(function(d){ if(d.period && periods.indexOf(d.period) === -1) periods.push(d.period); });
+      // Hàm kiểm tra sau khi đã có danh sách kỳ đã khóa
+      var _checkGap = function(periods) {
+          var pastPeriods = periods.filter(function(p) {
+              var pts = p.split('-');
+              if(pts.length !== 2) return false;
+              var py = parseInt(pts[0], 10);
+              var pm = parseInt(pts[1], 10);
+              return (py * 12 + pm) < targetValue;
+          });
 
-              var pastPeriods = periods.filter(function(p) {
-                  var pts = p.split('-');
-                  if(pts.length !== 2) return false;
-                  var py = parseInt(pts[0], 10);
-                  var pm = parseInt(pts[1], 10);
-                  return (py * 12 + pm) < targetValue;
-              });
+          if(pastPeriods.length === 0) { doProceed(); return; }
 
-              if(pastPeriods.length > 0) {
-                  pastPeriods.sort(function(a,b){ return a.localeCompare(b); });
-                  var latestPast = pastPeriods[pastPeriods.length - 1];
-                  var lPts = latestPast.split('-');
-                  var lY = parseInt(lPts[0], 10);
-                  var lM = parseInt(lPts[1], 10);
-                  var latestValue = lY * 12 + lM;
+          pastPeriods.sort(function(a,b){ return a.localeCompare(b); });
+          var latestPast = pastPeriods[pastPeriods.length - 1];
+          var lPts = latestPast.split('-');
+          var lY = parseInt(lPts[0], 10);
+          var lM = parseInt(lPts[1], 10);
+          var latestValue = lY * 12 + lM;
+          var gap = targetValue - latestValue;
 
-                  if(targetValue - latestValue > 1) { // Phát hiện nhảy cóc > 1 tháng
-                      var missingValue = latestValue + 1;
-                      var missingY = Math.floor((missingValue - 1) / 12);
-                      var missingM = missingValue - missingY * 12;
+          if(gap <= 1) { doProceed(); return; }
 
-                      var msgHtml = '<div style="text-align:center;">'
-                                  + '<div style="font-size:42px;margin-bottom:12px;">⚠️</div>'
-                                  + '<div style="font-size:14px;color:var(--danger);font-weight:bold;margin-bottom:8px;">Chuỗi báo cáo bị gián đoạn!</div>'
-                                  + '<div style="font-size:13px;color:#555;line-height:1.6;">'
-                                  + 'Hệ thống phát hiện bạn <b>chưa hoàn thành</b> (chưa khóa) báo cáo của <b>Tháng ' + missingM + '/' + missingY + '</b>.<br><br>'
-                                  + 'Bạn có chắc chắn muốn bỏ qua và làm báo cáo <b>Tháng ' + targetM + '/' + targetY + '</b> không?'
-                                  + '</div></div>';
-
-                      // Hiển thị popup custom thay vì hộp thoại mặc định
-                      _confirmModal('Cảnh báo dữ liệu', msgHtml, doProceed, doCancel, 'Vẫn tiếp tục');
-                      return; // Dừng hàm lại để chờ callback từ popup
-                  }
-              }
+          // Liệt kê TẤT CẢ tháng bị thiếu
+          var missingList = [];
+          for(var mv = latestValue + 1; mv < targetValue; mv++) {
+              var mY = Math.floor((mv - 1) / 12);
+              var mM = mv - mY * 12;
+              missingList.push('Tháng ' + mM + '/' + mY);
           }
-      } catch (e) {
-          console.warn("Lỗi kiểm tra chuỗi báo cáo", e);
-      }
+
+          var missingHtml = missingList.map(function(s){
+              return '<span style="display:inline-block;background:#fdecea;color:#c0392b;border-radius:6px;padding:3px 10px;margin:3px 4px;font-weight:700;font-size:13px">' + s + '</span>';
+          }).join('');
+
+          var msgHtml = '<div style="text-align:center;">'
+                      + '<div style="font-size:38px;margin-bottom:10px;">⚠️</div>'
+                      + '<div style="font-size:14px;color:var(--danger);font-weight:bold;margin-bottom:10px;">Chuỗi báo cáo bị gián đoạn!</div>'
+                      + '<div style="font-size:13px;color:#555;line-height:1.8;margin-bottom:12px;">'
+                      + 'Bạn chưa làm báo cáo và khóa dữ liệu các tháng:'
+                      + '</div>'
+                      + '<div style="margin-bottom:14px">' + missingHtml + '</div>'
+                      + '<div style="font-size:13px;color:#555;line-height:1.6;">'
+                      + 'Bạn có chắc chắn muốn bỏ qua và làm báo cáo <b>Tháng ' + targetM + '/' + targetY + '</b> không?'
+                      + '</div></div>';
+
+          _confirmModal('Cảnh báo dữ liệu', msgHtml, function(){
+              window._loginGapConfirmed = true;
+              doProceed();
+          }, doCancel, 'Vẫn tiếp tục');
+      };
+
+      // Lấy từ Supabase — bắt buộc online
+      var _getPeriods = async function() {
+          var r = await fetch(SUPA_URL + '/rest/v1/reports?unit=eq.' + encodeURIComponent(myUnit) + '&locked=eq.true&select=period', {headers: _supaHdr});
+          if(!r.ok) throw new Error('HTTP ' + r.status);
+          var data = await r.json();
+          var periods = [];
+          data.forEach(function(d){ if(d.period && periods.indexOf(d.period) === -1) periods.push(d.period); });
+          return periods;
+      };
+
+      _getPeriods().then(function(periods){ _checkGap(periods); }).catch(function(e){
+          console.warn('Lỗi kiểm tra chuỗi báo cáo (không kết nối được Supabase):', e);
+          doProceed();
+      });
+      return; // chờ promise resolve
   }
-  // Nếu không có gián đoạn thì vào thẳng
+  // Admin: vào thẳng
   doProceed();
 }
 
 function doLogout(){
   currentUser=null;
+  window._loginGapConfirmed = false;
+  _dirty = false;
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('lp').value='';
@@ -5074,6 +5096,7 @@ function findPrevRow(arr, unit, drug, lot, exp, prevMon){
 
 // Khi addBcRow / addBVPHRow: nếu có dữ liệu kỳ trước → override open + openLocked
 function applyAutoOpen(row, arr){
+  if(window._loginGapConfirmed) return; // user đã xác nhận bỏ qua kỳ thiếu → không đổ tồn cuối
   var prev = getPrevPeriod();
   if(!prev) return; // không áp dụng cho "Cả năm"
   var prevRow = findPrevRow(arr, row.unit, row.drug, row.lot, row.exp, prev);
@@ -5284,14 +5307,19 @@ function buildPayload(){
 
 // Đồng bộ kỳ hiện tại lên Supabase sau mỗi thay đổi
 var _syncTimer = null;
+var _dirty = false; // true khi có dữ liệu chưa lưu lên Supabase
+
 function _syncPeriodToCloud(){
+  _dirty = true;
   // Debounce 1.5s — tránh gọi cloud liên tục khi user nhập nhanh
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(function(){
     if(!_supaOnline) return;
     var periodKey = _currentPeriodKey();
     if(!periodKey) return;
-    saveToSupabase(periodKey).catch(function(e){
+    saveToSupabase(periodKey).then(function(ok){
+      if(ok) _dirty = false;
+    }).catch(function(e){
       console.warn('Sync cloud error:', e);
     });
   }, 1500);
@@ -9770,6 +9798,15 @@ function downloadTemplateExcel() {
 // Khởi tạo màn hình đăng nhập khi trang tải xong
 document.addEventListener('DOMContentLoaded', function(){
   fillLoginUnits();
+});
+
+// Cảnh báo khi đóng tab/trình duyệt mà còn dữ liệu chưa lưu
+window.addEventListener('beforeunload', function(e){
+  if(_dirty && currentUser){
+    e.preventDefault();
+    e.returnValue = 'Bạn có dữ liệu chưa được lưu lên hệ thống. Bạn có chắc chắn muốn thoát không?';
+    return e.returnValue;
+  }
 });
 </script>
 
