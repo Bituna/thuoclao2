@@ -1708,7 +1708,7 @@ async function _autoLoadOnLogin(){
       try{
         var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
         var pdE = prE.ok ? await prE.json() : [];
-        if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value;
+        if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value || [];
       }catch(e3){}
       var bnPageE = document.getElementById('page-bn');
       if(bnPageE && bnPageE.classList.contains('active')){
@@ -3005,6 +3005,11 @@ function doLogout(){
   currentUser=null;
   window._loginGapConfirmed = false;
   _dirty = false;
+  // Reset toàn bộ dữ liệu trong bộ nhớ — bắt buộc tải lại từ cloud khi đăng nhập lần sau
+  BN_DATA = [];
+  bvphData = [];
+  bcData = [];
+  lockedPeriods = {};
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('lp').value='';
