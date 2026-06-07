@@ -1745,6 +1745,14 @@ async function _autoLoadOnLogin(){
       var pd2 = pr.ok ? await pr.json() : [];
       if(pd2.length && Array.isArray(pd2[0].value)) BN_DATA = pd2[0].value;
     }catch(e2){}
+      if(pd2.length && Array.isArray(pd2[0].value)) {
+        BN_DATA = pd2[0].value;
+      } else {
+        BN_DATA = []; // Reset if cloud data is missing/invalid
+      }
+    }catch(e2){
+      BN_DATA = []; // Also reset on fetch error
+    }
     // Nếu trang BN đang active thì refresh
     var bnPage = document.getElementById('page-bn');
     if(bnPage && bnPage.classList.contains('active')){
@@ -3076,6 +3084,9 @@ function doLogout(){
   currentUser=null;
   window._loginGapConfirmed = false;
   _dirty = false;
+  BN_DATA = [];
+  bvphData = [];
+  bcData = [];
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('lp').value='';
@@ -8186,6 +8197,32 @@ function _confirmModal(title, body, onOk, onCancel, okLabel, onOk2, ok2Label){
   document.addEventListener('keydown',esc);
 }
 
+var _bnSyncTimer = null;
+function _scheduleBnSync() {
+  // Debounce saving to cloud to avoid too many requests
+  if(!_supaOnline) {
+    var statusEl = document.getElementById('bn-sync-status');
+    if (statusEl) {
+      statusEl.textContent = '⚠ Offline, không thể đồng bộ';
+      statusEl.style.color = '#e67e22';
+    }
+    return;
+  }
+  if (_bnSyncTimer) clearTimeout(_bnSyncTimer);
+  var statusEl = document.getElementById('bn-sync-status');
+  if (statusEl) {
+    statusEl.textContent = 'Đang lưu thay đổi...';
+    statusEl.style.color = '#e67e22';
+  }
+  _bnSyncTimer = setTimeout(function() {
+    _savePatientsToCloud().then(function() {
+      if (statusEl) { statusEl.textContent = '✓ Đã đồng bộ cloud'; statusEl.style.color = '#27ae60'; setTimeout(function() { if(statusEl) statusEl.textContent = ''; }, 2500); }
+    }).catch(function(e) {
+      if (statusEl) { statusEl.textContent = '⚠ Lỗi đồng bộ'; statusEl.style.color = '#e74c3c'; }
+    });
+  }, 1500); // Wait 1.5 seconds after the last change
+}
+
 function toast(msg,color){
   var t=document.getElementById('toast');
   t.textContent=msg;t.style.background=color||'#1a5276';t.style.display='block';
@@ -9645,15 +9682,8 @@ function savePatient(){
   closeModal('modal-patient');
   
   // Lưu cục bộ và đồng bộ Cloud an toàn
-  if (typeof saveLocalCache === 'function') {
-      saveLocalCache(typeof buildPayload === 'function' ? buildPayload() : {});
-  }
-  
-  if (typeof _savePatientsToCloud === 'function') {
-      _savePatientsToCloud();
-  } else {
-      console.warn("Chưa tìm thấy hàm đồng bộ Cloud cho bệnh nhân.");
-  }
+  if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
+  if (typeof _scheduleBnSync === 'function') _scheduleBnSync();
   
   if (typeof toast === 'function') {
       toast('Đã lưu thông tin bệnh nhân!', 'var(--success)');
@@ -9674,12 +9704,7 @@ function deletePatient(idx) {
   renderPatientTable();
   if (typeof renderDuTru === 'function') renderDuTru();
   
-  // 3. Lưu đồng bộ lên Cloud
-  if (typeof _scheduleBnSync === 'function') {
-      _scheduleBnSync();
-  } else if (typeof _savePatientsToCloud === 'function') {
-      _savePatientsToCloud();
-  }
+  if (typeof _scheduleBnSync === 'function') _scheduleBnSync();
   
   if (typeof toast === 'function') toast('Đã xóa bệnh nhân: ' + ptName, 'var(--danger)');
 }
@@ -9702,12 +9727,7 @@ function deleteAllPatients() {
     renderPatientTable();
     if (typeof renderDuTru === 'function') renderDuTru();
     
-    // 3. Đồng bộ lên Cloud
-    if (typeof _scheduleBnSync === 'function') {
-        _scheduleBnSync();
-    } else if (typeof _savePatientsToCloud === 'function') {
-        _savePatientsToCloud();
-    }
+    if (typeof _scheduleBnSync === 'function') _scheduleBnSync();
     
     if (typeof toast === 'function') toast('Đã xóa sạch toàn bộ danh sách bệnh nhân!', 'var(--danger)');
     else alert('Đã xóa toàn bộ danh sách!');
@@ -9942,7 +9962,6 @@ function importPatientExcel(input) {
 
       if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
       if (typeof _scheduleBnSync === 'function') _scheduleBnSync();
-      else if (typeof _savePatientsToCloud === 'function') _savePatientsToCloud();
 
       if (typeof toast === 'function') {
         if (added > 0) toast('Đã tải lên ' + added + ' BN. Ngày kết thúc đã được tự tính!', 'var(--success)');
