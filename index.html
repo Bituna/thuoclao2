@@ -8561,12 +8561,22 @@ function parsePD(pdStr) {
 // ── Lưu/load BN_DATA từ Supabase settings ────────────────────
 async function _savePatientsToCloud(){
   if(!_supaOnline) return;
-  var hdr = Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'});
   try{
-    await fetch(SUPA_URL+'/rest/v1/settings',{
-      method:'POST', headers:hdr,
-      body:JSON.stringify({key:'PATIENTS',value:BN_DATA})
+    // PATCH update đúng dòng key=PATIENTS (tránh tạo dòng trùng do POST upsert)
+    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS',{
+      method:'PATCH',
+      headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:BN_DATA})
     });
+    var updated = pr.ok ? await pr.json() : [];
+    // Chưa có dòng nào → INSERT mới
+    if(!updated.length){
+      await fetch(SUPA_URL+'/rest/v1/settings',{
+        method:'POST',
+        headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
+      });
+    }
   }catch(e){}
 }
 
@@ -9735,18 +9745,46 @@ async function deleteAllPatients() {
       renderPatientTable();
       renderDuTru();
 
-      // 3. Lưu mảng rỗng lên Supabase — đây là bước quan trọng nhất
-      //    Phải await để đảm bảo cloud nhận [] trước khi user thấy toast thành công
+      // 3. Xóa trên Supabase — bắt buộc await để chắc chắn cloud nhận []
+      //    Dùng PATCH (update đúng dòng theo key) thay vì POST upsert,
+      //    vì bảng settings có PK là id (UUID) nên POST merge-duplicates
+      //    sẽ tạo dòng MỚI thay vì ghi đè → đọc lại vẫn ra dữ liệu cũ.
       if (_supaOnline) {
         try {
-          var hdr = Object.assign({}, _supaHdr, {
+          var hdrPatch = Object.assign({}, _supaHdr, {
             'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=minimal'
+            'Prefer': 'return=representation'
           });
-          await fetch(SUPA_URL + '/rest/v1/settings', {
-            method: 'POST', headers: hdr,
-            body: JSON.stringify([{ key: 'PATIENTS', value: [] }])
+          // PATCH dòng có key=PATIENTS, set value=[]
+          var pr = await fetch(SUPA_URL + '/rest/v1/settings?key=eq.PATIENTS', {
+            method: 'PATCH', headers: hdrPatch,
+            body: JSON.stringify({ value: [] })
           });
+          var updated = pr.ok ? await pr.json() : [];
+
+          // Nếu chưa có dòng nào (PATCH không update gì) → INSERT mới
+          if (!updated.length) {
+            await fetch(SUPA_URL + '/rest/v1/settings', {
+              method: 'POST',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify([{ key: 'PATIENTS', value: [] }])
+            });
+          }
+
+          // Nếu lỡ có nhiều dòng trùng key PATIENTS → xóa hết rồi ghi lại 1 dòng []
+          var chk = await fetch(SUPA_URL + '/rest/v1/settings?key=eq.PATIENTS&select=value', {headers:_supaHdr, cache:'no-store'});
+          var chkData = chk.ok ? await chk.json() : [];
+          var stillHasData = chkData.some(function(d){ return Array.isArray(d.value) && d.value.length > 0; });
+          if (stillHasData) {
+            // Xóa sạch mọi dòng key=PATIENTS rồi insert lại 1 dòng rỗng
+            await fetch(SUPA_URL + '/rest/v1/settings?key=eq.PATIENTS', {method:'DELETE', headers:_supaHdr});
+            await fetch(SUPA_URL + '/rest/v1/settings', {
+              method: 'POST',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify([{ key: 'PATIENTS', value: [] }])
+            });
+          }
+
           toast('✓ Đã xóa toàn bộ danh sách bệnh nhân khỏi hệ thống!', 'var(--danger)');
         } catch(e) {
           toast('⚠ Xóa local xong nhưng lưu cloud thất bại: ' + e.message, 'orange');
