@@ -9712,33 +9712,45 @@ function deletePatient(idx) {
 }
 
 // Hàm xóa toàn bộ bệnh nhân có cảnh báo an toàn
-function deleteAllPatients() {
+async function deleteAllPatients() {
   if (!BN_DATA || BN_DATA.length === 0) {
-    if (typeof toast === 'function') toast('Danh sách đang trống!', 'var(--warning)');
-    else alert('Danh sách đang trống!');
+    toast('Danh sách đang trống!', 'var(--warning)');
     return;
   }
-  
-  var confirmMsg = "CẢNH BÁO NGUY HIỂM!\n\nBạn có chắc chắn muốn XÓA TOÀN BỘ " + BN_DATA.length + " bệnh nhân trong danh sách không?\nHành động này KHÔNG THỂ HOÀN TÁC!";
-  if (confirm(confirmMsg)) {
-    // 1. Làm rỗng mảng
-    BN_DATA = [];
-    
-    // 2. Cập nhật giao diện
-    if (typeof _fillBnFilters === 'function') _fillBnFilters();
-    renderPatientTable();
-    if (typeof renderDuTru === 'function') renderDuTru();
-    
-    // 3. Đồng bộ lên Cloud
-    if (typeof _scheduleBnSync === 'function') {
-        _scheduleBnSync();
-    } else if (typeof _savePatientsToCloud === 'function') {
-        _savePatientsToCloud();
+
+  _confirmModal(
+    '⚠ Xóa toàn bộ danh sách bệnh nhân?',
+    'Sẽ xóa <b>' + BN_DATA.length + ' bệnh nhân</b> khỏi hệ thống cloud.<br>Hành động này <b style="color:red">KHÔNG THỂ HOÀN TÁC</b>!',
+    async function() {
+      // 1. Làm rỗng mảng
+      BN_DATA = [];
+
+      // 2. Cập nhật giao diện ngay
+      _fillBnFilters();
+      renderPatientTable();
+      renderDuTru();
+
+      // 3. Lưu mảng rỗng lên Supabase — đây là bước quan trọng nhất
+      //    Phải await để đảm bảo cloud nhận [] trước khi user thấy toast thành công
+      if (_supaOnline) {
+        try {
+          var hdr = Object.assign({}, _supaHdr, {
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          });
+          await fetch(SUPA_URL + '/rest/v1/settings', {
+            method: 'POST', headers: hdr,
+            body: JSON.stringify([{ key: 'PATIENTS', value: [] }])
+          });
+          toast('✓ Đã xóa toàn bộ danh sách bệnh nhân khỏi hệ thống!', 'var(--danger)');
+        } catch(e) {
+          toast('⚠ Xóa local xong nhưng lưu cloud thất bại: ' + e.message, 'orange');
+        }
+      } else {
+        toast('Đã xóa local. Chưa đồng bộ được cloud (offline).', 'var(--warning)');
+      }
     }
-    
-    if (typeof toast === 'function') toast('Đã xóa sạch toàn bộ danh sách bệnh nhân!', 'var(--danger)');
-    else alert('Đã xóa toàn bộ danh sách!');
-  }
+  );
 }
 
 function exportPatientExcel(){
