@@ -1369,6 +1369,10 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <!-- Bộ lọc -->
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <div style="position:relative">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="bn-filter-search" type="text" placeholder="Tìm theo tên..." oninput="renderPatientTable()" autocomplete="off" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:160px">
+        </div>
+        <div style="position:relative">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
           <select id="bn-filter-unit" title="Lọc theo đơn vị bệnh nhân" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:160px;appearance:none;-webkit-appearance:none;cursor:pointer">
             <option value="">Tất cả đơn vị</option>
@@ -1768,9 +1772,14 @@ async function _autoLoadOnLogin(){
 
     // Load PATIENTS (BN_DATA) sau khi cloud đã online — cho tất cả role
     try{
-      var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
+      var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
       var pd2 = pr.ok ? await pr.json() : [];
-      if(pd2.length && Array.isArray(pd2[0].value)) BN_DATA = pd2[0].value;
+      // Nếu còn nhiều dòng PATIENTS trùng (dữ liệu cũ), lấy dòng có danh sách dài nhất
+      var best = [];
+      pd2.forEach(function(row){
+        if(Array.isArray(row.value) && row.value.length >= best.length) best = row.value;
+      });
+      BN_DATA = best;
     }catch(e2){}
     // Nếu trang BN đang active thì refresh
     var bnPage = document.getElementById('page-bn');
@@ -8595,24 +8604,50 @@ function parsePD(pdStr) {
 
 // ── Lưu/load BN_DATA từ Supabase settings ────────────────────
 async function _savePatientsToCloud(){
-  if(!_supaOnline) return;
+  if(!_supaOnline){
+    if(typeof toast==='function') toast('⚠ Chưa kết nối cloud — danh sách CHƯA được lưu lên hệ thống!', 'var(--danger)');
+    return false;
+  }
   try{
-    // PATCH update đúng dòng key=PATIENTS (tránh tạo dòng trùng do POST upsert)
-    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS',{
-      method:'PATCH',
-      headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=representation'}),
-      body:JSON.stringify({value:BN_DATA})
+    // Cách an toàn tuyệt đối: xóa hết dòng key=PATIENTS rồi chèn lại đúng 1 dòng.
+    // Miễn nhiễm với việc cột key chưa unique (không lo đọc nhầm dòng cũ).
+    var del = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS',{
+      method:'DELETE',
+      headers:_supaHdr
     });
-    var updated = pr.ok ? await pr.json() : [];
-    // Chưa có dòng nào → INSERT mới
-    if(!updated.length){
-      await fetch(SUPA_URL+'/rest/v1/settings',{
-        method:'POST',
-        headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
-        body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
-      });
+    if(!del.ok){
+      var delErr = await del.text();
+      if(typeof toast==='function') toast('❌ Lưu cloud lỗi (xóa cũ) '+del.status+': '+delErr.slice(0,120),'var(--danger)');
+      console.error('_savePatientsToCloud DELETE error', del.status, delErr);
+      return false;
     }
-  }catch(e){}
+    var ins = await fetch(SUPA_URL+'/rest/v1/settings',{
+      method:'POST',
+      headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
+      body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
+    });
+    if(!ins.ok){
+      var insErr = await ins.text();
+      if(typeof toast==='function') toast('❌ Lưu cloud lỗi (chèn mới) '+ins.status+': '+insErr.slice(0,120),'var(--danger)');
+      console.error('_savePatientsToCloud INSERT error', ins.status, insErr);
+      return false;
+    }
+    // XÁC MINH: đọc lại từ cloud để chắc chắn dữ liệu thật sự đã ghi
+    var verify = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
+    var vData = verify.ok ? await verify.json() : [];
+    var savedCount = 0;
+    vData.forEach(function(row){ if(Array.isArray(row.value) && row.value.length > savedCount) savedCount = row.value.length; });
+    if(savedCount < BN_DATA.length){
+      if(typeof toast==='function') toast('❌ Ghi cloud KHÔNG thành công: cloud chỉ có '+savedCount+'/'+BN_DATA.length+' BN. Bảng settings có thể đang chặn quyền ghi (RLS).','var(--danger)');
+      console.error('_savePatientsToCloud verify mismatch: cloud='+savedCount+' local='+BN_DATA.length);
+      return false;
+    }
+    return true;
+  }catch(e){
+    if(typeof toast==='function') toast('❌ Lưu cloud thất bại: '+e.message,'var(--danger)');
+    console.error('_savePatientsToCloud exception', e);
+    return false;
+  }
 }
 
 async function _loadPatientsFromCloud(){
@@ -8755,6 +8790,15 @@ function _filteredPatients(){
   var unitNorm = normalizeUnit(unit);
   var pd   = (document.getElementById('bn-filter-pd')||{}).value || '';
   var pdNorm = pd.replace(/\s+/g,'').toLowerCase();
+  // Ô tìm theo tên — bỏ dấu để gõ không dấu vẫn tìm được
+  var qEl = document.getElementById('bn-filter-search');
+  var q = qEl ? qEl.value.trim() : '';
+  var qNorm = normalizeUnit(q); // normalizeUnit đã bỏ dấu + thường hóa
+  function matchName(b){
+    if(!qNorm) return true;
+    var nm = b.name || b.hoTen || b.tenBN || '';
+    return normalizeUnit(nm).indexOf(qNorm) >= 0;
+  }
   var result = BN_DATA.filter(function(b){
     var bUnit = (b.unit || b.donVi || '') || '';
     var bUnitNorm = normalizeUnit(bUnit);
@@ -8765,10 +8809,10 @@ function _filteredPatients(){
       var match = bUnitNorm === myUnitNorm;
       if(!match) return false;
       if(bnStatus(b).label === 'Hoàn thành') return false;
-      return !pdNorm || bPdNorm === pdNorm;
+      return (!pdNorm || bPdNorm === pdNorm) && matchName(b);
     }
     // Admin: lọc theo dropdown
-    return (!unit || bUnitNorm === unitNorm) && (!pdNorm || bPdNorm === pdNorm);
+    return (!unit || bUnitNorm === unitNorm) && (!pdNorm || bPdNorm === pdNorm) && matchName(b);
   });
   // Admin: đẩy BN Hoàn thành xuống cuối danh sách
   if(role !== 'donvi' && role !== 'bvph'){
@@ -10154,17 +10198,20 @@ function importPatientExcel(input) {
 
       if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
 
-      // Đồng bộ lên cloud — bắt buộc await để chắc chắn đơn vị nhận được danh sách
+      // Đồng bộ lên cloud — bắt buộc await và kiểm tra kết quả thật sự
+      var cloudOk = false;
       if (typeof _savePatientsToCloud === 'function') {
-        await _savePatientsToCloud();
+        cloudOk = await _savePatientsToCloud();
       }
 
       if (typeof toast === 'function') {
         if (added > 0){
-          if(noUnitCount > 0){
-            toast('✓ Đã tải ' + added + ' BN (đồng bộ cloud). ⚠ Có ' + noUnitCount + ' BN THIẾU đơn vị quản lý — đơn vị sẽ không thấy. Hãy bổ sung cột "Đơn vị quản lý".', 'var(--warning)');
+          if(!cloudOk){
+            toast('⚠ Đã thêm ' + added + ' BN vào màn hình NHƯNG LƯU CLOUD THẤT BẠI — dữ liệu sẽ mất khi thoát. Xem thông báo lỗi đỏ phía trên.', 'var(--danger)');
+          } else if(noUnitCount > 0){
+            toast('✓ Đã tải ' + added + ' BN (đã đồng bộ cloud). ⚠ Có ' + noUnitCount + ' BN THIẾU đơn vị quản lý — đơn vị sẽ không thấy.', 'var(--warning)');
           } else {
-            toast('✓ Đã tải lên ' + added + ' BN và đồng bộ cloud. Ngày kết thúc đã tự tính!', 'var(--success)');
+            toast('✓ Đã tải lên ' + added + ' BN và đồng bộ cloud thành công!', 'var(--success)');
           }
         }
         else toast('File không có dữ liệu bệnh nhân hợp lệ.', 'var(--warning)');
