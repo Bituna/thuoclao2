@@ -1737,12 +1737,29 @@ async function _autoLoadOnLogin(){
                  .concat(rows.filter(function(x){return x.unit!=='bvph';}).map(_mapRow));
     }
 
-    // Tải lockedPeriods — donvi chỉ quản lý lock của mình, không bị ảnh hưởng từ admin
+    // Tải lockedPeriods từ cloud
+    // donvi/bvph: chỉ nạp đúng khóa liên quan đến mình (không nhận khóa đơn vị khác,
+    // nhưng PHẢI nạp khóa của chính mình để trạng thái chốt bền vững sau đăng nhập lại)
     var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr});
     var sv = await sr.json();
     if(sv.length && sv[0].value){
-      if(role !== 'donvi') lockedPeriods = sv[0].value;
-      // donvi: giữ lockedPeriods = {} (đã reset ở initApp)
+      var serverLocked = sv[0].value;
+      if(role === 'admin'){
+        lockedPeriods = serverLocked;
+      } else if(role === 'bvph'){
+        // Chỉ giữ các key liên quan bvph (key kết thúc bằng _bvph) + khóa toàn cục
+        lockedPeriods = {};
+        Object.keys(serverLocked).forEach(function(k){
+          if(k.endsWith('_bvph') || k.indexOf('_') < 0) lockedPeriods[k] = serverLocked[k];
+        });
+      } else {
+        // donvi: chỉ giữ khóa của đúng đơn vị mình + khóa toàn cục
+        lockedPeriods = {};
+        var myKeySuffix = '_' + (currentUser.unit || '');
+        Object.keys(serverLocked).forEach(function(k){
+          if(k.endsWith(myKeySuffix) || k.indexOf('_') < 0) lockedPeriods[k] = serverLocked[k];
+        });
+      }
     }
     fullRender();
     updateSaveBtnUI();
@@ -1830,11 +1847,20 @@ async function saveToSupabase(periodKey){
     }
 
     // Bước 3: Lưu lockedPeriods vào settings
-    await fetch(SUPA_URL+'/rest/v1/settings', {
-      method: 'POST',
-      headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
-      body: JSON.stringify({key:'lockedPeriods', value:lockedPeriods})
+    // Dùng PATCH-first để ghi đè đúng dòng key=lockedPeriods (tránh tạo dòng trùng)
+    var lpPatch = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods', {
+      method: 'PATCH',
+      headers: Object.assign({}, hdBase, {'Prefer': 'return=representation'}),
+      body: JSON.stringify({value:lockedPeriods})
     });
+    var lpUpdated = lpPatch.ok ? await lpPatch.json() : [];
+    if(!lpUpdated.length){
+      await fetch(SUPA_URL+'/rest/v1/settings', {
+        method: 'POST',
+        headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+        body: JSON.stringify([{key:'lockedPeriods', value:lockedPeriods}])
+      });
+    }
 
     // Bước 4: Admin lưu catalog
     if(role==='admin') await _saveSupaCatalog();
@@ -3168,9 +3194,8 @@ function initApp(){
   }
 
   loadSaved();
-  if(role === 'donvi'){
-    lockedPeriods = {};
-  }
+  // lockedPeriods sẽ được _autoLoadOnLogin nạp đúng từ cloud theo role
+  lockedPeriods = {};
   setTimeout(function(){
     updateSaveBtnUI(); setupCatalog();
     fillDrugSelects();
@@ -3598,11 +3623,20 @@ function changeRole(i){
 async function _saveAccountsToCloud(){
   if(!_supaOnline) return;
   try{
-    var hdPost = Object.assign({}, _supaHdr, {'Prefer':'resolution=merge-duplicates,return=minimal','Content-Type':'application/json'});
-    await fetch(SUPA_URL+'/rest/v1/settings', {
-      method:'POST', headers:hdPost,
-      body:JSON.stringify([{key:'ACCOUNTS', value:ACCOUNTS}])
+    // PATCH-first: ghi đè đúng dòng key=ACCOUNTS, tránh tạo dòng trùng
+    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS', {
+      method:'PATCH',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:ACCOUNTS})
     });
+    var updated = pr.ok ? await pr.json() : [];
+    if(!updated.length){
+      await fetch(SUPA_URL+'/rest/v1/settings', {
+        method:'POST',
+        headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'ACCOUNTS', value:ACCOUNTS}])
+      });
+    }
   }catch(e){ console.warn('Save accounts error:',e); }
 }
 
@@ -8464,7 +8498,7 @@ function editTPInline(btn){
 // ── Phác đồ chuẩn (tên ngắn + liều/ngày từng thuốc) ──────────
 // Mỗi entry: { drug: 'Tên thuốc', daily: số viên/ngày, note: '' }
 // LEGEND: B=Bedaquiline, Pa=Pretomanid, L/Lzd=Linezolid, M/Mfx=Moxifloxacin, 
-// Lfx=Levofloxacin, Cfz=Clofazimine, Cs=Cycloserine, E=Prothionamide, Z=Linezolid 300mg
+// Lfx=Levofloxacin, Cfz=Clofazimine, Cs=Cycloserine, E=Ethambutol, Z=Linezolid 300mg
 
 var PHAC_DO = {
   '6BPaLM': [
@@ -8485,14 +8519,14 @@ var PHAC_DO = {
     {drug:'Linezolid 600mg',    daily:1},
     {drug:'Clofazimine 100mg',  daily:1},
     {drug:'Cycloserine 250mg',  daily:2},
-    {drug:'Prothionamide 250mg',daily:3}
+    {drug:'Ethambutol 400mg',   daily:3}
   ],
   '18-20LfxZCfzCsE': [
     {drug:'Levofloxacin 250mg', daily:4},
     {drug:'Linezolid 300mg',    daily:2},
     {drug:'Clofazimine 100mg',  daily:1},
     {drug:'Cycloserine 250mg',  daily:2},
-    {drug:'Prothionamide 250mg',daily:3}
+    {drug:'Ethambutol 400mg',   daily:3}
   ],
   'Khác': []
 };
@@ -8511,7 +8545,7 @@ var PHAC_DO_ABBR_MAP = {
   'Cfz': 'Clofazimine 100mg',
   'Cs': 'Cycloserine 250mg',
   'Pto': 'Prothionamide 250mg',
-  'E': 'Prothionamide 250mg',
+  'E': 'Ethambutol 400mg',
   'Z': 'Linezolid 300mg' // Riêng cho 18-20LfxZCfzCsE
 };
 
@@ -8741,11 +8775,7 @@ function _resolveEndDate(bn){
   var pd = bn.pd||bn.phacDo||'';
   if(!_s||!pd) return null;
   var d = new Date(_s); if(isNaN(d)) return null;
-  var m = 0;
-  if(pd.indexOf('6')===0) m=6;
-  else if(pd.indexOf('9')===0||pd.indexOf('4-6')===0) m=9;
-  else if(pd.indexOf('18')===0||pd.indexOf('20')===0) m=18;
-  else { var match=pd.match(/^(\d+)/); if(match) m=parseInt(match[1]); }
+  var m = _getPhacDoMonths(pd);
   if(!m) return null;
   d.setMonth(d.getMonth()+m); d.setDate(d.getDate()-1);
   return d;
@@ -8809,10 +8839,7 @@ function renderPatientTable(){
     if(!start || !pd) return '—';
     var d = new Date(start);
     if(isNaN(d)) return '—';
-    var m = 0;
-    if(pd.indexOf('6')===0) m=6;
-    else if(pd.indexOf('9')===0||pd.indexOf('4-6')===0) m=9;
-    else if(pd.indexOf('18')===0||pd.indexOf('20')===0) m=18;
+    var m = _getPhacDoMonths(pd);
     if(m===0) return '—';
     d.setMonth(d.getMonth()+m); d.setDate(d.getDate()-1);
     return fmtDate(d)+'<br><small style="color:#aaa;font-weight:normal">(Dự kiến)</small>';
@@ -8865,10 +8892,7 @@ function getEndDate(bn) {
     if (start && pd) {
         var d = new Date(start);
         if (!isNaN(d)) {
-            var m = 0;
-            if(pd.indexOf('6') === 0) m = 6;
-            else if(pd.indexOf('9') === 0 || pd.indexOf('4-6') === 0) m = 9;
-            else if(pd.indexOf('18') === 0 || pd.indexOf('20') === 0) m = 18;
+            var m = _getPhacDoMonths(pd);
             if(m > 0){
                 d.setMonth(d.getMonth() + m);
                 d.setDate(d.getDate() - 1);
@@ -9222,6 +9246,14 @@ function handlePdChange() {
 }
 
 // Tự động tính ngày kết thúc
+// Lấy số tháng điều trị từ tên phác đồ (số đứng đầu chuỗi)
+// VD: "6BPaLM" → 6 ; "18-20LfxLzdCfzCsE" → 18 ; "9BdqLfx" → 9
+function _getPhacDoMonths(pdStr){
+  if(!pdStr) return 0;
+  var match = String(pdStr).trim().match(/^(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 function calculateEndDate() {
     var startVal = document.getElementById('pt-start').value;
     if(!startVal) return;
