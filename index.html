@@ -883,7 +883,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <!-- BANNER TRẠNG THÁI KHÓA -->
     <div id="report-locked-banner" style="display:none;align-items:center;gap:10px;background:#fff3cd;border:1.5px solid #ffc107;border-radius:8px;padding:10px 16px;margin:0 24px 14px;font-size:12px;font-weight:600;color:#856404">
       <span id="report-locked-msg">🔒 Báo cáo đã được lưu.</span>
-      <button class="btn btn-xs" style="margin-left:auto;background:#e67e22;color:white;white-space:nowrap" onclick="openReport()">🔓 Mở lại để sửa</button>
+      <button id="btn-open-bc-banner" class="btn btn-xs admin-only" style="margin-left:auto;background:#e67e22;color:white;white-space:nowrap" onclick="openReport()">🔓 Mở lại để sửa</button>
     </div>
 
     <!-- THANH CHỌN ĐƠN VỊ DÀNH CHO ADMIN -->
@@ -5553,17 +5553,16 @@ function _createNextPeriodRows(curKey, nextKey){
 // Mở lại báo cáo kỳ đang chọn (chỉ Admin)
 function openReport(){
   var role = currentUser ? currentUser.role : '';
+  // CHỈ ADMIN được mở khóa báo cáo. Đơn vị/BVPH không được tự mở.
+  if(role !== 'admin'){
+    toast('Chỉ Quản trị viên (Admin) mới có quyền mở khóa báo cáo. Vui lòng liên hệ Admin.', 'var(--danger)');
+    return;
+  }
   var periodKey = _currentPeriodKey();
   var label = _keyToLabel(periodKey);
   
   var selUnit = document.getElementById('filter-unit-bc');
   var unitVal = selUnit ? selUnit.value : '__all__';
-
-  if (role === 'donvi') {
-      unitVal = currentUser.unit;
-  } else if (role === 'bvph') {
-      unitVal = 'bvph';
-  }
 
   var title = '🔓 Mở để sửa';
   var msg = '';
@@ -5640,10 +5639,15 @@ function updateFooterByRole(){
 
 function updateSaveBtnUI(){
   var locked   = isCurrentPeriodLocked();
+  var role     = currentUser ? currentUser.role : '';
+  var isAdmin  = role === 'admin';
   var saveBtn  = document.getElementById('btn-save-bc');
   var openBtn  = document.getElementById('btn-open-bc');
+  var openBtnBanner = document.getElementById('btn-open-bc-banner');
   if(saveBtn) saveBtn.style.display = locked ? 'none' : '';
-  if(openBtn) openBtn.style.display = locked ? ''     : 'none';
+  // Nút "Mở lại để sửa" CHỈ hiện với Admin. Đơn vị/BVPH không bao giờ thấy.
+  if(openBtn) openBtn.style.display = (locked && isAdmin) ? '' : 'none';
+  if(openBtnBanner) openBtnBanner.style.display = (locked && isAdmin) ? '' : 'none';
   updateLockedUI();
 }
 
