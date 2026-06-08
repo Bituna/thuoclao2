@@ -2010,7 +2010,7 @@ var DRUGS=[
   "Rifampicin 150mg","Isoniazid 100mg","Isoniazid 300mg","Ethambutol 400mg","Pyrazinamid 500mg",
   "Levofloxacin 250mg","Levofloxacin 500mg","Moxifloxacin 400mg",
   "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g",
-  "Cycloserine 250mg","Prothionamide 250mg","Para-aminosalicylic acid 4g",
+  "Cycloserine 250mg","Prothionamide 250mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
   "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg",
   "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg"
 ];
@@ -8545,6 +8545,7 @@ var PHAC_DO_ABBR_MAP = {
   'Cfz': 'Clofazimine 100mg',
   'Cs': 'Cycloserine 250mg',
   'Pto': 'Prothionamide 250mg',
+  'Eto': 'Ethionamide 250mg',
   'E': 'Ethambutol 400mg',
   'Z': 'Linezolid 300mg' // Riêng cho 18-20LfxZCfzCsE
 };
@@ -8555,7 +8556,7 @@ function decodePdAbbr(pdName) {
   var str = pdName.replace(/^[\d\-]+/,'').trim(); // Loại bỏ số (6, 18-20,...)
   
   // Thử match theo dạng dài trước (Bdq, Lfx, Lzd,...)
-  var longAbbrList = ['Bdq','Lfx','Lzd','Cfz','Pto','Prm','Pth','Pre'];
+  var longAbbrList = ['Bdq','Lfx','Lzd','Cfz','Pto','Eto','Prm','Pth','Pre'];
   for(var i=0; i<longAbbrList.length; i++){
     if(str.indexOf(longAbbrList[i])>=0) {
       for(var k in PHAC_DO_ABBR_MAP) {
@@ -8730,9 +8731,19 @@ function _fillBnFilters(){
   var visibleData = isFixedUnit
     ? BN_DATA.filter(function(b){ return normalizeUnit(b.unit||b.donVi||'') === myUnitNorm; })
     : BN_DATA;
-  var pds = [...new Set(visibleData.map(function(b){return b.pd||b.phacDo||'';}).filter(Boolean))].sort();
+  // Gộp phác đồ trùng: chuẩn hóa (bỏ khoảng trắng thừa, không phân biệt hoa/thường)
+  // để "6BdqLfx", "6Bdq Lfx", "6bdqlfx" chỉ hiện 1 lần, tránh nhầm lẫn.
+  var pdMap = {};
+  visibleData.forEach(function(b){
+    var raw = (b.pd || b.phacDo || '').trim();
+    if(!raw) return;
+    var key = raw.replace(/\s+/g,'').toLowerCase();
+    // Giữ bản hiển thị đầu tiên gặp được cho mỗi dạng chuẩn hóa
+    if(!pdMap[key]) pdMap[key] = raw;
+  });
+  var pds = Object.keys(pdMap).sort().map(function(k){ return pdMap[k]; });
   pSel.innerHTML = '<option value="">Tất cả phác đồ</option>'
-    + pds.map(function(p){return '<option value="'+p+'">'+p+'</option>';}).join('');
+    + pds.map(function(p){return '<option value="'+escH(p)+'">'+escH(p)+'</option>';}).join('');
 }
 
 function _filteredPatients(){
@@ -8743,19 +8754,21 @@ function _filteredPatients(){
   var unit = (document.getElementById('bn-filter-unit')||{}).value || '';
   var unitNorm = normalizeUnit(unit);
   var pd   = (document.getElementById('bn-filter-pd')||{}).value || '';
+  var pdNorm = pd.replace(/\s+/g,'').toLowerCase();
   var result = BN_DATA.filter(function(b){
     var bUnit = (b.unit || b.donVi || '') || '';
     var bUnitNorm = normalizeUnit(bUnit);
     var bPd   = b.pd   || b.phacDo || '';
+    var bPdNorm = bPd.replace(/\s+/g,'').toLowerCase();
     // Donvi hoặc bvph: chỉ lọc theo đơn vị mình, ẨN bệnh nhân đã Hoàn thành
     if(role === 'donvi' || role === 'bvph'){
       var match = bUnitNorm === myUnitNorm;
       if(!match) return false;
       if(bnStatus(b).label === 'Hoàn thành') return false;
-      return !pd || bPd === pd;
+      return !pdNorm || bPdNorm === pdNorm;
     }
     // Admin: lọc theo dropdown
-    return (!unit || bUnitNorm === unitNorm) && (!pd || bPd === pd);
+    return (!unit || bUnitNorm === unitNorm) && (!pdNorm || bPdNorm === pdNorm);
   });
   // Admin: đẩy BN Hoàn thành xuống cuối danh sách
   if(role !== 'donvi' && role !== 'bvph'){
@@ -8993,34 +9006,47 @@ function renderDuTru(){
             if (days <= 0) continue;
             var proratedDays = Math.round((days / monthEnd.getDate()) * 26);
 
+            // Tháng thứ mấy của liệu trình (offset từ ngày bắt đầu điều trị, bắt đầu từ 0)
+            var monthOffset = (monthStart.getFullYear() - startD.getFullYear()) * 12
+                            + (monthStart.getMonth() - startD.getMonth());
+
             drugs.forEach(function(d){
                 var dName = d.drug || d.d;
                 var daily = parseFloat(d.monthTotal || d.daily || 0) / 26; 
-                if(daily > 0){
-                    if(!stats[dName]) {
-                        stats[dName] = { total: 0 };
-                        for(var i=1; i<=12; i++) { stats[dName]['m'+i] = 0; stats[dName]['p'+i] = []; }
-                    }
-                    var pills = Math.ceil(daily * proratedDays);
-                    stats[dName]['m'+m] += pills;
-                    stats[dName]['total'] += pills;
-                    // Bedaquiline: tính note chi tiết theo ngày bắt đầu BN
-                    var _bdqNote = '';
-                    if(dName.indexOf('Bedaquiline') >= 0 && typeof calculateBedaquilineDetails === 'function'){
-                        var _bdqD = calculateBedaquilineDetails(bn.startDate || bn.ngayBD, bn.endDate || bn.ngayKT);
-                        if(_bdqD) _bdqNote = _bdqD.note || '';
-                    }
-                    var _isOng = dName.indexOf('Amikacin') >= 0 || dName.indexOf('Kanamycin') >= 0;
-                    stats[dName]['p'+m].push({
-                        name: bn.name || bn.hoTen || bn.tenBN,
-                        pd: bn.pd || bn.phacDo,
-                        daily: daily,
-                        days: proratedDays,
-                        pills: pills,
-                        bdqNote: _bdqNote,
-                        isOng: _isOng
+                if(daily <= 0) return;
+
+                // Nếu thuốc thuộc phác đồ 2 giai đoạn (có ranges): chỉ tính khi tháng này
+                // nằm trong khoảng giai đoạn của thuốc. Thuốc không có ranges → tính bình thường.
+                if(d.ranges && d.ranges.length){
+                    var inRange = d.ranges.some(function(rg){
+                        return monthOffset >= rg.startMonth && monthOffset < rg.endMonth;
                     });
+                    if(!inRange) return;
                 }
+
+                if(!stats[dName]) {
+                    stats[dName] = { total: 0 };
+                    for(var i=1; i<=12; i++) { stats[dName]['m'+i] = 0; stats[dName]['p'+i] = []; }
+                }
+                var pills = Math.ceil(daily * proratedDays);
+                stats[dName]['m'+m] += pills;
+                stats[dName]['total'] += pills;
+                // Bedaquiline: tính note chi tiết theo ngày bắt đầu BN
+                var _bdqNote = '';
+                if(dName.indexOf('Bedaquiline') >= 0 && typeof calculateBedaquilineDetails === 'function'){
+                    var _bdqD = calculateBedaquilineDetails(bn.startDate || bn.ngayBD, bn.endDate || bn.ngayKT);
+                    if(_bdqD) _bdqNote = _bdqD.note || '';
+                }
+                var _isOng = dName.indexOf('Amikacin') >= 0 || dName.indexOf('Kanamycin') >= 0;
+                stats[dName]['p'+m].push({
+                    name: bn.name || bn.hoTen || bn.tenBN,
+                    pd: bn.pd || bn.phacDo,
+                    daily: daily,
+                    days: proratedDays,
+                    pills: pills,
+                    bdqNote: _bdqNote,
+                    isOng: _isOng
+                });
             });
         }
     });
@@ -9246,12 +9272,20 @@ function handlePdChange() {
 }
 
 // Tự động tính ngày kết thúc
-// Lấy số tháng điều trị từ tên phác đồ (số đứng đầu chuỗi)
-// VD: "6BPaLM" → 6 ; "18-20LfxLzdCfzCsE" → 18 ; "9BdqLfx" → 9
+// Lấy tổng số tháng điều trị từ tên phác đồ (số đứng đầu mỗi giai đoạn)
+// Phác đồ 1 giai đoạn: "6BPaLM" → 6 ; "18-20LfxLzdCfzCsE" → 18
+// Phác đồ 2 giai đoạn (có "/"): "6Bdq-Lfx-Lzd / 12Lfx-Cfz-Cs" → 6 + 12 = 18
 function _getPhacDoMonths(pdStr){
   if(!pdStr) return 0;
-  var match = String(pdStr).trim().match(/^(\d+)/);
-  return match ? parseInt(match[1], 10) : 0;
+  var s = String(pdStr).trim();
+  // Tách các giai đoạn theo dấu "/"
+  var phases = s.split('/');
+  var total = 0;
+  for(var i=0; i<phases.length; i++){
+    var m = phases[i].trim().match(/^(\d+)/);
+    if(m) total += parseInt(m[1], 10);
+  }
+  return total;
 }
 
 function calculateEndDate() {
@@ -9262,10 +9296,9 @@ function calculateEndDate() {
     var pdSelect = document.getElementById('pt-pd').value;
     var pdStr = (pdSelect === 'Khác') ? document.getElementById('pt-pd-custom').value : pdSelect;
     
-    // Tìm con số đứng đầu chuỗi phác đồ (VD: 6, 9, 18...)
-    var match = pdStr.match(/^(\d+)/);
-    if(match) {
-        var monthsToAdd = parseInt(match[1]);
+    // Tổng số tháng (cộng cả 2 giai đoạn nếu có dấu "/")
+    var monthsToAdd = _getPhacDoMonths(pdStr);
+    if(monthsToAdd > 0) {
         d.setMonth(d.getMonth() + monthsToAdd);
         d.setDate(d.getDate() - 1); // Trừ đi 1 ngày để tròn liệu trình
         document.getElementById('pt-end').value = d.toISOString().split('T')[0];
@@ -9348,7 +9381,59 @@ function calculateBedaquilineDetails(startDateStr, endDateStr) {
 }
 
 // 2. Thuật toán gợi ý TỔNG VIÊN/THÁNG và GHI CHÚ theo Tuổi & Cân Nặng (WHO 2022)
+// Hỗ trợ phác đồ 2 giai đoạn có dấu "/": tính thuốc riêng từng giai đoạn theo số tháng của giai đoạn đó.
 function getDrugsByWeight(pd, weight, age) {
+    var pdRaw = String(pd || '');
+    // Nếu có dấu "/" → phác đồ nhiều giai đoạn
+    if(pdRaw.indexOf('/') >= 0){
+        var phases = pdRaw.split('/');
+        var merged = {};      // drugName -> {...}
+        var order = [];
+        var cumMonth = 0;     // số tháng đã trôi qua tính từ đầu liệu trình
+        phases.forEach(function(ph){
+            ph = ph.trim();
+            if(!ph) return;
+            var phMonths = _getPhacDoMonths(ph); // số tháng giai đoạn này
+            var phStart = cumMonth;              // tháng bắt đầu (offset từ 0)
+            var phEnd = cumMonth + phMonths;     // tháng kết thúc (không bao gồm)
+            cumMonth = phEnd;
+            var phDrugs = _getDrugsByWeightSingle(ph, weight, age);
+            phDrugs.forEach(function(dr){
+                if(!merged[dr.d]){
+                    merged[dr.d] = {
+                        d: dr.d,
+                        monthTotal: dr.monthTotal,
+                        note: dr.note,
+                        phaseMonths: phMonths,
+                        totalQty: dr.monthTotal * phMonths,
+                        // Mảng các khoảng tháng thuốc này được dùng (offset từ ngày BĐ điều trị)
+                        ranges: [{ startMonth: phStart, endMonth: phEnd }]
+                    };
+                    order.push(dr.d);
+                } else {
+                    merged[dr.d].phaseMonths += phMonths;
+                    merged[dr.d].totalQty += dr.monthTotal * phMonths;
+                    merged[dr.d].ranges.push({ startMonth: phStart, endMonth: phEnd });
+                }
+            });
+        });
+        return order.map(function(name){
+            var m = merged[name];
+            return {
+                d: m.d,
+                monthTotal: m.monthTotal,
+                note: m.note + ' (dùng ' + m.phaseMonths + ' tháng)',
+                totalQty: m.totalQty,
+                phaseMonths: m.phaseMonths,
+                ranges: m.ranges     // dùng để dự trù theo đúng giai đoạn
+            };
+        });
+    }
+    // Phác đồ 1 giai đoạn (như cũ)
+    return _getDrugsByWeightSingle(pdRaw, weight, age);
+}
+
+function _getDrugsByWeightSingle(pd, weight, age) {
     var w = parseFloat(weight) || 50;
     var drugs = [];
     var pdStr = String(pd || '').replace(/\s+/g, '');
@@ -9400,6 +9485,8 @@ function getDrugsByWeight(pd, weight, age) {
         "ETHAMBUTOL": "Ethambutol 400mg",
         "PROTHIONAMIDE250MG": "Prothionamide 250mg",
         "PROTHIONAMIDE": "Prothionamide 250mg",
+        "ETHIONAMIDE250MG": "Ethionamide 250mg",
+        "ETHIONAMIDE": "Ethionamide 250mg",
         "PARA-AMINOSALICYLICACID4G": "Para-aminosalicylic acid 4g",
         "PARAAMINOSALICYLICACID": "Para-aminosalicylic acid 4g",
         "BEDAQUILINE100MG": "Bedaquiline 100mg",
@@ -9436,6 +9523,7 @@ function getDrugsByWeight(pd, weight, age) {
         PZA: "Pyrazinamid 500mg",
         EMB: "Ethambutol 400mg",
         PTO: "Prothionamide 250mg",
+        ETO: "Ethionamide 250mg",
         PAS: "Para-aminosalicylic acid 4g",
         BDQ: "Bedaquiline 100mg",           // Bedaquiline
         DLM: "Delamanid 50mg",             // Delamanid
@@ -9486,6 +9574,7 @@ function getDrugsByWeight(pd, weight, age) {
         "Pyrazinamid 500mg": { monthTotal: vZ, note: noteZ },
         "Ethambutol 400mg": { monthTotal: vE, note: noteE },
         "Prothionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
+        "Ethionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
         "Para-aminosalicylic acid 4g": { monthTotal: 26, note: "1 viên/ngày" },
         "Streptomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" },
         "Capreomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" }
@@ -9903,7 +9992,7 @@ function importPatientExcel(input) {
   if (typeof toast === 'function') toast('Đang đọc file Excel...', 'var(--warning)');
 
   var reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       var data = new Uint8Array(e.target.result);
       var workbook = XLSX.read(data, {type: 'array'});
@@ -9972,6 +10061,7 @@ function importPatientExcel(input) {
       }
 
       var added = 0;
+      var noUnitCount = 0;
       if (typeof BN_DATA === 'undefined') window.BN_DATA = [];
 
       for (var i = headerRowIndex + 1; i < rows.length; i++) {
@@ -10032,6 +10122,14 @@ function importPatientExcel(input) {
         if(!unitVal && typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'donvi'){
           unitVal = String(currentUser.unit||'').trim();
         }
+        // Chuẩn hóa tên đơn vị về đúng tên trong danh sách hệ thống (UNITS)
+        // để đơn vị lọc được kể cả khi admin gõ thiếu dấu/khác hoa thường
+        if(unitVal && typeof UNITS !== 'undefined'){
+          var unitNorm = normalizeUnit(unitVal);
+          var matched = UNITS.find(function(u){ return normalizeUnit(u) === unitNorm; });
+          if(matched) unitVal = matched;
+        }
+        if(!unitVal) noUnitCount++;
         var newPt = {
           name: nameVal,
           gender: genderVal,
@@ -10055,11 +10153,20 @@ function importPatientExcel(input) {
       if (typeof renderDuTru === 'function') renderDuTru();
 
       if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
-      if (typeof _scheduleBnSync === 'function') _scheduleBnSync();
-      else if (typeof _savePatientsToCloud === 'function') _savePatientsToCloud();
+
+      // Đồng bộ lên cloud — bắt buộc await để chắc chắn đơn vị nhận được danh sách
+      if (typeof _savePatientsToCloud === 'function') {
+        await _savePatientsToCloud();
+      }
 
       if (typeof toast === 'function') {
-        if (added > 0) toast('Đã tải lên ' + added + ' BN. Ngày kết thúc đã được tự tính!', 'var(--success)');
+        if (added > 0){
+          if(noUnitCount > 0){
+            toast('✓ Đã tải ' + added + ' BN (đồng bộ cloud). ⚠ Có ' + noUnitCount + ' BN THIẾU đơn vị quản lý — đơn vị sẽ không thấy. Hãy bổ sung cột "Đơn vị quản lý".', 'var(--warning)');
+          } else {
+            toast('✓ Đã tải lên ' + added + ' BN và đồng bộ cloud. Ngày kết thúc đã tự tính!', 'var(--success)');
+          }
+        }
         else toast('File không có dữ liệu bệnh nhân hợp lệ.', 'var(--warning)');
       }
 
