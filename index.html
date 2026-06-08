@@ -4176,9 +4176,10 @@ function buildTbl(data, bodyId, prefix){
     var openRO    = (!isAdmin() && row.openLocked === true);
     var isPeriodLocked = isCurrentPeriodLocked();
 
-    // Nút thao tác
+    // Nút thao tác — chỉ ẩn khi KỲ bị khóa (đã In báo cáo).
+    // row.locked chỉ khóa riêng ô "Tồn đầu" (xử lý qua openRO), KHÔNG chặn sửa cả dòng.
     var btns = '';
-    if(canEdit && !isPeriodLocked && !isLocked){
+    if(canEdit && !isPeriodLocked){
       var editLbl = isEditing ? '&#128190; Lưu' : '&#9999; Sửa';
       var editSty = isEditing
         ? 'background:var(--success);color:white'
@@ -4194,7 +4195,9 @@ function buildTbl(data, bodyId, prefix){
     // QUAN TRỌNG: dùng onchange string attribute (không dùng addEventListener)
     // vì innerHTML sẽ làm mất event listener
     function makeCell(field, val, readOnly){
-      var locked = readOnly || isLocked;
+      // Chỉ ô có readOnly riêng (Tồn đầu sau chốt) mới khóa.
+      // Không khóa theo row.locked nữa vì kỳ chưa khóa thì phải sửa được.
+      var locked = readOnly;
       if(isEditing && canEdit && !locked){
         // dc2: BVPH = Xuất Tổ CL → rơi vào Tỉnh cấp 22ĐV
         //       22ĐV = Xuất điều chuyển → rơi vào dc đơn vị nhận
@@ -4614,7 +4617,8 @@ function editR(prefix, rowIdx){
   if(realIdx < 0){ toast('Không tìm thấy dòng!','var(--danger)'); return; }
   var target = arr[realIdx];
   if(!target) return;
-  if(target.locked && !isAdmin()){toast('Dòng đã khóa! Chỉ Admin mở được.','var(--danger)');return;}
+  // Chỉ chặn sửa khi KỲ đã khóa (đã In báo cáo). row.locked không chặn sửa.
+  if(isCurrentPeriodLocked() && !isAdmin()){toast('Báo cáo kỳ này đã chốt và khóa! Chỉ Admin mở được.','var(--danger)');return;}
 
   if(target.editing){
     // Đang sửa → bấm Lưu: flush tất cả input trong tbody
