@@ -633,16 +633,12 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     </div>
   </div>
   <div class="page-body">
-    <div class="stat-row">
+    <div class="stat-row" style="grid-template-columns:repeat(5,1fr)">
       <div class="stat-card c-blue"><div class="lbl">Tổng đơn vị</div><div class="val">23</div><div class="sub">Đơn vị tham gia</div></div>
-      <div class="stat-card c-green"><div class="lbl">Đã nộp BC</div><div class="val" id="tq-da">—</div><div class="sub" id="tq-pct">—</div></div>
-      <div class="stat-card c-red"><div class="lbl">Chưa nộp</div><div class="val" id="tq-chua">—</div><div class="sub">Cần nhắc nhở</div></div>
-      <div class="stat-card c-amber"><div class="lbl">Cảnh báo tồn kho</div><div class="val" id="tq-low">—</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div>
-    </div>
-    <div class="stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
-      <div class="stat-card c-blue"><div class="lbl">Tổng tồn cuối kỳ (toàn TP)</div><div class="val" id="tq-tongton" style="font-size:22px">—</div><div class="sub">Đơn vị thuốc đang quản lý</div></div>
-      <div class="stat-card c-green"><div class="lbl">Tổng nhập trong kỳ</div><div class="val" id="tq-tongnhap" style="font-size:22px;color:var(--success)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
-      <div class="stat-card c-red"><div class="lbl">Tổng xuất trong kỳ</div><div class="val" id="tq-tongxuat" style="font-size:22px;color:var(--danger)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
+      <div class="stat-card c-green" style="cursor:pointer" onclick="_showTQUnitList('submitted')" title="Bấm xem danh sách"><div class="lbl">Đã nộp BC</div><div class="val" id="tq-da">—</div><div class="sub" id="tq-pct">—</div></div>
+      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQUnitList('notsub')" title="Bấm xem danh sách"><div class="lbl">Chưa nộp</div><div class="val" id="tq-chua">—</div><div class="sub">Bấm xem danh sách</div></div>
+      <div class="stat-card c-amber" style="cursor:pointer" onclick="_showTQAlert('low')" title="Bấm xem chi tiết"><div class="lbl">Cảnh báo tồn kho</div><div class="val" id="tq-low">—</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div>
+      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQAlert('exp')" title="Bấm xem chi tiết"><div class="lbl">Thuốc sắp hết hạn</div><div class="val" id="tq-exp-count" style="color:var(--danger)">—</div><div class="sub">&lt; 6 tháng — bấm xem</div></div>
     </div>
 
     <!-- BẢNG TỔNG HỢP THEO THUỐC (gộp toàn TP) -->
@@ -665,40 +661,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </table>
       </div>
     </div>
-    <!-- Hàng 1: Chưa nộp (full width, nổi bật) -->
-    <div class="card" style="margin-bottom:14px;border-left:4px solid var(--danger)">
-      <div class="card-title" style="color:var(--danger);margin-bottom:10px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Đơn vị chưa nộp báo cáo
-        <span id="tq-chua-count" style="margin-left:8px;background:#e74c3c;color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700"></span>
-      </div>
-      <div id="tq-chua-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
 
-    <!-- Hàng 2: Đã nộp (full width) -->
-    <div class="card" style="margin-bottom:14px;border-left:4px solid var(--success)">
-      <div class="card-title" style="color:var(--success);margin-bottom:10px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        Đơn vị đã nộp báo cáo
-        <span id="tq-da-count" style="margin-left:8px;background:#27ae60;color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700"></span>
-      </div>
-      <div id="tq-da-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
-    <div class="cards-row">
-      <div class="card">
-        <div class="card-title" style="color:var(--warning)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Thuốc dưới ngưỡng tồn kho
-        </div>
-        <ul class="list" id="tq-lowlist"></ul>
-      </div>
-      <div class="card">
-        <div class="card-title" style="color:var(--danger)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Thuốc sắp hết hạn (&lt; 6 tháng)
-        </div>
-        <ul class="list" id="tq-explist"></ul>
-      </div>
+    <!-- Các danh sách chi tiết đã chuyển thành popup khi bấm vào thẻ ở hàng trên -->
+    <div style="display:none">
+      <span id="tq-chua-count"></span><div id="tq-chua-list"></div>
+      <span id="tq-da-count"></span><div id="tq-da-list"></div>
+      <ul id="tq-lowlist"></ul>
+      <ul id="tq-explist"></ul>
     </div>
 
     <!-- BẢNG ĐIỀU CHUYỂN TRONG KỲ -->
@@ -3794,6 +3763,8 @@ function renderTQ(){
 
   var submitted = getSubmittedUnits();
   var notSub = UNITS.filter(function(u){ return submitted.indexOf(u)===-1; });
+  _tqSubmitted = submitted;
+  _tqNotSub = notSub;
   // Chỉ tính tổng kho của kỳ đang chọn
   var allRows = bvphData.filter(matchTQPeriod).concat(bcData.filter(matchTQPeriod));
 
@@ -4128,6 +4099,96 @@ function updateAlerts(){
       +'<span class="dn">'+x.name+' - Lô '+x.lot+' ('+expFmt(x.exp)+') - '+x.unit+'</span>'
       +'<span class="badge '+bcls+'">'+lbl+'</span></li>';
   });
+
+  // Lưu lại để hiện popup khi bấm thẻ + cập nhật số thẻ "Thuốc sắp hết hạn"
+  _tqLowList = lowList;
+  _tqExpList = expList;
+  var expCntEl = document.getElementById('tq-exp-count');
+  if(expCntEl) expCntEl.textContent = expList.length || '0';
+}
+
+// ── Dữ liệu cho popup Tổng quan ──
+var _tqLowList = [], _tqExpList = [], _tqSubmitted = [], _tqNotSub = [];
+
+// Khung popup chung cho Tổng quan
+function _tqPopup(titleHtml, bodyHtml){
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText = 'background:white;border-radius:12px;padding:18px 20px;min-width:340px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)';
+  box.innerHTML = titleHtml + bodyHtml
+    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+
+// Popup danh sách đơn vị đã nộp / chưa nộp
+function _showTQUnitList(which){
+  var list = which==='submitted' ? _tqSubmitted : _tqNotSub;
+  var isSub = which==='submitted';
+  var color = isSub ? '#27ae60' : '#e74c3c';
+  var title = isSub ? 'Đơn vị đã nộp báo cáo' : 'Đơn vị chưa nộp báo cáo';
+  var titleHtml = '<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:2px">'+title+'</div>'
+    + '<div style="font-size:12px;color:'+color+';font-weight:600;margin-bottom:12px">'+list.length+' đơn vị</div>';
+  var body;
+  if(!list.length){
+    body = '<div style="color:#888;font-style:italic;font-size:13px;padding:8px 0">'
+      + (isSub ? 'Chưa có đơn vị nào nộp.' : '✓ Tất cả đơn vị đã nộp!') + '</div>';
+  } else {
+    body = '<div style="display:flex;flex-direction:column;gap:6px">'
+      + list.map(function(u){
+          return '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;background:'+(isSub?'#f0fff4':'#fff0f0')+';border:1px solid '+(isSub?'#9ae6b4':'#fbb')+';border-radius:7px">'
+            + '<span style="width:8px;height:8px;border-radius:50%;background:'+color+';flex-shrink:0"></span>'
+            + '<span style="color:#1a2332;font-weight:500">'+u+'</span></div>';
+        }).join('')
+      + '</div>';
+  }
+  _tqPopup(titleHtml, body);
+}
+
+// Popup cảnh báo tồn kho thấp / sắp hết hạn
+function _showTQAlert(which){
+  if(which==='low'){
+    var titleHtml = '<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:2px">Thuốc dưới ngưỡng tồn kho</div>'
+      + '<div style="font-size:12px;color:#b8860b;font-weight:600;margin-bottom:12px">Mặt hàng dưới '+threshold.low+' viên — '+_tqLowList.length+' mặt hàng</div>';
+    var body;
+    if(!_tqLowList.length){
+      body = '<div style="color:#27ae60;font-weight:600;font-size:13px;padding:8px 0">✓ Tất cả mặt hàng đủ tồn kho</div>';
+    } else {
+      body = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        + '<thead><tr style="background:#f1f5f9;color:#334155"><th style="padding:7px 10px;text-align:left">Tên thuốc</th><th style="padding:7px 10px;text-align:right">Tồn cuối</th></tr></thead><tbody>'
+        + _tqLowList.map(function(x){
+            var c = x.qty<=0 ? '#e74c3c' : '#d4860b';
+            return '<tr style="border-bottom:1px solid #eef2f7"><td style="padding:7px 10px">'+x.name+'</td>'
+              + '<td style="padding:7px 10px;text-align:right;font-weight:700;color:'+c+'">'+x.qty.toLocaleString()+' viên</td></tr>';
+          }).join('')
+        + '</tbody></table>';
+    }
+    _tqPopup(titleHtml, body);
+  } else {
+    var titleHtml2 = '<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:2px">Thuốc sắp hết hạn</div>'
+      + '<div style="font-size:12px;color:#e74c3c;font-weight:600;margin-bottom:12px">Dưới '+threshold.expMonths+' tháng — '+_tqExpList.length+' lô</div>';
+    var body2;
+    if(!_tqExpList.length){
+      body2 = '<div style="color:#27ae60;font-weight:600;font-size:13px;padding:8px 0">✓ Không có lô nào sắp hết hạn</div>';
+    } else {
+      body2 = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead><tr style="background:#f1f5f9;color:#334155"><th style="padding:7px 8px;text-align:left">Thuốc / Lô</th><th style="padding:7px 8px;text-align:left">Đơn vị</th><th style="padding:7px 8px;text-align:right">Hạn</th></tr></thead><tbody>'
+        + _tqExpList.map(function(x){
+            var daysLeft = x.exp ? Math.round((new Date(x.exp)-new Date())/(86400000)) : 0;
+            var lbl = x.months<=0 ? 'Hết hạn' : (x.months<=1 ? (daysLeft<=0?'Hết hạn':'Còn '+daysLeft+' ngày') : 'Còn '+x.months+' tháng');
+            var c = x.months<=2 ? '#e74c3c' : '#d4860b';
+            var unitName = (x.unit===BVPH||x.unit==='bvph')?BVPH:x.unit;
+            return '<tr style="border-bottom:1px solid #eef2f7">'
+              + '<td style="padding:7px 8px">'+x.name+' - Lô '+x.lot+' ('+expFmt(x.exp)+')</td>'
+              + '<td style="padding:7px 8px;color:#666">'+unitName+'</td>'
+              + '<td style="padding:7px 8px;text-align:right;font-weight:700;color:'+c+'">'+lbl+'</td></tr>';
+          }).join('')
+        + '</tbody></table>';
+    }
+    _tqPopup(titleHtml2, body2);
+  }
 }
 
 // ============================================================
