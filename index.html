@@ -2123,8 +2123,9 @@ var currentUser=null; // {name, user, unit, role}
 // ============================================================
 // Format số có dấu chấm ngăn cách hàng nghìn
 function fmtNum(n){
-  if(!n || n===0) return '';
-  return Number(n).toLocaleString('vi-VN');
+  var v = Number(n);
+  if(isNaN(v)) return '';
+  return v.toLocaleString('vi-VN'); // dấu "." phân cách hàng nghìn, hiện cả số 0
 }
 
 function calcRow(r){
@@ -4548,11 +4549,11 @@ function buildTbl(data, bodyId, prefix){
     var dcStyle = 'cursor:pointer;color:#1a5276;font-weight:600;text-decoration:underline;text-decoration-style:dotted';
     var dcClick = 'showDcDetail(\''+prefix+'\','+rowIdx+')';
     if(isEditing && canEdit){
-      tr += '<td><span style="'+dcStyle+'" onclick="'+dcClick+'" title="Click để xem chi tiết điều chuyển vào">'+dcVal+'</span></td>';
+      tr += '<td><span style="'+dcStyle+'" onclick="'+dcClick+'" title="Click để xem chi tiết điều chuyển vào">'+fmtNum(dcVal)+'</span></td>';
     } else {
-      tr += '<td>'+dcVal+'</td>';
+      tr += '<td>'+fmtNum(dcVal)+'</td>';
     }
-    tr += '<td class="calc-cell"><strong>'+res.tin+'</strong></td>';
+    tr += '<td class="calc-cell"><strong>'+fmtNum(res.tin)+'</strong></td>';
     tr += '<td>'+makeCell('sd',   row.sd||0,   false)+'</td>';
     if(isBVPH){
       tr += '<td>'+makeCell('dc2', row.dc2||0, false)+'</td>';
@@ -4561,7 +4562,7 @@ function buildTbl(data, bodyId, prefix){
       tr += '<td>'+makeCell('dc2', row.dc2||0, false)+'</td>';
     }
     tr += '<td>'+makeCell('hh',  row.hh||0,  false)+'</td>';
-    tr += '<td class="calc-cell"><strong>'+res.tout+'</strong></td>';
+    tr += '<td class="calc-cell"><strong>'+fmtNum(res.tout)+'</strong></td>';
     tr += '<td class="'+finalCls+'">'+fmtNum(res.final)+'</td>';
     tr += '<td class="no-print" style="white-space:nowrap">'+btns+'</td>';
     tr += '</tr>';
@@ -5386,7 +5387,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
             // Tự thêm dòng mới nếu chưa có
             var newRow = {unit:myUnit,drug:transfer.drug,lot:transfer.lot,exp:transfer.exp||'',
               open:0,tinh:0,dc:0,sd:0,dc2:0,dc3:0,hh:0,
-              locked:false,editing:true,bcMonth:periodKey,openLocked:false};
+              locked:false,editing:false,bcMonth:periodKey,openLocked:false};
             newRow[fieldToUpdate] = transfer.qty||0;
             if(myUnit===BVPH) bvphData.push(newRow); else bcData.push(newRow);
           }
@@ -6724,7 +6725,7 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPerio
     var newRow = {
       unit: toUnit, drug: fromRow.drug, lot: fromRow.lot, exp: fromRow.exp||'',
       open:0, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
-      locked:false, editing:true, bcMonth:periodKey, openLocked:false
+      locked:false, editing:false, bcMonth:periodKey, openLocked:false
     };
     if(toUnit===BVPH){ bvphData.push(newRow); targetArr=bvphData; }
     else { bcData.push(newRow); targetArr=bcData; }
@@ -6785,7 +6786,7 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
     var newRow3 = {
       unit:toUnit, drug:fromRow.drug, lot:fromRow.lot, exp:fromRow.exp||'',
       open:0, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
-      locked:false, editing:true, bcMonth:periodKey, openLocked:false
+      locked:false, editing:false, bcMonth:periodKey, openLocked:false
     };
     bcData.push(newRow3);
     targetRow = newRow3;
@@ -8621,12 +8622,9 @@ function renderTP(){
     sO+=m.open; sTW+=tw; sDC+=dc; sTIN+=tin;
     sSD+=sd; sDC3+=dc3; sHH+=hh; sTOUT+=tout; sFin+=fin;
 
-    // Ô nhập inline cho TW, dc nhập tỉnh khác (dc3 và hh lấy tự động từ dữ liệu)
+    // Mặc định HIỂN THỊ SỐ (text). Khi bấm Sửa mới đổi thành ô nhập.
     function inpCell(field, val){
-      return '<input type="number" min="0" value="'+val+'" disabled data-tpkey="'+encodeURIComponent(k)+'" data-tpfield="'+field+'"'
-        +' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
-        +' onchange="onTPInp(this)"'
-        +' oninput="onTPInp(this)">';
+      return '<span class="tp-val" data-tpkey="'+encodeURIComponent(k)+'" data-tpfield="'+field+'" data-tpval="'+val+'">'+fmtNum(val)+'</span>';
     }
 
     tbody.innerHTML +=
@@ -8634,15 +8632,15 @@ function renderTP(){
       +'<td class="left">'+m.drug+'</td>'
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
-      +'<td class="open-stock">'+m.open+'</td>'
+      +'<td class="open-stock">'+fmtNum(m.open)+'</td>'
       +('<td style="background:#d4edda">'+inpCell('tw',tw)+'</td>')
       +('<td style="background:#d4edda">'+inpCell('dc',dc)+'</td>')
-      +'<td class="calc-cell" style="background:#d4edda;color:#145a32"><strong class="tp-tin">'+tin+'</strong></td>'
-      +'<td style="background:#f8d7da" data-tp-sd="1">'+sd+'</td>'
-      +'<td style="background:#f8d7da;color:var(--muted)" data-tp-dc3="1">'+dc3+'</td>'
-      +'<td style="background:#f8d7da" data-tp-hh="1">'+hh+'</td>'
-      +'<td class="calc-cell" style="background:#f8d7da;color:#7b1f1f"><strong class="tp-tout">'+tout+'</strong></td>'
-      +'<td class="'+fcls+'">'+fin+'</td>'
+      +'<td class="calc-cell" style="background:#d4edda;color:#145a32"><strong class="tp-tin">'+fmtNum(tin)+'</strong></td>'
+      +'<td style="background:#f8d7da" data-tp-sd="1">'+fmtNum(sd)+'</td>'
+      +'<td style="background:#f8d7da;color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
+      +'<td style="background:#f8d7da" data-tp-hh="1">'+fmtNum(hh)+'</td>'
+      +'<td class="calc-cell" style="background:#f8d7da;color:#7b1f1f"><strong class="tp-tout">'+fmtNum(tout)+'</strong></td>'
+      +'<td class="'+fcls+'">'+fmtNum(fin)+'</td>'
       +'<td class="no-print" style="white-space:nowrap">'
         +'<button class="btn btn-xs" style="background:var(--warning);color:white" data-editing="0" onclick="editTPInline(this)">&#9999; Sửa</button>'
       +'</td>'
@@ -8739,26 +8737,38 @@ function setExtraTP(key, field, val){
 function editTPInline(btn){
   var tr = btn.closest('tr');
   if(!tr) return;
-  var inputs = tr.querySelectorAll('input[type=number]');
   var isEditing = btn.dataset.editing === '1';
   if(isEditing){
-    // Lưu: trigger onchange của từng input
-    inputs.forEach(function(inp){
-      var ev = new Event('change');
-      inp.dispatchEvent(ev);
-      inp.disabled = true;
-      inp.style.background = '#f0f0f0';
+    // Lưu: đọc input, gọi onTPInp, rồi đổi lại thành text
+    tr.querySelectorAll('input.tp-edit').forEach(function(inp){
+      var ev = new Event('change'); inp.dispatchEvent(ev);
+      var span = document.createElement('span');
+      span.className = 'tp-val';
+      span.setAttribute('data-tpkey', inp.getAttribute('data-tpkey'));
+      span.setAttribute('data-tpfield', inp.getAttribute('data-tpfield'));
+      span.setAttribute('data-tpval', inp.value||'0');
+      span.textContent = fmtNum(Number(inp.value)||0);
+      inp.parentNode.replaceChild(span, inp);
     });
     btn.dataset.editing = '0';
     btn.innerHTML = '&#9999; Sửa';
     btn.style.background = 'var(--warning)';
     toast('Đã lưu dòng tổng TP', 'var(--success)');
   } else {
-    inputs.forEach(function(inp){ 
-      inp.disabled = false;
-      inp.style.background='#fff'; 
-      inp.focus&&inp.focus(); 
+    // Sửa: đổi các span giá trị thành ô nhập
+    tr.querySelectorAll('span.tp-val').forEach(function(span){
+      var inp = document.createElement('input');
+      inp.type = 'number'; inp.min = '0';
+      inp.className = 'tp-edit';
+      inp.value = span.getAttribute('data-tpval')||'0';
+      inp.setAttribute('data-tpkey', span.getAttribute('data-tpkey'));
+      inp.setAttribute('data-tpfield', span.getAttribute('data-tpfield'));
+      inp.style.cssText = 'width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px';
+      inp.setAttribute('onchange','onTPInp(this)');
+      inp.setAttribute('oninput','onTPInp(this)');
+      span.parentNode.replaceChild(inp, span);
     });
+    var first = tr.querySelector('input.tp-edit'); if(first&&first.focus) first.focus();
     btn.dataset.editing = '1';
     btn.innerHTML = '&#128190; Lưu';
     btn.style.background = 'var(--success)';
