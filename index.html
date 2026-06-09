@@ -9469,21 +9469,38 @@ function getDrugsByWeight(pd, weight, age) {
             cumMonth = phEnd;
             var phDrugs = _getDrugsByWeightSingle(ph, weight, age);
             phDrugs.forEach(function(dr){
+                // Khoảng tháng thuốc này dùng TRONG giai đoạn:
+                // - Nếu thuốc có [n] (dr.ranges từ _getDrugsByWeightSingle) → dùng n tháng đầu GĐ
+                // - Nếu không → dùng suốt giai đoạn
+                var localEnd = phMonths;
+                if(dr.ranges && dr.ranges.length && dr.ranges[0].endMonth < phMonths){
+                    localEnd = dr.ranges[0].endMonth;
+                }
+                // Quy về offset tuyệt đối (tính từ ngày bắt đầu điều trị)
+                var absRange = { startMonth: phStart, endMonth: phStart + localEnd };
+                var usedMonths = localEnd;
+
+                // BEDAQUILINE đặc biệt: LUÔN 6 tháng tính từ đầu giai đoạn chứa nó,
+                // tràn sang giai đoạn tiếp theo nếu giai đoạn đó ngắn hơn 6 tháng.
+                if(dr.d === 'Bedaquiline 100mg'){
+                    absRange = { startMonth: phStart, endMonth: phStart + 6 };
+                    usedMonths = 6;
+                }
+
                 if(!merged[dr.d]){
                     merged[dr.d] = {
                         d: dr.d,
                         monthTotal: dr.monthTotal,
                         note: dr.note,
-                        phaseMonths: phMonths,
-                        totalQty: dr.monthTotal * phMonths,
-                        // Mảng các khoảng tháng thuốc này được dùng (offset từ ngày BĐ điều trị)
-                        ranges: [{ startMonth: phStart, endMonth: phEnd }]
+                        phaseMonths: usedMonths,
+                        totalQty: dr.monthTotal * usedMonths,
+                        ranges: [absRange]
                     };
                     order.push(dr.d);
                 } else {
-                    merged[dr.d].phaseMonths += phMonths;
-                    merged[dr.d].totalQty += dr.monthTotal * phMonths;
-                    merged[dr.d].ranges.push({ startMonth: phStart, endMonth: phEnd });
+                    merged[dr.d].phaseMonths += usedMonths;
+                    merged[dr.d].totalQty += dr.monthTotal * usedMonths;
+                    merged[dr.d].ranges.push(absRange);
                 }
             });
         });
@@ -9650,6 +9667,34 @@ function _getDrugsByWeightSingle(pd, weight, age) {
         "Capreomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" }
     };
 
+    // Tổng số tháng của phác đồ (để áp giới hạn [n] cho từng thuốc)
+    var totalMonths = _getPhacDoMonths(pd) || 0;
+
+    // Quét chuỗi GỐC (giữ [n]) để biết thuốc nào có giới hạn số tháng riêng.
+    // VD: "Bdq[6]LzdCfzCsAm[6]" → Bdq dùng 6 tháng, Am dùng 6 tháng, còn lại dùng hết.
+    // Dùng pdUpperKeep: viết hoa nhưng GIỮ lại [ ] và số trong ngoặc.
+    var pdUpperKeep = String(pd||'').toUpperCase().replace(/^[\d\-\s]+/, '').replace(/\s+/g,'');
+    var drugMonthLimit = {}; // drugName -> số tháng giới hạn (nếu có [n])
+    (function(){
+      var t = pdUpperKeep;
+      var lastDrug = null;
+      while(t.length > 0){
+        // Marker [n] gắn với thuốc vừa nhận trước đó
+        var mk = t.match(/^\[(\d+)\]/);
+        if(mk){
+          if(lastDrug) drugMonthLimit[lastDrug] = parseInt(mk[1],10);
+          t = t.substring(mk[0].length);
+          continue;
+        }
+        var hit = false;
+        for(var j=0;j<sortedAbbrs.length;j++){
+          var ab = sortedAbbrs[j];
+          if(t.startsWith(ab)){ lastDrug = nameMap[ab]; t = t.substring(ab.length); hit = true; break; }
+        }
+        if(!hit) t = t.substring(1);
+      }
+    })();
+
     while (tempPdStr.length > 0) {
         var matched = false;
         for (var i = 0; i < sortedAbbrs.length; i++) {
@@ -9659,7 +9704,32 @@ function _getDrugsByWeightSingle(pd, weight, age) {
                 if (!foundDrugs[drugName]) {
                     var doseInfo = dosageMap[drugName];
                     if (doseInfo) {
-                        drugs.push({ d: drugName, monthTotal: doseInfo.monthTotal, note: doseInfo.note });
+                        var drugObj = { d: drugName, monthTotal: doseInfo.monthTotal, note: doseInfo.note };
+                        // Xác định số tháng dùng riêng của thuốc này:
+                        // 1) Bedaquiline LUÔN mặc định 6 tháng (mọi phác đồ)
+                        // 2) Nếu có marker [n] → dùng n tháng
+                        var limit = null;
+                        if(drugName === 'Bedaquiline 100mg') limit = 6;
+                        if(drugMonthLimit[drugName] != null) limit = drugMonthLimit[drugName];
+                        // Bedaquiline: LUÔN gắn range 6 tháng (kể cả khi giai đoạn ngắn hơn 6 —
+                        // sẽ được multi-phase cho tràn sang GĐ sau).
+                        if(drugName === 'Bedaquiline 100mg'){
+                            drugObj.ranges = [{ startMonth: 0, endMonth: 6 }];
+                            drugObj.phaseMonths = 6;
+                            if((drugObj.note||'').indexOf('6 tháng') < 0) drugObj.note = (drugObj.note||'') + ' (6 tháng đầu)';
+                        }
+                        // Các thuốc khác có [n]: chỉ gắn ranges khi giới hạn NHỎ HƠN tổng liệu trình
+                        else if(limit != null && totalMonths > 0 && limit < totalMonths){
+                            drugObj.ranges = [{ startMonth: 0, endMonth: limit }];
+                            drugObj.phaseMonths = limit;
+                            drugObj.note = (drugObj.note||'') + ' (dùng ' + limit + ' tháng đầu)';
+                        } else if(limit != null && totalMonths === 0){
+                            // Không xác định được tổng tháng → vẫn ghi nhận giới hạn để dự trù
+                            drugObj.ranges = [{ startMonth: 0, endMonth: limit }];
+                            drugObj.phaseMonths = limit;
+                            drugObj.note = (drugObj.note||'') + ' (dùng ' + limit + ' tháng đầu)';
+                        }
+                        drugs.push(drugObj);
                     }
                     foundDrugs[drugName] = true;
                 }
