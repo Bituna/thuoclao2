@@ -918,8 +918,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
               <th class="hdr-act no-print" rowspan="2" style="min-width:70px">Thao tác</th>
             </tr>
             <tr>
-              <th class="hdr-in-sub" title="Nhập từ Trung ương" style="min-width:75px">Nhập TW</th>
-              <th class="hdr-in-sub" title="Nhập tỉnh khác" style="min-width:75px">Nhập ĐC</th>
+              <th class="hdr-in-sub" title="Nhập từ Trung ương" style="min-width:72px">Nhập TW</th>
+              <th class="hdr-in-sub" title="Nhập tỉnh khác" style="min-width:72px">Nhập ĐC</th>
               <th class="hdr-in-sub" style="min-width:80px">Tổng nhập</th>
               <th class="hdr-out-sub" title="Sử dụng: BVPH + 22 đơn vị (tự động)" style="min-width:80px">Sử dụng</th>
               <th class="hdr-out-sub" title="Xuất tỉnh khác — chỉ từ Kho chính BVPH (tự động)" style="min-width:80px">Tỉnh khác</th>
@@ -1032,7 +1032,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
               <th class="hdr-act no-print" rowspan="2" style="min-width:70px">Thao tác</th>
             </tr>
             <tr>
-              <th class="hdr-in-sub" style="min-width:75px">Nhập TW</th><th class="hdr-in-sub" style="min-width:75px">Điều chuyển</th><th class="hdr-in-sub" style="min-width:80px">Tổng nhập</th>
+              <th class="hdr-in-sub" style="min-width:72px">Nhập TW</th><th class="hdr-in-sub" style="min-width:72px">Điều chuyển</th><th class="hdr-in-sub" style="min-width:80px">Tổng nhập</th>
               <th class="hdr-out-sub" style="min-width:75px">Sử dụng</th><th class="hdr-out-sub" title="Nhập tay" style="min-width:80px">Xuất Tổ CL</th><th class="hdr-out-sub" style="min-width:80px">Xuất tỉnh khác</th><th class="hdr-out-sub" style="min-width:70px">Hỏng/HH</th><th class="hdr-out-sub" style="min-width:80px">Tổng xuất</th>
             </tr>
           </thead>
@@ -4504,7 +4504,7 @@ function buildTbl(data, bodyId, prefix){
           var dc2Title = isBVPH ? 'Xuất Tổ CL → Tỉnh cấp đơn vị tuyến' : 'Click để tạo phiếu điều chuyển';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid '+dc2Color+';border-radius:5px;text-align:center;font-size:13px;background:'+dc2Bg+';cursor:pointer"'
+            + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid '+dc2Color+';border-radius:5px;text-align:center;font-size:13px;background:'+dc2Bg+';cursor:pointer"'
             + ' onchange="' + onch + '"' + ' oninput="' + onch + '"'
             + ' onfocus="' + dc2Fn + '(\'' + prefix + '\',' + rowIdx + ',this)"'
             + ' title="' + dc2Title + '" readonly'
@@ -4515,7 +4515,7 @@ function buildTbl(data, bodyId, prefix){
           var onch3 = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:13px;background:#f9f0ff;cursor:pointer"'
+            + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:13px;background:#f9f0ff;cursor:pointer"'
             + ' onchange="' + onch3 + '"' + ' oninput="' + onch3 + '"'
             + ' onfocus="onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)"'
             + ' title="Xuất tỉnh khác — chỉ tính vào Tổng xuất" readonly'
@@ -4524,7 +4524,7 @@ function buildTbl(data, bodyId, prefix){
         var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
         return '<input type="number" min="0" value="' + val + '"'
           + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-          + ' style="width:100%;min-width:60px;box-sizing:border-box;padding:6px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
+          + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
           + ' onchange="' + onch + '"'
           + ' oninput="' + onch + '"'
           + '>';
@@ -8624,7 +8624,7 @@ function renderTP(){
     // Ô nhập inline cho TW, dc nhập tỉnh khác (dc3 và hh lấy tự động từ dữ liệu)
     function inpCell(field, val){
       return '<input type="number" min="0" value="'+val+'" disabled data-tpkey="'+encodeURIComponent(k)+'" data-tpfield="'+field+'"'
-        +' style="width:100%;min-width:65px;box-sizing:border-box;padding:6px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
+        +' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
         +' onchange="onTPInp(this)"'
         +' oninput="onTPInp(this)">';
     }
