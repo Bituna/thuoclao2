@@ -82,6 +82,17 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
 .card-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
 .card-title svg{width:16px;height:16px;flex-shrink:0}
+/* Thu gọn tab Tổng quan để vừa màn hình, không tràn xuống dưới */
+#page-tq .stat-row{gap:9px;margin-bottom:10px}
+#page-tq .stat-card{padding:9px 12px;border-top-width:2px}
+#page-tq .stat-card .lbl{font-size:10px;margin-bottom:2px}
+#page-tq .stat-card .val{font-size:19px}
+#page-tq .stat-card .val[style]{font-size:18px!important}
+#page-tq .stat-card .sub{font-size:10px;margin-top:1px}
+#page-tq .card{padding:10px 12px;margin-bottom:10px!important}
+#page-tq .card-title{font-size:12px;margin-bottom:7px}
+#page-tq .cards-row{gap:10px;margin-bottom:10px}
+#page-tq .list li{font-size:11px;padding:3px 0}
 .list{list-style:none}
 .list li{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)}
 .list li:last-child{border:none}
@@ -633,6 +644,27 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div class="stat-card c-green"><div class="lbl">Tổng nhập trong kỳ</div><div class="val" id="tq-tongnhap" style="font-size:22px;color:var(--success)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
       <div class="stat-card c-red"><div class="lbl">Tổng xuất trong kỳ</div><div class="val" id="tq-tongxuat" style="font-size:22px;color:var(--danger)">—</div><div class="sub">Toàn bộ BVPHP + 22 đơn vị</div></div>
     </div>
+
+    <!-- BẢNG TỔNG HỢP THEO THUỐC (gộp toàn TP) -->
+    <div style="margin-bottom:14px;background:white;border-radius:10px;border:1px solid var(--border);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:#1a2332">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Tổng hợp theo thuốc (toàn thành phố) — bấm số để xem chi tiết lô
+      </div>
+      <div style="overflow-x:auto;max-height:230px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead style="position:sticky;top:0;z-index:5">
+            <tr style="background:#1a5276;color:white">
+              <th style="padding:7px 10px;text-align:left">Tên thuốc</th>
+              <th style="padding:7px 10px;text-align:center">Tồn cuối</th>
+              <th style="padding:7px 10px;text-align:center;color:#a9e5c5">Tổng nhập</th>
+              <th style="padding:7px 10px;text-align:center;color:#f5b7b1">Tổng xuất</th>
+            </tr>
+          </thead>
+          <tbody id="tq-drug-body"></tbody>
+        </table>
+      </div>
+    </div>
     <!-- Hàng 1: Chưa nộp (full width, nổi bật) -->
     <div class="card" style="margin-bottom:14px;border-left:4px solid var(--danger)">
       <div class="card-title" style="color:var(--danger);margin-bottom:10px">
@@ -782,16 +814,6 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
           </tr>
         </thead>
         <tbody id="thuoc-body"></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4" class="left" style="padding-left:10px">Tổng cộng</td>
-            <td id="dt-fo">0</td>
-            <td id="dt-tnhap" style="color:var(--success)">0</td>
-            <td id="dt-txuat" style="color:var(--danger)">0</td>
-            <td id="dt-ff" style="color:var(--accent)">0</td>
-            <td></td>
-          </tr>
-        </tfoot>
       </table>
     </div>
   </div>
@@ -3833,8 +3855,109 @@ function renderTQ(){
   }
 
   updateAlerts();
+  // Bảng tổng hợp theo thuốc (gộp toàn TP)
+  _renderTQDrugTable(allRows);
   // Tải bảng điều chuyển
   setTimeout(renderTQTransfers, 100);
+}
+
+// Bảng tổng hợp theo thuốc trong Tổng quan — gộp các lô của cùng 1 thuốc toàn TP
+var _tqDrugDetail = {}; // drugName -> [{lot, exp, ton, nhap, xuat, unit}]
+function _renderTQDrugTable(allRows){
+  var body = document.getElementById('tq-drug-body');
+  if(!body) return;
+
+  // Gộp theo tên thuốc; giữ chi tiết theo lô để hiện popup
+  var byDrug = {}; // drug -> {ton, nhap, xuat}
+  _tqDrugDetail = {};
+  allRows.forEach(function(r){
+    var c = calcRow(r);
+    var d = r.drug || '(không tên)';
+    if(!byDrug[d]) byDrug[d] = {ton:0, nhap:0, xuat:0};
+    byDrug[d].ton  += c.final;
+    byDrug[d].nhap += c.tin;
+    byDrug[d].xuat += c.tout;
+    if(!_tqDrugDetail[d]) _tqDrugDetail[d] = [];
+    _tqDrugDetail[d].push({
+      lot: r.lot||'—', exp: r.exp||'', unit: (r.unit===BVPH||r.unit==='bvph')?BVPH:(r.unit||'—'),
+      ton: c.final, nhap: c.tin, xuat: c.tout
+    });
+  });
+
+  var names = Object.keys(byDrug).sort();
+  if(!names.length){
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:#888;font-style:italic">Chưa có số liệu trong kỳ này.</td></tr>';
+    return;
+  }
+
+  function cell(drug, field, val, color){
+    var safe = drug.replace(/'/g,"\\'");
+    return '<td style="padding:6px 10px;text-align:center">'
+      + '<span onclick="_showTQDrugDetail(\''+safe+'\',\''+field+'\')" '
+      + 'style="cursor:pointer;font-weight:700;color:'+color+';text-decoration:underline;text-decoration-style:dotted" '
+      + 'title="Bấm xem chi tiết từng lô">'+val.toLocaleString()+'</span></td>';
+  }
+
+  body.innerHTML = names.map(function(d){
+    var s = byDrug[d];
+    return '<tr style="border-bottom:1px solid #eef2f7">'
+      + '<td style="padding:6px 10px;text-align:left;font-weight:600;color:#1a5276">'+d+'</td>'
+      + cell(d,'ton',  s.ton,  '#1a5276')
+      + cell(d,'nhap', s.nhap, '#1a9e75')
+      + cell(d,'xuat', s.xuat, '#d85a30')
+      + '</tr>';
+  }).join('');
+}
+
+// Popup chi tiết lô của 1 thuốc cho cột Tồn/Nhập/Xuất
+function _showTQDrugDetail(drug, field){
+  var rows = _tqDrugDetail[drug] || [];
+  var fieldLabel = field==='ton'?'Tồn cuối':(field==='nhap'?'Tổng nhập':'Tổng xuất');
+  var fieldColor = field==='ton'?'#1a5276':(field==='nhap'?'#1a9e75':'#d85a30');
+
+  // Gộp theo lô+hạn (cộng các đơn vị cùng lô)
+  var byLot = {};
+  rows.forEach(function(r){
+    var k = r.lot+'|'+r.exp;
+    if(!byLot[k]) byLot[k] = {lot:r.lot, exp:r.exp, val:0};
+    byLot[k].val += r[field]||0;
+  });
+  var lots = Object.keys(byLot).map(function(k){return byLot[k];}).filter(function(x){return x.val!==0;});
+  lots.sort(function(a,b){ return (a.exp||'').localeCompare(b.exp||''); });
+
+  var total = lots.reduce(function(s,x){return s+x.val;},0);
+
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+
+  var rowsHtml = lots.length ? lots.map(function(x){
+    return '<tr style="border-bottom:1px solid #eef2f7">'
+      + '<td style="padding:7px 10px">'+x.lot+'</td>'
+      + '<td style="padding:7px 10px;text-align:center;color:#666">'+(x.exp?x.exp.split('-').reverse().join('/'):'—')+'</td>'
+      + '<td style="padding:7px 10px;text-align:right;font-weight:700;color:'+fieldColor+'">'+x.val.toLocaleString()+'</td>'
+      + '</tr>';
+  }).join('') : '<tr><td colspan="3" style="padding:14px;text-align:center;color:#888;font-style:italic">Không có lô nào.</td></tr>';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:white;border-radius:12px;padding:18px 20px;min-width:340px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)';
+  box.innerHTML =
+    '<div style="font-size:15px;font-weight:700;color:#1a2332;margin-bottom:2px">'+drug+'</div>'
+    + '<div style="font-size:12px;color:'+fieldColor+';font-weight:600;margin-bottom:12px">'+fieldLabel+' theo từng lô (toàn TP)</div>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    + '<thead><tr style="background:#f1f5f9;color:#334155">'
+    + '<th style="padding:7px 10px;text-align:left">Số lô</th>'
+    + '<th style="padding:7px 10px;text-align:center">Hạn dùng</th>'
+    + '<th style="padding:7px 10px;text-align:right">'+fieldLabel+'</th>'
+    + '</tr></thead><tbody>'+rowsHtml+'</tbody>'
+    + '<tfoot><tr style="background:#eef7ff;font-weight:700">'
+    + '<td colspan="2" style="padding:8px 10px">Tổng cộng</td>'
+    + '<td style="padding:8px 10px;text-align:right;color:'+fieldColor+'">'+total.toLocaleString()+' viên</td>'
+    + '</tr></tfoot></table>'
+    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
+
+  ov.appendChild(box);
+  document.body.appendChild(ov);
 }
 
 // Bảng điều chuyển trong kỳ — hiển thị trên Tổng quan
@@ -4082,10 +4205,11 @@ function renderDrugTable(){
   if(q && q.value.trim()) filterDrugTable();
 }
 function setDrugTotals(o,i,x,f){
-  document.getElementById('dt-fo').textContent=fmtNum(o);
-  document.getElementById('dt-tnhap').textContent=fmtNum(i);
-  document.getElementById('dt-txuat').textContent=fmtNum(x);
-  document.getElementById('dt-ff').textContent=fmtNum(f);
+  // Dòng tổng đã bỏ — chỉ cập nhật nếu element còn tồn tại
+  var e1=document.getElementById('dt-fo'); if(e1) e1.textContent=fmtNum(o);
+  var e2=document.getElementById('dt-tnhap'); if(e2) e2.textContent=fmtNum(i);
+  var e3=document.getElementById('dt-txuat'); if(e3) e3.textContent=fmtNum(x);
+  var e4=document.getElementById('dt-ff'); if(e4) e4.textContent=fmtNum(f);
 }
 function filterDrugTable(){
   var q = (document.getElementById('search-drug').value||'').toLowerCase().trim();
@@ -4285,28 +4409,7 @@ function buildTbl(data, bodyId, prefix){
     tbody.innerHTML += tr;
   }
 
-  // Hàng tổng cộng - thêm vào cuối tbody nếu có nhiều hơn 1 dòng
-  if(data.length > 1){
-    var ncols_before_sd = isBVPH ? 8 : 8;
-    var sumRow='<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">';
-    sumRow+='<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+data.length+' lô)</td>';
-    sumRow+='<td class="open-stock">'+sumOpen+'</td>';
-    sumRow+='<td>'+sumTinh+'</td>';
-    sumRow+='<td>'+sumDC+'</td>';
-    sumRow+='<td class="calc-cell">'+sumTIN+'</td>';
-    sumRow+='<td>'+sumSD+'</td>';
-    if(isBVPH){
-      sumRow+='<td class="calc-cell">'+sumDC2+'</td>';
-      sumRow+='<td>'+sumDC3+'</td>';
-    } else {
-      sumRow+='<td>'+sumDC2+'</td>';
-    }
-    sumRow+='<td>'+sumHH+'</td>';
-    sumRow+='<td class="calc-cell">'+sumTOUT+'</td>';
-    sumRow+='<td style="color:var(--accent);font-size:13px">'+sumFinal+'</td>';
-    sumRow+='<td></td></tr>';
-    tbody.innerHTML+=sumRow;
-  }
+  // (Đã bỏ dòng "Tổng (X lô)" theo yêu cầu)
 }
 function setFoot(id,val){var e=document.getElementById(id);if(e)e.textContent=val;}
 
@@ -8387,22 +8490,7 @@ function renderTP(){
       +'</tr>';
   });
 
-  if(keys.length > 1){
-    tbody.innerHTML +=
-      '<tr style="background:#edf2f7;font-weight:700;border-top:2px solid #c8d5e3">'
-      +'<td class="left" colspan="3" style="padding-left:10px;color:var(--muted);font-size:11px">Tổng ('+keys.length+' lô)</td>'
-      +'<td class="open-stock">'+sO+'</td>'
-      +'<td>'+sTW+'</td>'
-      +'<td>'+sDC+'</td>'
-      +'<td class="calc-cell">'+sTIN+'</td>'
-      +'<td>'+sSD+'</td>'
-      +'<td>'+sDC3+'</td>'
-      +'<td>'+sHH+'</td>'
-      +'<td class="calc-cell">'+sTOUT+'</td>'
-      +'<td style="color:var(--accent);font-size:13px">'+sFin+'</td>'
-      +'<td></td>'
-      +'</tr>';
-  }
+  // (Đã bỏ dòng "Tổng (X lô)" theo yêu cầu)
 }
 
 function onAdminUnitFilterChange() {
