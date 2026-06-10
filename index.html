@@ -1691,9 +1691,23 @@ async function _autoLoadOnLogin(){
     }
 
     var r = await fetch(url, {headers:_supaHdr});
-    if(!r.ok) return;
+    if(!r.ok){
+      var et = await r.text();
+      toast('❌ Không đọc được dữ liệu cloud (HTTP '+r.status+'). Có thể do RLS chặn đọc. '+et, 'var(--danger)');
+      return;
+    }
     var rows = await r.json();
     if(!rows.length){
+      console.warn('[ĐỒNG BỘ] Query rỗng. URL:', url);
+      // Thử đếm tổng số dòng reports để phân biệt: rỗng do filter hay do RLS
+      try{
+        var probe = await fetch(SUPA_URL+'/rest/v1/reports?select=period&limit=5', {headers:_supaHdr});
+        var probeRows = probe.ok ? await probe.json() : [];
+        if(probeRows.length){
+          var periods = probeRows.map(function(x){return x.period;}).join(', ');
+          toast('⚠ Kỳ '+periodKey+' không khớp. Cloud có dữ liệu kỳ: '+periods+'. Kiểm tra lại tháng/năm đã chọn.', 'var(--warning)');
+        }
+      }catch(eProbe){}
       // Cloud chưa có data kỳ này
       var prevKey = _prevPeriodKey(periodKey);
       var hasPrevLocal = prevKey && (
