@@ -1881,6 +1881,13 @@ async function saveToSupabase(periodKey){
     return true;
   }catch(e){
     console.error('Supabase saveToSupabase error:', e);
+    var msg = String(e && e.message || e);
+    // Gợi ý nguyên nhân thường gặp: thiếu cột ntk trên cloud
+    if(/ntk/i.test(msg) || /column .* does not exist/i.test(msg) || /PGRST/i.test(msg) || msg.indexOf('400')>=0){
+      toast('❌ Lưu lên cloud THẤT BẠI: có thể thiếu cột "ntk" trong bảng reports. Hãy chạy SQL thêm cột ntk. Chi tiết: '+msg, 'var(--danger)');
+    } else {
+      toast('❌ Lưu lên cloud THẤT BẠI: '+msg, 'var(--danger)');
+    }
     return false;
   }
 }
