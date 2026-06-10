@@ -423,16 +423,19 @@ em{font-style:normal!important}i{font-style:normal!important}
 .tbl-wrap thead th{
   position:sticky;
   top:0;
-  z-index:12;
+  z-index:50;
   background-color:#1a5276;        /* Fallback mặc định */
   background-clip:padding-box;     /* Giữ bg không chảy qua border */
 }
 
 /* 3. Sub-header hàng 2 */
 .tbl-wrap thead tr:nth-child(2) th{
-  top:28px;
-  z-index:11;
+  top:33px;
+  z-index:49;
 }
+
+/* Đảm bảo ô dữ liệu (kể cả ô tô màu) KHÔNG đè lên header khi cuộn */
+.tbl-wrap tbody td{ position:relative; z-index:1; }
 
 /* 4. Màu nền tường minh từng loại (KHÔNG dùng inherit) */
 .tbl-wrap thead th.hdr-name,
@@ -450,8 +453,8 @@ em{font-style:normal!important}i{font-style:normal!important}
 /* 5. @media screen — đảm bảo sticky được restore sau afterprint reflow */
 @media screen{
   .tbl-wrap{ overflow-x:auto; overflow-y:auto; max-height:520px; position:relative; isolation:isolate; }
-  .tbl-wrap thead th{ position:sticky; top:0; z-index:12; background-clip:padding-box; }
-  .tbl-wrap thead tr:nth-child(2) th{ top:28px; z-index:11; }
+  .tbl-wrap thead th{ position:sticky; top:0; z-index:50; background-clip:padding-box; }
+  .tbl-wrap thead tr:nth-child(2) th{ top:33px; z-index:49; }
 }
 
 /* 6. Khi in: vô hiệu sticky + dùng table-layout:fixed cho cột ổn định */
@@ -8882,13 +8885,13 @@ function renderTP(){
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
       +'<td class="open-stock">'+fmtNum(m.open)+'</td>'
-      +'<td style="background:#d4edda">'+fmtNum(tw)+'</td>'
-      +'<td style="background:#d4edda">'+fmtNum(ntk)+'</td>'
-      +'<td class="calc-cell" style="background:#d4edda;color:#145a32"><strong>'+fmtNum(tin)+'</strong></td>'
-      +'<td style="background:#f8d7da" data-tp-sd="1">'+fmtNum(sd)+'</td>'
-      +'<td style="background:#f8d7da;color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
-      +'<td style="background:#f8d7da" data-tp-hh="1">'+fmtNum(hh)+'</td>'
-      +'<td class="calc-cell" style="background:#f8d7da;color:#7b1f1f"><strong class="tp-tout">'+fmtNum(tout)+'</strong></td>'
+      +'<td>'+fmtNum(tw)+'</td>'
+      +'<td>'+fmtNum(ntk)+'</td>'
+      +'<td class="calc-cell"><strong>'+fmtNum(tin)+'</strong></td>'
+      +'<td data-tp-sd="1">'+fmtNum(sd)+'</td>'
+      +'<td style="color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
+      +'<td data-tp-hh="1">'+fmtNum(hh)+'</td>'
+      +'<td class="calc-cell"><strong class="tp-tout">'+fmtNum(tout)+'</strong></td>'
       +'<td class="'+fcls+'">'+fmtNum(fin)+'</td>'
       +'<td class="no-print" style="white-space:nowrap;text-align:center;color:#aaa;font-size:11px">—</td>'
       +'</tr>';
