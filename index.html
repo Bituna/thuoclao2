@@ -9315,6 +9315,62 @@ function toggleDienGiai() {
     if(btnText) btnText.innerHTML = isHidden ? '👁 Hiện diễn giải' : '👁 Ẩn diễn giải';
 }
 
+// Phân bổ Bedaquiline theo tháng cho 1 bệnh nhân: tổng cố định 188 viên
+// (56v giai đoạn 1 = 14 ngày × 4v; 132v giai đoạn 2 = 2v × thứ 2,4,6 đến hết 6 tháng).
+// Trả về object { '<year>-<month>': số_viên }. Kết thúc = ngày BĐ + 6 tháng.
+function _bdqMonthlyDist(startDateStr){
+  var ONE=86400000;
+  var st=new Date(startDateStr); st.setHours(0,0,0,0);
+  if(isNaN(st)) return {};
+  var be=new Date(st); be.setMonth(be.getMonth()+6); // tròn 6 tháng (vd 13/4 → 13/10)
+  var p1End=new Date(st); p1End.setDate(p1End.getDate()+13); // 14 ngày đầu
+  var dist={};
+  function addKey(d,v){ var k=d.getFullYear()+'-'+(d.getMonth()+1); dist[k]=(dist[k]||0)+v; }
+  // Giai đoạn 1: 4v/ngày trong 14 ngày đầu
+  for(var t=new Date(st); t<=p1End; t.setDate(t.getDate()+1)){ addKey(t,4); }
+  // Giai đoạn 2: tổng 132v, rải theo số ngày mỗi tháng (tháng cuối nhận phần dư cho đủ)
+  var p2Start=new Date(p1End); p2Start.setDate(p2Start.getDate()+1);
+  var dayByMonth={}, order=[], totDays=0;
+  for(var t2=new Date(p2Start); t2<=be; t2.setDate(t2.getDate()+1)){
+    var k2=t2.getFullYear()+'-'+(t2.getMonth()+1);
+    if(dayByMonth[k2]===undefined){ dayByMonth[k2]=0; order.push(k2); }
+    dayByMonth[k2]++; totDays++;
+  }
+  var P2=132, assigned=0;
+  order.forEach(function(k,idx){
+    var v = (idx===order.length-1) ? (P2-assigned) : Math.round(P2*dayByMonth[k]/totDays);
+    if(idx!==order.length-1) assigned+=v;
+    dist[k]=(dist[k]||0)+v;
+  });
+  return dist;
+}
+
+// Đếm số viên Bedaquiline trong khoảng [segStart, segEnd] (bao gồm 2 đầu),
+// theo lịch: 14 ngày đầu kể từ startD = 4v/ngày; sau đó 2v vào thứ 2,4,6 (3 ngày/tuần).
+// bdqEnd = ngày kết thúc Bedaquiline (đã = startD + 6 tháng).
+function _bdqPillsBetween(startD, segStart, segEnd, bdqEnd){
+  var ONE = 86400000;
+  var s = new Date(segStart); s.setHours(0,0,0,0);
+  var e = new Date(segEnd);   e.setHours(0,0,0,0);
+  var st = new Date(startD);  st.setHours(0,0,0,0);
+  var bend = new Date(bdqEnd);bend.setHours(0,0,0,0);
+  if(e > bend) e = bend;           // không vượt quá ngày kết thúc Bdq
+  if(e < s) return 0;
+  // Ngày cuối của giai đoạn 4v/ngày = startD + 13 (14 ngày: ngày 0..13)
+  var phase1End = new Date(st); phase1End.setDate(phase1End.getDate() + 13);
+  var pills = 0;
+  for(var t = new Date(s); t <= e; t.setDate(t.getDate()+1)){
+    if(t < st) continue;           // trước ngày bắt đầu
+    if(t <= phase1End){
+      pills += 4;                  // 14 ngày đầu: 4v/ngày
+    } else {
+      var dow = t.getDay();        // 1=T2,3=T4,5=T6
+      if(dow===1 || dow===3 || dow===5) pills += 2;
+    }
+  }
+  return pills;
+}
+
 function renderDuTru(){
     var dtDiv = document.getElementById('bn-dutru');
     if(!dtDiv) return;
@@ -9373,6 +9429,13 @@ function renderDuTru(){
 
         var drugs = bn.customDrugs && bn.customDrugs.length > 0 ? bn.customDrugs : (typeof getDrugsByWeight === 'function' ? getDrugsByWeight(bn.pd || bn.phacDo, bn.weight, bn.age) : []);
         if(!drugs) return;
+        // Vá dữ liệu cũ: nếu Bedaquiline trong customDrugs chưa có ranges → ép 6 tháng
+        drugs.forEach(function(d){
+          var nm = d.drug || d.d || '';
+          if(nm.indexOf('Bedaquiline') >= 0 && (!d.ranges || !d.ranges.length)){
+            d.ranges = [{ startMonth: 0, endMonth: 6 }];
+          }
+        });
 
         for (var m = 1; m <= 12; m++) {
             if (selectedYear < currentY || (selectedYear === currentY && m < currentM)) continue; 
@@ -9398,36 +9461,79 @@ function renderDuTru(){
                 var daily = parseFloat(d.monthTotal || d.daily || 0) / 26; 
                 if(daily <= 0) return;
 
-                // Nếu thuốc thuộc phác đồ 2 giai đoạn (có ranges): chỉ tính khi tháng này
-                // nằm trong khoảng giai đoạn của thuốc. Thuốc không có ranges → tính bình thường.
-                if(d.ranges && d.ranges.length){
-                    var inRange = d.ranges.some(function(rg){
-                        return monthOffset >= rg.startMonth && monthOffset < rg.endMonth;
+                // ── BEDAQUILINE: tính riêng theo lịch liều thực (tổng 188v), kết thúc = BĐ + 6 tháng ──
+                if(dName.indexOf('Bedaquiline') >= 0){
+                    var _bdqDist = _bdqMonthlyDist(bn.startDate || bn.ngayBD || bn.ngayBatDau);
+                    var bdqKey = selectedYear + '-' + m;
+                    var bdqPills = _bdqDist[bdqKey] || 0;
+                    if(bdqPills <= 0) return;
+                    if(!stats[dName]) {
+                        stats[dName] = { total: 0 };
+                        for(var bi=1; bi<=12; bi++) { stats[dName]['m'+bi] = 0; stats[dName]['p'+bi] = []; }
+                    }
+                    stats[dName]['m'+m] += bdqPills;
+                    stats[dName]['total'] += bdqPills;
+                    var _bdqNote2 = '';
+                    if(typeof calculateBedaquilineDetails === 'function'){
+                        var _bd = calculateBedaquilineDetails(bn.startDate || bn.ngayBD);
+                        if(_bd) _bdqNote2 = _bd.note || '';
+                    }
+                    stats[dName]['p'+m].push({
+                        name: bn.name || bn.hoTen || bn.tenBN,
+                        pills: bdqPills, daily: 0, isOng: false, bdqNote: _bdqNote2
                     });
-                    if(!inRange) return;
+                    return; // xong Bedaquiline
+                }
+
+                // Thuốc có giới hạn thời gian (ranges từ [n] hoặc giai đoạn):
+                // ngày kết thúc thuốc = ngày BĐ + endMonth tháng (THEO NGÀY THỰC, không cắt tháng tròn).
+                // Số ngày dùng trong tháng = giao giữa [tháng m] và [BĐ+startMonth .. BĐ+endMonth].
+                var drugSegStart = activeStart;   // mặc định: bám theo điều trị
+                var drugSegEnd   = activeEnd;
+                if(d.ranges && d.ranges.length){
+                    // Lấy khoảng [start..end] (ngày thực) hợp nhất các range; thường chỉ 1 range
+                    var inAny = false;
+                    var bestStart = null, bestEnd = null;
+                    d.ranges.forEach(function(rg){
+                        var rgStart = new Date(startD); rgStart.setMonth(rgStart.getMonth() + rg.startMonth);
+                        var rgEnd   = new Date(startD); rgEnd.setMonth(rgEnd.getMonth() + rg.endMonth);
+                        // giao với tháng hiện tại
+                        var gs = rgStart > monthStart ? rgStart : monthStart;
+                        var ge = rgEnd   < monthEnd   ? rgEnd   : monthEnd;
+                        // cũng không vượt quá ngày điều trị thực của BN
+                        if(gs < startD) gs = startD;
+                        if(ge > endD)   ge = endD;
+                        if(ge >= gs){ inAny = true;
+                            if(bestStart===null || gs < bestStart) bestStart = gs;
+                            if(bestEnd===null   || ge > bestEnd)   bestEnd = ge;
+                        }
+                    });
+                    if(!inAny) return;             // tháng này ngoài khoảng dùng thuốc → bỏ
+                    drugSegStart = bestStart;
+                    drugSegEnd   = bestEnd;
                 }
 
                 if(!stats[dName]) {
                     stats[dName] = { total: 0 };
                     for(var i=1; i<=12; i++) { stats[dName]['m'+i] = 0; stats[dName]['p'+i] = []; }
                 }
-                var pills = Math.ceil(daily * proratedDays);
+                // Số ngày THỰC dùng thuốc trong tháng, quy về 26 ngày/tháng chuẩn để tính viên
+                var realDays = Math.round((drugSegEnd - drugSegStart) / 86400000) + 1;
+                if(realDays <= 0) return;
+                var dDaysIn = monthEnd.getDate();
+                var dPror = Math.round((realDays / dDaysIn) * 26);
+                var pills = Math.ceil(daily * dPror);
+                if(pills <= 0) return;
                 stats[dName]['m'+m] += pills;
                 stats[dName]['total'] += pills;
-                // Bedaquiline: tính note chi tiết theo ngày bắt đầu BN
-                var _bdqNote = '';
-                if(dName.indexOf('Bedaquiline') >= 0 && typeof calculateBedaquilineDetails === 'function'){
-                    var _bdqD = calculateBedaquilineDetails(bn.startDate || bn.ngayBD, bn.endDate || bn.ngayKT);
-                    if(_bdqD) _bdqNote = _bdqD.note || '';
-                }
                 var _isOng = dName.indexOf('Amikacin') >= 0 || dName.indexOf('Kanamycin') >= 0;
                 stats[dName]['p'+m].push({
                     name: bn.name || bn.hoTen || bn.tenBN,
                     pd: bn.pd || bn.phacDo,
                     daily: daily,
-                    days: proratedDays,
+                    days: dPror,
                     pills: pills,
-                    bdqNote: _bdqNote,
+                    bdqNote: '',
                     isOng: _isOng
                 });
             });
@@ -10227,6 +10333,14 @@ function savePatient(){
   }
 
   var myDrugs = [];
+  // Lấy ranges (giới hạn số tháng dùng) theo phác đồ để gắn vào customDrugs.
+  // Nhờ vậy Bedaquiline (6 tháng) và thuốc có [n] được dự trù đúng số tháng.
+  var _pdDrugs = (typeof getDrugsByWeight === 'function') ? getDrugsByWeight(pdVal, weightVal, ageVal) : [];
+  var _rangesByDrug = {};
+  _pdDrugs.forEach(function(d){
+    var nm = d.drug || d.d;
+    if(nm && d.ranges) _rangesByDrug[nm] = d.ranges;
+  });
   var drugInputs = document.querySelectorAll('.pt-drug-val');
   drugInputs.forEach(function(inp) {
       var row = inp.closest('.pt-drug-row');
@@ -10234,7 +10348,16 @@ function savePatient(){
       var noteDiv = row ? row.querySelector('.pt-drug-note') : null;
       if(noteDiv && noteDiv.style.display !== 'none') noteText = noteDiv.innerText;
       var dName = inp.getAttribute('data-drug');
-      if (dName) myDrugs.push({ drug: dName, monthTotal: parseFloat(inp.value) || 0, note: noteText });
+      if (dName){
+        var obj = { drug: dName, monthTotal: parseFloat(inp.value) || 0, note: noteText };
+        // Bedaquiline LUÔN 6 tháng; thuốc khác lấy ranges từ phác đồ nếu có
+        if(dName.indexOf('Bedaquiline') >= 0){
+          obj.ranges = [{ startMonth: 0, endMonth: 6 }];
+        } else if(_rangesByDrug[dName]){
+          obj.ranges = _rangesByDrug[dName];
+        }
+        myDrugs.push(obj);
+      }
   });
 
   var pt = {
