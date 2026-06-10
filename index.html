@@ -1849,19 +1849,69 @@ async function saveToSupabase(periodKey){
       });
     }
 
-    // Bước 1: Xóa data cũ của unit/kỳ này
-    var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey);
-    if(role==='donvi')  delUrl += '&unit=eq.'+encodeURIComponent(unit);
-    else if(role==='bvph') delUrl += '&unit=eq.bvph';
-
-    var delRes = await fetch(delUrl, {method:'DELETE', headers:hdBase});
-    if(!delRes.ok){
-      var errText = await delRes.text();
-      throw new Error('Xóa lỗi '+delRes.status+': '+errText);
+    // ⚠ AN TOÀN DỮ LIỆU: nếu không có dòng nào để ghi (rows rỗng) thì TUYỆT ĐỐI
+    // KHÔNG xóa dữ liệu trên cloud — tránh xóa sạch rồi không insert lại (mất dữ liệu).
+    if(rows.length === 0){
+      console.warn('[saveToSupabase] Bỏ qua: không có dòng nào để lưu kỳ '+periodKey+' (không xóa cloud).');
+      return true;
     }
 
-    // Bước 2: Insert mới (chỉ nếu có rows)
-    if(rows.length > 0){
+    // ── LƯU AN TOÀN: UPSERT trước (ghi đè theo khóa period+unit+drug+lot+exp),
+    //    rồi MỚI dọn các dòng cũ không còn trong dữ liệu hiện tại.
+    //    Cách này KHÔNG bao giờ để dữ liệu "bị xóa mà chưa ghi lại".
+    var upsertOk = false;
+    try{
+      var upRes = await fetch(SUPA_URL+'/rest/v1/reports', {
+        method: 'POST',
+        headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
+        body: JSON.stringify(rows)
+      });
+      if(upRes.ok){
+        upsertOk = true;
+      } else {
+        var upErr = await upRes.text();
+        console.warn('[saveToSupabase] Upsert chưa dùng được (thiếu UNIQUE?):', upRes.status, upErr);
+      }
+    }catch(eU){ console.warn('[saveToSupabase] Upsert exception:', eU); }
+
+    if(upsertOk){
+      // Dọn dòng cũ: với mỗi đơn vị trong rows, xóa các (drug|lot|exp) KHÔNG còn nữa.
+      var keepByUnit = {};
+      rows.forEach(function(rw){
+        if(!keepByUnit[rw.unit]) keepByUnit[rw.unit] = {};
+        keepByUnit[rw.unit][rw.drug+'|'+rw.lot+'|'+(rw.exp||'')] = true;
+      });
+      for(var uu in keepByUnit){
+        try{
+          var existRes = await fetch(SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
+            +'&unit=eq.'+encodeURIComponent(uu)+'&select=id,drug,lot,exp', {headers:hdBase});
+          if(existRes.ok){
+            var existRows = await existRes.json();
+            var delIds = existRows.filter(function(er){
+              return !keepByUnit[uu][er.drug+'|'+er.lot+'|'+(er.exp||'')];
+            }).map(function(er){ return er.id; });
+            for(var di=0; di<delIds.length; di++){
+              await fetch(SUPA_URL+'/rest/v1/reports?id=eq.'+delIds[di], {method:'DELETE', headers:hdBase});
+            }
+          }
+        }catch(eClean){ console.warn('[saveToSupabase] Dọn dòng cũ lỗi:', eClean); }
+      }
+    } else {
+      // FALLBACK an toàn (khi chưa chạy SQL UNIQUE): xóa theo TỪNG đơn vị rồi insert lại.
+      // Chỉ xóa đúng đơn vị có trong rows, KHÔNG xóa cả kỳ.
+      var unitsToReplace = {};
+      rows.forEach(function(rw){ unitsToReplace[rw.unit] = true; });
+      var unitList = Object.keys(unitsToReplace);
+      for(var ui=0; ui<unitList.length; ui++){
+        var uName = unitList[ui];
+        var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
+          + '&unit=eq.'+encodeURIComponent(uName);
+        var delRes = await fetch(delUrl, {method:'DELETE', headers:hdBase});
+        if(!delRes.ok){
+          var errText = await delRes.text();
+          throw new Error('Xóa lỗi '+delRes.status+': '+errText);
+        }
+      }
       var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
         method: 'POST',
         headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
@@ -8963,28 +9013,33 @@ async function _savePatientsToCloud(){
     return false;
   }
   try{
-    // Cách an toàn tuyệt đối: xóa hết dòng key=PATIENTS rồi chèn lại đúng 1 dòng.
-    // Miễn nhiễm với việc cột key chưa unique (không lo đọc nhầm dòng cũ).
-    var del = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS',{
-      method:'DELETE',
-      headers:_supaHdr
+    // AN TOÀN: cập nhật tại chỗ trước (PATCH), không xóa rồi mới chèn.
+    // Nếu chưa có dòng PATIENTS thì mới POST tạo mới. Tránh mất dữ liệu khi insert lỗi.
+    var patch = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS',{
+      method:'PATCH',
+      headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:BN_DATA})
     });
-    if(!del.ok){
-      var delErr = await del.text();
-      if(typeof toast==='function') toast('❌ Lưu cloud lỗi (xóa cũ) '+del.status+': '+delErr.slice(0,120),'var(--danger)');
-      console.error('_savePatientsToCloud DELETE error', del.status, delErr);
+    var patched = patch.ok ? await patch.json() : [];
+    if(!patch.ok){
+      var pErr = await patch.text();
+      if(typeof toast==='function') toast('❌ Lưu cloud lỗi (cập nhật) '+patch.status+': '+pErr.slice(0,120),'var(--danger)');
+      console.error('_savePatientsToCloud PATCH error', patch.status, pErr);
       return false;
     }
-    var ins = await fetch(SUPA_URL+'/rest/v1/settings',{
-      method:'POST',
-      headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
-      body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
-    });
-    if(!ins.ok){
-      var insErr = await ins.text();
-      if(typeof toast==='function') toast('❌ Lưu cloud lỗi (chèn mới) '+ins.status+': '+insErr.slice(0,120),'var(--danger)');
-      console.error('_savePatientsToCloud INSERT error', ins.status, insErr);
-      return false;
+    // Chưa có dòng nào để cập nhật → tạo mới
+    if(!patched.length){
+      var ins = await fetch(SUPA_URL+'/rest/v1/settings',{
+        method:'POST',
+        headers: Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'PATIENTS',value:BN_DATA}])
+      });
+      if(!ins.ok){
+        var insErr = await ins.text();
+        if(typeof toast==='function') toast('❌ Lưu cloud lỗi (chèn mới) '+ins.status+': '+insErr.slice(0,120),'var(--danger)');
+        console.error('_savePatientsToCloud INSERT error', ins.status, insErr);
+        return false;
+      }
     }
     // XÁC MINH: đọc lại từ cloud để chắc chắn dữ liệu thật sự đã ghi
     var verify = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
