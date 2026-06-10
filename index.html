@@ -1665,7 +1665,7 @@ async function _autoLoadOnLogin(){
     // Tải ACCOUNTS từ cloud để đảm bảo tài khoản mới được nhận diện
     if(_supaOnline){
       try{
-        var acr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value',{headers:_supaHdr});
+        var acr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value&limit=1',{headers:_supaHdr});
         if(acr.ok){
           var acd = await acr.json();
           if(acd.length && acd[0].value && acd[0].value.length > 0){
@@ -3664,7 +3664,7 @@ function editSelfAccount(i){
   openModal('modal-self-edit');
 }
 
-function saveSelfAccount(){
+async function saveSelfAccount(){
   if (_selfEditIdx < 0) return;
   var a = ACCOUNTS[_selfEditIdx];
   var newName = document.getElementById('self-edit-name').value.trim();
@@ -3683,10 +3683,13 @@ function saveSelfAccount(){
   }
   
   saveLocalCache(buildPayload());
-  _saveAccountsToCloud();
   renderAccounts();
   closeModal('modal-self-edit');
-  toast('Đã cập nhật thông tin tài khoản!', 'var(--success)');
+  var ok = await _saveAccountsToCloud();
+  if(ok){
+    toast(newPass ? 'Đã đổi mật khẩu & lưu lên cloud thành công!' : 'Đã cập nhật thông tin tài khoản!', 'var(--success)');
+  }
+  // Nếu lỗi, _saveAccountsToCloud đã hiện toast đỏ cảnh báo
 }
 
 var _roleEditIdx=-1;
@@ -3710,23 +3713,44 @@ function changeRole(i){
 
 // Lưu ACCOUNTS lên Supabase settings
 async function _saveAccountsToCloud(){
-  if(!_supaOnline) return;
+  if(!_supaOnline){
+    toast('⚠ Đang offline — mật khẩu mới chỉ lưu tạm, sẽ mất khi tải lại. Cần kết nối cloud để lưu vĩnh viễn.','var(--warning)');
+    return false;
+  }
   try{
-    // PATCH-first: ghi đè đúng dòng key=ACCOUNTS, tránh tạo dòng trùng
+    // PATCH-first: ghi đè đúng dòng key=ACCOUNTS
     var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS', {
       method:'PATCH',
       headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
       body:JSON.stringify({value:ACCOUNTS})
     });
-    var updated = pr.ok ? await pr.json() : [];
+    if(!pr.ok){
+      var pErr = await pr.text();
+      toast('❌ Lưu tài khoản lên cloud THẤT BẠI (PATCH '+pr.status+'). Mật khẩu sẽ về cũ khi tải lại. '+pErr.slice(0,100),'var(--danger)');
+      console.error('_saveAccountsToCloud PATCH', pr.status, pErr);
+      return false;
+    }
+    var updated = await pr.json();
     if(!updated.length){
-      await fetch(SUPA_URL+'/rest/v1/settings', {
+      // Chưa có dòng ACCOUNTS → tạo mới
+      var ins = await fetch(SUPA_URL+'/rest/v1/settings', {
         method:'POST',
         headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
         body:JSON.stringify([{key:'ACCOUNTS', value:ACCOUNTS}])
       });
+      if(!ins.ok){
+        var iErr = await ins.text();
+        toast('❌ Lưu tài khoản lên cloud THẤT BẠI (POST '+ins.status+'). '+iErr.slice(0,100),'var(--danger)');
+        console.error('_saveAccountsToCloud POST', ins.status, iErr);
+        return false;
+      }
     }
-  }catch(e){ console.warn('Save accounts error:',e); }
+    return true;
+  }catch(e){
+    toast('❌ Lỗi lưu tài khoản: '+(e&&e.message||e),'var(--danger)');
+    console.warn('Save accounts error:',e);
+    return false;
+  }
 }
 
 function saveRole(){
