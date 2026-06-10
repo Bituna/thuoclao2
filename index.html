@@ -9837,7 +9837,8 @@ function _getDrugsByWeightSingle(pd, weight, age) {
        var pdo = PHAC_DO[pdStr];
        pdo.forEach(function(item){
           if(item.drug === 'Bedaquiline 100mg') {
-             drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
+             // Bedaquiline LUÔN 6 tháng đầu
+             drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq, ranges:[{startMonth:0,endMonth:6}], phaseMonths:6});
           } else {
              drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
           }
@@ -9850,7 +9851,7 @@ function _getDrugsByWeightSingle(pd, weight, age) {
           var pdo = PHAC_DO[k];
           pdo.forEach(function(item){
              if(item.drug === 'Bedaquiline 100mg') {
-                drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq});
+                drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq, ranges:[{startMonth:0,endMonth:6}], phaseMonths:6});
              } else {
                 drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
              }
