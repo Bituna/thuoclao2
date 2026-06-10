@@ -9699,18 +9699,10 @@ function calculateBedaquilineDetails(startDateStr, endDateStr) {
         return { monthTotal: 24, note: "Ngày bắt đầu không hợp lệ" };
     }
     
-    // Nếu có ngày kết thúc, tính dựa trên đó; nếu không, lấy mặc định 6 tháng
-    var endDate;
-    if(endDateStr) {
-        endDate = new Date(endDateStr + 'T00:00:00');
-        if(isNaN(endDate.getTime())) {
-            endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 168); // mặc định 24 tuần
-        }
-    } else {
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 168); // mặc định 24 tuần = 168 ngày
-    }
+    // BEDAQUILINE LUÔN dùng 6 tháng tính từ ngày bắt đầu điều trị,
+    // KHÔNG phụ thuộc ngày kết thúc của cả phác đồ (endDateStr bị bỏ qua).
+    var endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 6);
     
     // Ngày 15 (kết thúc 14 ngày dùng 4v/ngày)
     var day15 = new Date(startDate);
