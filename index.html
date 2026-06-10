@@ -737,6 +737,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <table>
           <thead>
             <tr style="background:#155724">
+              <th style="min-width:34px;width:34px;background:#155724;color:#fff">TT</th>
               <th class="left" style="min-width:220px;background:#155724;color:#fff">Tên thuốc / Hàm lượng</th>
               <th style="min-width:100px;background:#155724;color:#fff">Số lô SX</th>
               <th style="min-width:90px;background:#155724;color:#fff">Hạn dùng</th>
@@ -771,6 +772,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <table>
         <thead>
           <tr style="background:#1a5276">
+            <th style="min-width:34px;width:34px;background:#1a5276;color:#fff">TT</th>
             <th class="left" style="min-width:220px;background:#1a5276;color:#fff">Tên thuốc / Hàm lượng</th>
             <th style="min-width:160px;background:#1a5276;color:#fff">Đơn vị</th>
             <th style="min-width:100px;background:#1a5276;color:#fff">Số lô</th>
@@ -2267,7 +2269,7 @@ function renderCatalog(){
   if(!tbody) return;
   tbody.innerHTML='';
   if(!catalogData.length){
-    tbody.innerHTML='<tr><td colspan="7" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
     return;
   }
 
@@ -2291,7 +2293,9 @@ function renderCatalog(){
   });
 
   var canDel=isAdmin() && !catalogLocked;
+  var _catTT = 0;
   groups.forEach(function(g){
+    _catTT++;
     g.rows.forEach(function(item, rowInGroup){
       var r=item.r, i=item.i;
       var st=catalogStatus(r.exp);
@@ -2308,8 +2312,9 @@ function renderCatalog(){
 
       var row = '<tr style="'+rowBg+groupBorder+'">';
 
-      // Cột tên thuốc: chỉ render ở dòng đầu mỗi nhóm với rowspan
+      // Cột TT + Tên thuốc: chỉ render ở dòng đầu mỗi nhóm với rowspan
       if(rowInGroup===0){
+        row += '<td rowspan="'+g.rows.length+'" style="text-align:center;color:#888;vertical-align:middle;'+groupBorder+'">'+_catTT+'</td>';
         row += '<td class="left" rowspan="'+g.rows.length+'"'
           +' style="font-weight:700;vertical-align:middle;border-right:1px solid #dee2e6;'
           +groupBorder+'">'+r.drug+'</td>';
@@ -4402,14 +4407,36 @@ function renderDrugTable(){
   }
 
   if(!all.length){
-    tbody.innerHTML='<tr><td colspan="9" style="color:var(--muted);font-style:italic;padding:14px">'
+    tbody.innerHTML='<tr><td colspan="10" style="color:var(--muted);font-style:italic;padding:14px">'
       +(mon ? 'Không có dữ liệu trong tháng '+mon+'. Hãy thử chọn tháng khác.' : 'Chưa có dữ liệu')+'</td></tr>';
     setDrugTotals(0,0,0,0);
     return;
   }
 
+  // Sắp xếp theo tên thuốc → lô → đơn vị để gộp ô tên thuốc (cùng thuốc liền nhau)
+  all = all.slice().sort(function(a,b){
+    var c = String(a.drug||'').localeCompare(String(b.drug||''),'vi');
+    if(c!==0) return c;
+    var l = String(a.lot||'').localeCompare(String(b.lot||''),'vi');
+    if(l!==0) return l;
+    return String(a.unit||'').localeCompare(String(b.unit||''),'vi');
+  });
+
+  // Đếm số dòng mỗi thuốc + số TT theo thuốc (để gộp ô bằng rowspan)
+  var _invCount={}, _invTTmap={}, _invFirst={}, _ttc=0, _ii=0;
+  while(_ii < all.length){
+    var _dn = all[_ii].drug;
+    var _j = _ii;
+    while(_j < all.length && all[_j].drug === _dn) _j++;
+    _ttc++;
+    _invCount[_ii] = _j - _ii;
+    _invTTmap[_ii] = _ttc;
+    _invFirst[_ii] = true;
+    _ii = _j;
+  }
+
   var totOpen=0,totIn=0,totOut=0,totFinal=0;
-  all.forEach(function(r){
+  all.forEach(function(r, _idx){
     var c=calcRow(r);
     totOpen+=r.open; totIn+=c.tin; totOut+=c.tout; totFinal+=c.final;
     var expired=isExpiredStr(r.exp);
@@ -4420,9 +4447,14 @@ function renderDrugTable(){
         ?'<span class="badge badge-r">Sắp hết</span>'
         :'<span class="badge badge-g">Đủ kho</span>');
     var unitCell=r.unit||BVPH;
+    var _ttCells = '';
+    if(_invFirst[_idx]){
+      _ttCells = '<td style="text-align:center;color:#888;vertical-align:middle" rowspan="'+_invCount[_idx]+'">'+_invTTmap[_idx]+'</td>'
+        + '<td class="left" style="font-weight:600;vertical-align:middle" rowspan="'+_invCount[_idx]+'">'+r.drug+'</td>';
+    }
     tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'"'
       +' data-open="'+r.open+'" data-in="'+c.tin+'" data-out="'+c.tout+'" data-final="'+c.final+'">'
-      +'<td class="left">'+r.drug+'</td>'
+      +_ttCells
       +'<td style="font-size:11px;color:var(--muted);white-space:nowrap" title="'+unitCell+'">'+unitCell+'</td>'
       +'<td>'+r.lot+'</td>'
       +'<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'⚠ ':'')+expFmt(r.exp)+'</td>'
@@ -4520,6 +4552,25 @@ function buildTbl(data, bodyId, prefix){
   var sumOpen=0, sumTinh=0, sumDC=0, sumTIN=0;
   var sumSD=0, sumDC2=0, sumDC3=0, sumHH=0, sumTOUT=0, sumFinal=0;
 
+  // Gộp ô Tên thuốc + TT theo thuốc (rowspan). Đếm số lô mỗi thuốc theo thứ tự data hiện tại.
+  // Lưu ý: chỉ gộp các dòng cùng thuốc LIỀN NHAU để không phá mapping rowIdx.
+  var _grpCount = {};   // idx dòng đầu -> số dòng liền nhau cùng thuốc
+  var _grpTT = {};      // idx dòng đầu -> số thứ tự thuốc
+  var _grpIsFirst = {}; // idx -> true nếu là dòng đầu nhóm
+  (function(){
+    var ttc = 0, i = 0;
+    while(i < data.length){
+      var dn = data[i].drug;
+      var j = i;
+      while(j < data.length && data[j].drug === dn) j++;
+      ttc++;
+      _grpCount[i] = j - i;
+      _grpTT[i] = ttc;
+      _grpIsFirst[i] = true;
+      i = j;
+    }
+  })();
+
   for(var idx=0; idx<data.length; idx++){
     var row = data[idx];
     var rowIdx = idx; // index trong data[] (= filtered cho bcData)
@@ -4597,12 +4648,13 @@ function buildTbl(data, bodyId, prefix){
             + ' title="Xuất tỉnh khác — chỉ tính vào Tổng xuất" readonly'
             + '>';
         }
-        var onch = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
+        var onInp = 'updFieldLive(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
+        var onCh  = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
         return '<input type="number" min="0" value="' + val + '"'
           + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
           + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:13px"'
-          + ' onchange="' + onch + '"'
-          + ' oninput="' + onch + '"'
+          + ' oninput="' + onInp + '"'
+          + ' onchange="' + onCh + '"'
           + '>';
       }
       var style = readOnly && !isAdmin() ? 'color:var(--muted)' : '';
@@ -4614,8 +4666,10 @@ function buildTbl(data, bodyId, prefix){
     var lockBadge = isLocked ? ' <small style="color:#aaa">&#128274;</small>' : '';
 
     var tr = '<tr style="'+trStyle+'">';
-    tr += '<td style="text-align:center;color:#888">'+(idx+1)+'</td>';
-    tr += '<td class="left">'+row.drug+lockBadge+'</td>';
+    if(_grpIsFirst[idx]){
+      tr += '<td style="text-align:center;color:#888;vertical-align:middle" rowspan="'+_grpCount[idx]+'">'+_grpTT[idx]+'</td>';
+      tr += '<td class="left" style="vertical-align:middle;font-weight:600" rowspan="'+_grpCount[idx]+'">'+row.drug+lockBadge+'</td>';
+    }
     tr += '<td>'+row.lot+'</td>';
     tr += '<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'&#9888; ':'')+expDisp+'</td>';
     tr += '<td class="open-stock">'+makeCell('open', row.open, openRO)+'</td>';
@@ -4766,7 +4820,7 @@ function onGlobalMonthChange(){
 
 
 function renderBVPH(){
-  var filtered = bvphData.filter(matchPeriod);
+  var filtered = _sortByDrugLot(bvphData.filter(matchPeriod));
   buildTbl(filtered,'bvph-body','bvph');
   checkMismatch();
   updateLockedUI();
@@ -4776,11 +4830,11 @@ function renderBC(){
   var unitVal = selUnit ? selUnit.value : '__all__';
 
   // Lọc theo đơn vị VÀ kỳ báo cáo (năm hoặc tháng cụ thể)
-  var filtered = bcData.filter(function(r){
+  var filtered = _sortByDrugLot(bcData.filter(function(r){
     var unitOk = (unitVal==='__all__' || r.unit===unitVal);
     var monOk  = matchPeriod(r);
     return unitOk && monOk;
-  });
+  }));
 
   // Cập nhật tiêu đề bảng
   var titleEl=document.getElementById('bc-table-title');
@@ -4884,13 +4938,42 @@ function checkMismatch(){
 // ============================================================
 // CẬP NHẬT & XÓA DÒNG
 // ============================================================
+// Sắp xếp dòng theo Tên thuốc rồi Số lô — để các lô cùng thuốc liền nhau (phục vụ gộp ô).
+// Dùng THỐNG NHẤT ở mọi nơi render + mapping để rowIdx luôn khớp.
+function _sortByDrugLot(arr){
+  return arr.slice().sort(function(a,b){
+    var c = String(a.drug||'').localeCompare(String(b.drug||''),'vi');
+    if(c!==0) return c;
+    return String(a.lot||'').localeCompare(String(b.lot||''),'vi');
+  });
+}
+
 function getFilteredBC(){
   var selUnit = document.getElementById('filter-unit-bc');
   var unitVal = selUnit ? selUnit.value : '__all__';
-  return bcData.filter(function(r){
+  return _sortByDrugLot(bcData.filter(function(r){
     var unitOk = (unitVal==='__all__' || r.unit===unitVal);
     return unitOk && matchPeriod(r);
-  });
+  }));
+}
+
+// Cập nhật LIVE khi đang gõ (oninput): chỉ ghi giá trị vào model,
+// KHÔNG render lại bảng (giữ con trỏ trong ô). Việc render + lưu để onchange xử lý.
+function updFieldLive(prefix, rowIdx, field, val){
+  if(reportLocked) return;
+  var v = Math.max(0, parseInt(val)||0);
+  var realIdx = -1;
+  if(prefix === 'bvph'){
+    var bvphF = _sortByDrugLot(bvphData.filter(matchPeriod));
+    if(rowIdx < bvphF.length) realIdx = bvphData.indexOf(bvphF[rowIdx]);
+  } else {
+    var fF = getFilteredBC();
+    if(rowIdx < fF.length) realIdx = bcData.indexOf(fF[rowIdx]);
+  }
+  if(realIdx < 0) return;
+  var arr = prefix==='bvph' ? bvphData : bcData;
+  arr[realIdx][field] = v;
+  // Không render, không sync ở đây — tránh mất focus khi gõ.
 }
 
 function updField(prefix, rowIdx, field, val){
@@ -4899,7 +4982,7 @@ function updField(prefix, rowIdx, field, val){
   var realIdx = -1;
 
   if(prefix === 'bvph'){
-    var bvphFiltered2 = bvphData.filter(matchPeriod);
+    var bvphFiltered2 = _sortByDrugLot(bvphData.filter(matchPeriod));
     if(rowIdx < bvphFiltered2.length)
       realIdx = bvphData.indexOf(bvphFiltered2[rowIdx]);
   } else {
@@ -4938,7 +5021,7 @@ function delR(prefix, rowIdx){
   var realIdx = -1;
 
   if(prefix === 'bvph'){
-    var bvphFd = bvphData.filter(matchPeriod);
+    var bvphFd = _sortByDrugLot(bvphData.filter(matchPeriod));
     if(rowIdx < bvphFd.length) realIdx = bvphData.indexOf(bvphFd[rowIdx]);
   } else {
     var bcFd = getFilteredBC();
@@ -4962,7 +5045,7 @@ function editR(prefix, rowIdx){
   var realIdx = -1;
 
   if(prefix === 'bvph'){
-    var bvphF = bvphData.filter(matchPeriod);
+    var bvphF = _sortByDrugLot(bvphData.filter(matchPeriod));
     if(rowIdx < bvphF.length) realIdx = bvphData.indexOf(bvphF[rowIdx]);
   } else {
     var bcF = getFilteredBC();
@@ -5001,7 +5084,7 @@ function editR(prefix, rowIdx){
 
 function getReal(prefix, rowIdx){
   if(prefix === 'bvph'){
-    var bvphF2 = bvphData.filter(matchPeriod);
+    var bvphF2 = _sortByDrugLot(bvphData.filter(matchPeriod));
     return rowIdx < bvphF2.length ? bvphData.indexOf(bvphF2[rowIdx]) : -1;
   }
   var filtered = getFilteredBC();
@@ -8736,12 +8819,28 @@ function renderTP(){
     return;
   }
 
-  keys.sort(function(a,b){ return map[a].drug.localeCompare(map[b].drug,'vi'); });
+  keys.sort(function(a,b){
+    var c = map[a].drug.localeCompare(map[b].drug,'vi');
+    if(c!==0) return c;
+    return String(map[a].lot||'').localeCompare(String(map[b].lot||''),'vi');
+  });
+
+  // Gộp ô tên thuốc theo rowspan: đếm số lô mỗi thuốc + đánh số TT theo thuốc.
+  var _drugCount = {}, _drugTT = {}, _ttCounter = 0;
+  keys.forEach(function(k){
+    var dn = map[k].drug;
+    _drugCount[dn] = (_drugCount[dn]||0) + 1;
+    if(_drugTT[dn] === undefined){ _ttCounter++; _drugTT[dn] = _ttCounter; }
+  });
+  var _drugSeen = {};
 
   var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
 
   keys.forEach(function(k, _i){
     var m   = map[k];
+    var _dn = m.drug;
+    var _isFirstOfDrug = !_drugSeen[_dn];
+    _drugSeen[_dn] = true;
     var tw  = m.twBvph || 0;    // Nhập TW (chỉ kho chính BVPH)
     var ntk = m.ntkBvph || 0;   // Nhập tỉnh khác (chỉ BVPH)
     var dc  = m.dcAll || 0;     // Nhập ĐC nội bộ (hiển thị, KHÔNG cộng vào tổng)
@@ -8762,8 +8861,8 @@ function renderTP(){
 
     tbody.innerHTML +=
       '<tr>'
-      +'<td style="text-align:center;color:#888">'+(_i+1)+'</td>'
-      +'<td class="left">'+m.drug+'</td>'
+      +(_isFirstOfDrug ? '<td style="text-align:center;color:#888" rowspan="'+_drugCount[_dn]+'">'+_drugTT[_dn]+'</td>' : '')
+      +(_isFirstOfDrug ? '<td class="left" rowspan="'+_drugCount[_dn]+'" style="vertical-align:middle;font-weight:600">'+_dn+'</td>' : '')
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
       +'<td class="open-stock">'+fmtNum(m.open)+'</td>'
