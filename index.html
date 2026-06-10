@@ -908,6 +908,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <table>
           <thead>
             <tr>
+              <th class="hdr-name" style="min-width:34px;width:34px" rowspan="2">TT</th>
               <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
               <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th>
               <th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
@@ -1023,6 +1024,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <table>
           <thead>
             <tr>
+              <th class="hdr-name" style="min-width:34px;width:34px" rowspan="2">TT</th>
               <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
               <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th>
               <th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
@@ -1127,6 +1129,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <table style="border-collapse:collapse;width:100%">
           <thead>
             <tr>
+              <th class="hdr-name" style="min-width:34px;width:34px" rowspan="2">TT</th>
               <th class="left hdr-name" style="min-width:220px" rowspan="2">Tên thuốc</th>
               <th class="hdr-lot" rowspan="2" style="min-width:100px">Số lô</th>
               <th class="hdr-exp" rowspan="2" style="min-width:90px">Hạn dùng</th>
@@ -4611,6 +4614,7 @@ function buildTbl(data, bodyId, prefix){
     var lockBadge = isLocked ? ' <small style="color:#aaa">&#128274;</small>' : '';
 
     var tr = '<tr style="'+trStyle+'">';
+    tr += '<td style="text-align:center;color:#888">'+(idx+1)+'</td>';
     tr += '<td class="left">'+row.drug+lockBadge+'</td>';
     tr += '<td>'+row.lot+'</td>';
     tr += '<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'&#9888; ':'')+expDisp+'</td>';
@@ -8728,7 +8732,7 @@ function renderTP(){
   var keys = Object.keys(map);
   tbody.innerHTML = '';
   if(!keys.length){
-    tbody.innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:12px">Chưa có dữ liệu trong kỳ này. Nhập dữ liệu ở Kho chính hoặc 22 đơn vị trước.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:12px">Chưa có dữ liệu trong kỳ này. Nhập dữ liệu ở Kho chính hoặc 22 đơn vị trước.</td></tr>';
     return;
   }
 
@@ -8736,7 +8740,7 @@ function renderTP(){
 
   var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
 
-  keys.forEach(function(k){
+  keys.forEach(function(k, _i){
     var m   = map[k];
     var tw  = m.twBvph || 0;    // Nhập TW (chỉ kho chính BVPH)
     var ntk = m.ntkBvph || 0;   // Nhập tỉnh khác (chỉ BVPH)
@@ -8758,6 +8762,7 @@ function renderTP(){
 
     tbody.innerHTML +=
       '<tr>'
+      +'<td style="text-align:center;color:#888">'+(_i+1)+'</td>'
       +'<td class="left">'+m.drug+'</td>'
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
