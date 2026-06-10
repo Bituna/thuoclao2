@@ -4413,16 +4413,16 @@ function renderDrugTable(){
     return;
   }
 
-  // Sắp xếp theo tên thuốc → lô → đơn vị để gộp ô tên thuốc (cùng thuốc liền nhau)
+  // Sắp xếp theo Tên thuốc → Đơn vị → Lô để gộp 2 cấp: thuốc (TT+tên) và đơn vị
   all = all.slice().sort(function(a,b){
     var c = String(a.drug||'').localeCompare(String(b.drug||''),'vi');
     if(c!==0) return c;
-    var l = String(a.lot||'').localeCompare(String(b.lot||''),'vi');
-    if(l!==0) return l;
-    return String(a.unit||'').localeCompare(String(b.unit||''),'vi');
+    var u = String(a.unit||'').localeCompare(String(b.unit||''),'vi');
+    if(u!==0) return u;
+    return String(a.lot||'').localeCompare(String(b.lot||''),'vi');
   });
 
-  // Đếm số dòng mỗi thuốc + số TT theo thuốc (để gộp ô bằng rowspan)
+  // Gộp cấp 1 — theo THUỐC: số dòng mỗi thuốc + số TT
   var _invCount={}, _invTTmap={}, _invFirst={}, _ttc=0, _ii=0;
   while(_ii < all.length){
     var _dn = all[_ii].drug;
@@ -4433,6 +4433,17 @@ function renderDrugTable(){
     _invTTmap[_ii] = _ttc;
     _invFirst[_ii] = true;
     _ii = _j;
+  }
+
+  // Gộp cấp 2 — theo ĐƠN VỊ (trong cùng thuốc): số dòng cùng (thuốc+đơn vị)
+  var _uCount={}, _uFirst={}, _ui=0;
+  while(_ui < all.length){
+    var _k = all[_ui].drug + '||' + (all[_ui].unit||'');
+    var _jj = _ui;
+    while(_jj < all.length && (all[_jj].drug + '||' + (all[_jj].unit||'')) === _k) _jj++;
+    _uCount[_ui] = _jj - _ui;
+    _uFirst[_ui] = true;
+    _ui = _jj;
   }
 
   var totOpen=0,totIn=0,totOut=0,totFinal=0;
@@ -4452,10 +4463,15 @@ function renderDrugTable(){
       _ttCells = '<td style="text-align:center;color:#888;vertical-align:middle" rowspan="'+_invCount[_idx]+'">'+_invTTmap[_idx]+'</td>'
         + '<td class="left" style="font-weight:600;vertical-align:middle" rowspan="'+_invCount[_idx]+'">'+r.drug+'</td>';
     }
+    // Ô Đơn vị: gộp các dòng cùng đơn vị trong cùng thuốc
+    var _unitCellHtml = '';
+    if(_uFirst[_idx]){
+      _unitCellHtml = '<td style="font-size:11px;color:var(--muted);white-space:nowrap;vertical-align:middle" rowspan="'+_uCount[_idx]+'" title="'+unitCell+'">'+unitCell+'</td>';
+    }
     tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'"'
       +' data-open="'+r.open+'" data-in="'+c.tin+'" data-out="'+c.tout+'" data-final="'+c.final+'">'
       +_ttCells
-      +'<td style="font-size:11px;color:var(--muted);white-space:nowrap" title="'+unitCell+'">'+unitCell+'</td>'
+      +_unitCellHtml
       +'<td>'+r.lot+'</td>'
       +'<td style="'+(expired?'color:var(--danger)':'')+'">'+(expired?'⚠ ':'')+expFmt(r.exp)+'</td>'
       +'<td class="open-stock">'+r.open+'</td>'
