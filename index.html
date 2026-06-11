@@ -6553,7 +6553,7 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   var rowsWrap=document.createElement('div'); rowsWrap.style.cssText='display:flex;flex-direction:column;gap:7px;margin-bottom:6px';
   box.appendChild(rowsWrap);
 
-  var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:12px;font-weight:600;margin-bottom:8px;padding:5px 8px;border-radius:5px;background:#f0fff4;color:#1e7e44';
+  var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:14px;font-weight:700;margin-bottom:10px;padding:9px 12px;border-radius:7px;background:#eafaf0;color:#1e7e44;border:1.5px solid #27ae60;display:flex;justify-content:space-between;align-items:center';
 
   function _optHtml(){
     var h='<option value="">-- Chọn đơn vị nhận --</option>';
@@ -6562,12 +6562,16 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   }
   function recalcSum(){
     var rowsEl=rowsWrap.querySelectorAll('.xtcl-row');
-    var total=0;
-    rowsEl.forEach(function(r){ total += Math.max(0, parseInt(r.querySelector('.xtcl-qty').value)||0); });
+    var total=0, cnt=0;
+    rowsEl.forEach(function(r){ var v=Math.max(0, parseInt(r.querySelector('.xtcl-qty').value)||0); if(v>0) cnt++; total += v; });
     var remain=maxCanTransfer-total;
-    sumNote.textContent='Tổng phân bổ: '+total.toLocaleString()+' viên • Còn lại: '+remain.toLocaleString()+' viên';
-    sumNote.style.background = remain<0 ? '#fdecec' : '#f0fff4';
-    sumNote.style.color      = remain<0 ? '#c0392b' : '#1e7e44';
+    sumNote.innerHTML='<span>📦 TỔNG XUẤT: <span style="font-size:17px">'+total.toLocaleString()+'</span> viên'
+      +(cnt>0?' <span style="font-weight:400;font-size:12px">('+cnt+' đơn vị)</span>':'')+'</span>'
+      +'<span style="font-size:12px;font-weight:600">Còn lại: '+remain.toLocaleString()+'</span>';
+    var over = remain<0;
+    sumNote.style.background = over ? '#fdecec' : '#eafaf0';
+    sumNote.style.color      = over ? '#c0392b' : '#1e7e44';
+    sumNote.style.borderColor= over ? '#e74c3c' : '#27ae60';
   }
   function addUnitRow(unitVal, qtyVal){
     var r=document.createElement('div'); r.className='xtcl-row'; r.style.cssText='display:flex;gap:6px;align-items:center';
@@ -6645,14 +6649,19 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
 
     ov.remove();
 
-    // Tạo phiếu cho TỪNG đơn vị nhận (dc2 sẽ đồng bộ lại = tổng phiếu thực tế)
+    // Gán NGAY = tổng cũ + tổng phân bổ mới (hiển thị tức thì, không bị 0)
+    arr[realIdx].dc2 = (arr[realIdx].dc2||0) + total;
+    inp.value = arr[realIdx].dc2;
+    updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
+
+    // Tạo phiếu cho TỪNG đơn vị nhận
     allocs.forEach(function(a){
       _applyDc3Transfer(prefix,realIdx,row,a.qty,fromUnit,a.unit,txPeriod,txDate);
     });
 
-    // Đồng bộ ô Xuất Tổ CL = TỔNG tất cả phiếu trong kỳ (gồm phiếu cũ + mới), tránh lệch số
+    // Đồng bộ lại từ cloud (chỉnh nếu lệch) — chạy sau khi phiếu đã lưu
     if(txPeriod === periodKey){
-      setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc3_to_tinh'); }, 600);
+      setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc3_to_tinh'); }, 1200);
     }
     toast('✓ Đã xuất Tổ CL cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên)','#6c3483');
   };
@@ -6725,7 +6734,7 @@ function onDc2Change(prefix, rowIdx, inp){
   var rowsWrap=document.createElement('div'); rowsWrap.style.cssText='display:flex;flex-direction:column;gap:7px;margin-bottom:6px';
   box.appendChild(rowsWrap);
 
-  var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:12px;font-weight:600;margin-bottom:8px;padding:5px 8px;border-radius:5px;background:#eef7ff;color:#1a5276';
+  var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:14px;font-weight:700;margin-bottom:10px;padding:9px 12px;border-radius:7px;background:#eef7ff;color:#1a5276;border:1.5px solid #1a5276;display:flex;justify-content:space-between;align-items:center';
 
   function _optHtmlT(){
     var h='<option value="">-- Chọn đơn vị nhận --</option>';
@@ -6733,12 +6742,16 @@ function onDc2Change(prefix, rowIdx, inp){
     return h;
   }
   function recalcSumT(){
-    var rs=rowsWrap.querySelectorAll('.xdc-row'); var total=0;
-    rs.forEach(function(r){ total += Math.max(0, parseInt(r.querySelector('.xdc-qty').value)||0); });
+    var rs=rowsWrap.querySelectorAll('.xdc-row'); var total=0, cnt=0;
+    rs.forEach(function(r){ var v=Math.max(0, parseInt(r.querySelector('.xdc-qty').value)||0); if(v>0) cnt++; total += v; });
     var remain=maxCanTransfer-total;
-    sumNote.textContent='Tổng phân bổ: '+total.toLocaleString()+' viên • Còn lại: '+remain.toLocaleString()+' viên';
-    sumNote.style.background = remain<0 ? '#fdecec' : '#eef7ff';
-    sumNote.style.color      = remain<0 ? '#c0392b' : '#1a5276';
+    sumNote.innerHTML='<span>📦 TỔNG ĐIỀU CHUYỂN: <span style="font-size:17px">'+total.toLocaleString()+'</span> viên'
+      +(cnt>0?' <span style="font-weight:400;font-size:12px">('+cnt+' đơn vị)</span>':'')+'</span>'
+      +'<span style="font-size:12px;font-weight:600">Còn lại: '+remain.toLocaleString()+'</span>';
+    var over = remain<0;
+    sumNote.style.background = over ? '#fdecec' : '#eef7ff';
+    sumNote.style.color      = over ? '#c0392b' : '#1a5276';
+    sumNote.style.borderColor= over ? '#e74c3c' : '#1a5276';
   }
   function addUnitRowT(unitVal, qtyVal){
     var r=document.createElement('div'); r.className='xdc-row'; r.style.cssText='display:flex;gap:6px;align-items:center';
@@ -6821,14 +6834,19 @@ function onDc2Change(prefix, rowIdx, inp){
 
     ov.remove();
 
+    // Gán NGAY = tổng cũ + tổng phân bổ mới (hiển thị tức thì, không bị 0)
+    arr[realIdx].dc2 = (arr[realIdx].dc2||0) + total;
+    inp.value = arr[realIdx].dc2;
+    updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
+
     // Tạo phiếu cho từng đơn vị nhận (rơi vào cột Nhập ĐC của họ)
     allocs.forEach(function(a){
       _applyTransfer(prefix,realIdx,row,a.qty,fromUnit,a.unit,txPeriod,_txISO);
     });
 
-    // Đồng bộ ô Xuất ĐC = TỔNG tất cả phiếu trong kỳ (gồm phiếu cũ + mới)
+    // Đồng bộ lại từ cloud (chỉnh nếu lệch)
     if(txPeriod === periodKey){
-      setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc2_to_dc'); }, 600);
+      setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc2_to_dc'); }, 1200);
     }
     toast('✓ Đã điều chuyển cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên)','#1a5276');
   };
@@ -6859,8 +6877,11 @@ async function _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, pre
       +'&status=not.in.(cancelled,cancel_notif)',
       {headers:_supaHdr}
     );
-    var transfers = r.ok ? await r.json() : [];
+    if(!r.ok) return;                    // query lỗi → giữ nguyên, không ghi đè
+    var transfers = await r.json();
+    if(!Array.isArray(transfers)) return;
     var sumQty = transfers.reduce(function(s,t){ return s + (t.qty||0); }, 0);
+    // Chỉ cập nhật khi thực sự lệch (tránh ghi đè khi phiếu chưa kịp lưu khiến =0)
     if(arr && arr[realIdx] && (arr[realIdx].dc2||0) !== sumQty){
       arr[realIdx].dc2 = sumQty;
       renderBVPH(); renderBC(); renderTP();
