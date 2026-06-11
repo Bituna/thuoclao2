@@ -887,10 +887,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <input type="hidden" id="filter-month-bc" value="2026-05">
       <div class="fg" style="justify-content:flex-end;margin-top:auto;gap:8px;align-items:center">
         <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
-        <button class="btn btn-sm" id="btn-lock-all" style="background:#c0392b;color:white;white-space:nowrap;font-weight:600"
-          onclick="adminLockAll()" title="Khóa toàn bộ báo cáo của tất cả đơn vị trong kỳ này">🔒 Khóa tất cả BC</button>
-        <button class="btn btn-sm" id="btn-unlock-all" style="background:#27ae60;color:white;white-space:nowrap;font-weight:600"
-          onclick="adminUnlockAll()" title="Mở khóa toàn bộ báo cáo của tất cả đơn vị trong kỳ này">🔓 Mở khóa tất cả</button>
+        <button class="btn btn-sm" id="btn-lock-manager" style="background:#c0392b;color:white;white-space:nowrap;font-weight:600"
+          onclick="showLockManager()" title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ">🔒 Khóa / Mở báo cáo</button>
       </div>
     </div>
 
@@ -2194,63 +2192,113 @@ async function _saveLockedPeriodsToCloud(){
   }catch(e){ console.warn('saveLockedPeriods error', e); }
 }
 
-// ── ADMIN: Khóa / Mở khóa TẤT CẢ báo cáo trong kỳ đang chọn ──
-function adminLockAll(){
-  if(!isAdmin()){ toast('Chỉ Admin mới khóa được tất cả!','var(--danger)'); return; }
+// ── ADMIN: Popup khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ ──
+function showLockManager(){
+  if(!isAdmin()){ toast('Chỉ Admin mới thao tác được!','var(--danger)'); return; }
   var periodKey = _currentPeriodKey();
   if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--warning)'); return; }
 
-  _confirmModal(
-    '🔒 Khóa TẤT CẢ báo cáo kỳ '+periodKey+'?',
-    'Sẽ khóa báo cáo của Kho chính (BVPH) và toàn bộ 22 đơn vị tuyến trong kỳ này. Sau khi khóa, các đơn vị không sửa được số liệu (chỉ Admin mở lại được).',
-    function(){
-      // Khóa toàn cục + từng đơn vị + BVPH
-      lockedPeriods[periodKey] = true;
-      lockedPeriods[periodKey + '_bvph'] = true;
-      UNITS.forEach(function(u){
-        if(u===BVPH) return;
-        lockedPeriods[periodKey + '_' + u] = true;
-      });
-      // Đánh dấu locked cho mọi dòng trong kỳ
-      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
-      bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+  function _lockKey(u){ return (u===BVPH) ? (periodKey+'_bvph') : (periodKey+'_'+u); }
+  function _isLocked(u){ return !!lockedPeriods[_lockKey(u)] || !!lockedPeriods[periodKey]; }
 
-      saveLocalCache(buildPayload());
-      _saveLockedPeriodsToCloud();
-      _syncPeriodToCloud();
-      renderBVPH(); renderBC(); renderTQ();
-      updateSaveBtnUI(); updateLockedUI();
-      toast('🔒 Đã khóa TẤT CẢ báo cáo kỳ '+periodKey,'#c0392b');
-    }
-  );
-}
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.3)';
 
-function adminUnlockAll(){
-  if(!isAdmin()){ toast('Chỉ Admin mới mở khóa tất cả!','var(--danger)'); return; }
-  var periodKey = _currentPeriodKey();
-  if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--warning)'); return; }
+  var title=document.createElement('div');
+  title.style.cssText='font-size:16px;font-weight:800;color:#1a5276;margin-bottom:4px';
+  title.textContent='🔒 Khóa / Mở khóa báo cáo — kỳ '+periodKey;
+  box.appendChild(title);
 
-  _confirmModal(
-    '🔓 Mở khóa TẤT CẢ báo cáo kỳ '+periodKey+'?',
-    'Sẽ mở khóa báo cáo của Kho chính và toàn bộ 22 đơn vị tuyến trong kỳ này. Các đơn vị có thể sửa lại số liệu.',
-    function(){
-      delete lockedPeriods[periodKey];
-      delete lockedPeriods[periodKey + '_bvph'];
-      UNITS.forEach(function(u){
-        if(u===BVPH) return;
-        delete lockedPeriods[periodKey + '_' + u];
-      });
-      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; r.openLocked=false; });
-      bcData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){ r.locked=false; r.openLocked=false; });
+  var sub=document.createElement('div');
+  sub.style.cssText='font-size:12px;color:#666;margin-bottom:12px';
+  sub.textContent='Tích chọn đơn vị muốn khóa. Đơn vị được tích = khóa, bỏ tích = mở khóa. Bấm "Áp dụng" để lưu.';
+  box.appendChild(sub);
 
-      saveLocalCache(buildPayload());
-      _saveLockedPeriodsToCloud();
-      _syncPeriodToCloud();
-      renderBVPH(); renderBC(); renderTQ();
-      updateSaveBtnUI(); updateLockedUI();
-      toast('🔓 Đã mở khóa TẤT CẢ báo cáo kỳ '+periodKey,'#27ae60');
-    }
-  );
+  // Hàng "Chọn toàn bộ"
+  var allRow=document.createElement('label');
+  allRow.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fff3f3;border:1.5px solid #c0392b;border-radius:8px;margin-bottom:10px;cursor:pointer;font-weight:700;color:#c0392b';
+  var allChk=document.createElement('input'); allChk.type='checkbox';
+  allRow.appendChild(allChk);
+  var allTxt=document.createElement('span'); allTxt.textContent='✔ CHỌN TOÀN BỘ (khóa tất cả đơn vị)';
+  allRow.appendChild(allTxt);
+  box.appendChild(allRow);
+
+  // Danh sách đơn vị
+  var listWrap=document.createElement('div');
+  listWrap.style.cssText='display:flex;flex-direction:column;gap:5px;margin-bottom:14px';
+  var checks=[];
+  UNITS.forEach(function(u){
+    var row=document.createElement('label');
+    row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:7px;cursor:pointer;font-size:13px';
+    var chk=document.createElement('input'); chk.type='checkbox'; chk.checked=_isLocked(u); chk.dataset.unit=u;
+    var lockedNow=_isLocked(u);
+    var nameSpan=document.createElement('span'); nameSpan.style.cssText='flex:1'; nameSpan.textContent=(u===BVPH?'🏥 ':'')+u;
+    var badge=document.createElement('span');
+    badge.style.cssText='font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;'+(lockedNow?'background:#fdecec;color:#c0392b':'background:#eafaf0;color:#1e7e44');
+    badge.textContent=lockedNow?'🔒 Đang khóa':'🔓 Đang mở';
+    chk.onchange=function(){
+      badge.textContent=chk.checked?'🔒 Đang khóa':'🔓 Đang mở';
+      badge.style.background=chk.checked?'#fdecec':'#eafaf0';
+      badge.style.color=chk.checked?'#c0392b':'#1e7e44';
+      // cập nhật trạng thái "chọn toàn bộ"
+      allChk.checked = checks.every(function(c){return c.checked;});
+    };
+    row.appendChild(chk); row.appendChild(nameSpan); row.appendChild(badge);
+    listWrap.appendChild(row);
+    checks.push(chk);
+  });
+  box.appendChild(listWrap);
+
+  allChk.onchange=function(){
+    checks.forEach(function(c){ c.checked=allChk.checked; c.onchange(); });
+    allChk.checked=allChk.checked; // giữ trạng thái
+  };
+  allChk.checked = checks.length>0 && checks.every(function(c){return c.checked;});
+
+  // Nút
+  var btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;justify-content:flex-end;gap:10px;margin-top:6px';
+  var btnC=document.createElement('button'); btnC.textContent='Đóng';
+  btnC.style.cssText='padding:9px 18px;border:1px solid #cbd5e0;background:#fff;border-radius:8px;cursor:pointer;font-size:13px';
+  btnC.onclick=function(){ ov.remove(); };
+  var btnO=document.createElement('button'); btnO.textContent='✔ Áp dụng';
+  btnO.style.cssText='padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnO.onclick=function(){
+    var lockedCount=0, unlockedCount=0;
+    checks.forEach(function(chk){
+      var u=chk.dataset.unit, key=_lockKey(u);
+      if(chk.checked){
+        if(!lockedPeriods[key]) lockedCount++;
+        lockedPeriods[key]=true;
+        // đánh dấu locked cho dòng của đơn vị
+        var arr = (u===BVPH) ? bvphData : bcData;
+        arr.filter(function(r){return r.bcMonth===periodKey && (u===BVPH || r.unit===u);}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
+      } else {
+        if(lockedPeriods[key]) unlockedCount++;
+        delete lockedPeriods[key];
+        var arr2 = (u===BVPH) ? bvphData : bcData;
+        arr2.filter(function(r){return r.bcMonth===periodKey && (u===BVPH || r.unit===u);}).forEach(function(r){ r.locked=false; r.openLocked=false; });
+      }
+    });
+    // Khóa toàn cục chỉ bật khi TẤT CẢ đơn vị được khóa
+    if(checks.every(function(c){return c.checked;})) lockedPeriods[periodKey]=true;
+    else delete lockedPeriods[periodKey];
+
+    saveLocalCache(buildPayload());
+    _saveLockedPeriodsToCloud();
+    _syncPeriodToCloud();
+    renderBVPH(); renderBC(); renderTQ();
+    updateSaveBtnUI(); updateLockedUI();
+    ov.remove();
+    toast('✓ Đã cập nhật: khóa thêm '+lockedCount+', mở '+unlockedCount+' đơn vị','#1a5276');
+  };
+  btnRow.appendChild(btnC); btnRow.appendChild(btnO);
+  box.appendChild(btnRow);
+
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
 }
 
 function isCurrentPeriodLocked(){
