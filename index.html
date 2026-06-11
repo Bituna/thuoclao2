@@ -7505,7 +7505,7 @@ function _showPrintUnitPicker(periodKey){
     if(unit==='__tinh__'){
       var aggRows = _buildToanTinhRows(printBvphData, printBcData, printPeriod);
       if(!aggRows.length){ toast('Chưa có dữ liệu kỳ '+printPeriod+'.','var(--warning)'); return; }
-      _doPrint('TỔNG HỢP TOÀN THÀNH PHỐ HẢI PHÒNG', aggRows, printPeriod, hideTCL);
+      _doPrint('Thành phố Hải Phòng', aggRows, printPeriod, hideTCL);
       return;
     }
 
@@ -7748,13 +7748,14 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
 
 function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuStr,hideTCL){
   hideTCL = !!hideTCL;
+  var isToanTinh = (rows.length>0 && rows[0].unit==='__tinh__');
   var phName = '';
   if (typeof ACCOUNTS !== 'undefined') {
     var acc = ACCOUNTS.find(function(a){ return a.unit === unitName && a.role !== 'admin'; });
     if (!acc && isBVPH) acc = ACCOUNTS.find(function(a){ return a.role === 'bvph'; });
     if (acc && acc.name) phName = acc.name;
   }
-  var phHtml = phName ? '<div style="margin-top:60px;font-weight:bold;">' + phName + '</div>' : '<div style="margin-top:60px"></div>';
+  var phHtml = phName ? '<div style="margin-top:60px;font-weight:bold;">' + phName + '</div>' : '<div class="sign-gap"></div>';
   var tableRows='';
   var stt=1;
   var groups={}, groupOrder=[];
@@ -7796,17 +7797,17 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
       tableRows+='<tr>'+fc
         +'<td class="c">'+r.lot+'</td>'
         +'<td class="c">'+expDisp+'</td>'
-        +'<td class="n">'+fmtNum(tonDau)+'</td>'
+        +'<td class="n b">'+fmtNum(tonDau)+'</td>'
         +'<td class="n">'+fmtNum(tinh)+'</td>'
         +'<td class="n">'+fmtNum(dcGop)+'</td>'
         +'<td class="n">'+(dc3?fmtNum(dc3):'')+'</td>'
-        +'<td class="n">'+fmtNum(nhap)+'</td>'
+        +'<td class="n b">'+fmtNum(nhap)+'</td>'
         +'<td class="n">'+fmtNum(sd)+'</td>'
         +'<td class="n">'+fmtNum(dc2)+'</td>'
         +'<td class="n">'+fmtNum(hh)+'</td>'
         +(isBVPH?'<td class="n"></td>':'')
-        +'<td class="n">'+fmtNum(xuat)+'</td>'
-        +'<td class="n">'+(tonCuoi===0?'-':fmtNum(tonCuoi))+'</td>'
+        +'<td class="n b">'+fmtNum(xuat)+'</td>'
+        +'<td class="n b">'+(tonCuoi===0?'-':fmtNum(tonCuoi))+'</td>'
         +'<td class="l gc">'+gc+'</td>'
         +'</tr>';
     });
@@ -7823,7 +7824,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
 
   var css='*{box-sizing:border-box}'
     +'body{font-family:"Times New Roman",serif;font-size:11pt;margin:0}'
-    +'.pg{padding:18mm 10mm 10mm 10mm;width:277mm;box-sizing:border-box}'
+    +'.pg{padding:18mm 10mm 0 10mm;width:277mm;box-sizing:border-box}'
     +'.hl{width:55%;text-align:center}'
     +'.byt{font-size:13pt;font-weight:bold;margin:0}'
     +'.ctlao{font-size:11pt;margin:0}'
@@ -7835,16 +7836,18 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'table{width:100%;border-collapse:collapse;font-size:9pt;margin-top:3px}'
     +'th,td{border:0.5pt solid #000;padding:3px 3px;vertical-align:middle;line-height:1.4;color:black;background:white}'
     +'th{font-weight:bold;text-align:center;background:white;color:black}'
-    +'.c{text-align:center}.l{text-align:left;padding-left:3px}.b{font-weight:bold}.n{text-align:center}'
+    +'.c{text-align:center}.l{text-align:left;padding-left:3px}.b{font-weight:bold!important}.n{text-align:center}'
+    +'td.b,td.n.b{font-weight:bold!important}'
     +'.hn{background:white;color:black}.xn{background:white;color:black}.mn{background:white;color:black}'
     +'.k{font-size:8pt}'
     +'.gc{font-size:8pt;line-height:1.4;word-wrap:break-word;white-space:normal}'
-    +'.nk{text-align:right;font-style:italic;font-size:10pt;margin:8px 0 4px}'
-    +'.sr{display:flex;justify-content:space-between;margin-top:6px;font-size:10pt}'
+    +'.nk{text-align:right;font-style:italic;font-size:10pt;margin:4px 0 2px}'
+    +'.sr{display:flex;justify-content:space-between;margin-top:2px;font-size:10pt}'
     +'.sc{text-align:center;flex:1}'
     +'.sc b{display:block;margin-bottom:2px}'
     +'.sc i{font-size:9pt}'
-    +'.sr-notcl{display:flex;justify-content:space-around;margin-top:6px;font-size:10pt}'
+    +'.sign-gap{margin-top:50px}'
+    +'.sr-notcl{display:flex;justify-content:space-around;margin-top:2px;font-size:10pt}'
     +'.sr-notcl .sc{text-align:center;flex:0 0 30%}'
     /* CHẾ ĐỘ NÉN — tự bật khi báo cáo toàn tỉnh tràn trang. Giữ nguyên cấu trúc + tiêu đề. */
     +'.compact table{font-size:8pt;margin-top:2px}'
@@ -7858,7 +7861,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'@media print{'
     +'  @page{size:A4 landscape;margin:0}'
     +'  html,body{height:100%;margin:0;padding:0}'
-    +'  .pg{padding:12mm 10mm 0 10mm!important;width:100%!important;box-sizing:border-box}'
+    +'  .pg{padding:18mm 10mm 0 10mm!important;width:100%!important;box-sizing:border-box}'
     +'  th,td{border:0.4pt solid black!important;background:white!important;color:black!important}'
     +'  .footer-fixed-pin{position:fixed;bottom:3cm;left:10mm;right:10mm}'
     +'  .tbl-scale{transform-origin:top left}'
@@ -7872,27 +7875,58 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'<script>'
     +'window.addEventListener("load",function(){'
     +'  var tbl=document.getElementById("tbl-scale");'
-    +'  var footer=document.getElementById("sig-footer");'
     +'  var pg=document.querySelector(".pg");'
-    +'  if(!tbl||!pg) return;'
+    +'  if(!pg) return;'
     +'  var isToanTinh='+(isToanTinh?'true':'false')+';'
+    +'  if(!isToanTinh) return;'        /* BÁO CÁO ĐƠN VỊ: giữ nguyên như cũ, không can thiệp */
     +'  var pxMm=96/25.4;'
-    +'  var pageH=190;'                     /* chiều cao vùng in A4 ngang (210mm - lề) */
-    +'  var maxPx=pageH*pxMm;'
-    +'  function over(){ return pg.scrollHeight > maxPx; }'
-    +'  if(isToanTinh && over()){'
-    /* Bước 1: bật chế độ NÉN (giữ tiêu đề + cấu trúc, chỉ co dòng & ký tên) */
+    +'  var pageFullMm=210;'            /* chiều cao trang A4 ngang */
+    +'  var bottomGapMm=22;'            /* chừa ~2.2cm từ chỗ ký đến mép dưới */
+    +'  var targetPx=(pageFullMm - bottomGapMm)*pxMm;'   /* nội dung nên kết thúc ở đây */
+    +'  function curH(){ return pg.scrollHeight; }'
+    +'  if(curH() > targetPx){'
+    /* ---- TRÀN: nén dòng + ký, rồi scale bảng nếu vẫn dài ---- */
     +'    pg.classList.add("compact");'
-    +'  }'
-    /* Bước 2: nếu vẫn tràn thì scale nhẹ phần bảng cho khít, không méo tiêu đề */
-    +'  if(isToanTinh && over()){'
-    +'    var px=tbl.offsetHeight;'
-    +'    var avail=maxPx - (tbl.getBoundingClientRect().top);'
-    +'    if(px>avail && avail>0){'
-    +'      var scale=Math.max(0.6, avail/px);'
-    +'      tbl.style.transform="scale("+scale.toFixed(4)+")";'
-    +'      tbl.style.transformOrigin="top left";'
-    +'      tbl.style.width=(100/scale).toFixed(2)+"%";'
+    +'    if(curH() > targetPx && tbl){'
+    +'      var px=tbl.offsetHeight;'
+    +'      var avail=targetPx - tbl.getBoundingClientRect().top;'
+    +'      if(px>avail && avail>0){'
+    +'        var scale=Math.max(0.6, avail/px);'
+    +'        tbl.style.transform="scale("+scale.toFixed(4)+")";'
+    +'        tbl.style.transformOrigin="top left";'
+    +'        tbl.style.width=(100/scale).toFixed(2)+"%";'
+    +'      }'
+    +'    }'
+    +'  } else {'
+    /* ---- CÒN TRỐNG: giãn đều chiều cao các dòng tới khi chạm mốc (chừa 22mm dưới) ---- */
+    +'    var rows=document.querySelectorAll("table tbody tr");'
+    +'    if(rows.length){'
+    +'      var guard=0;'
+    +'      while(curH() < targetPx && guard<500){'
+    +'        var gap=targetPx - curH();'
+    +'        if(gap <= 6) break;'
+    +'        var addEach=Math.max(0.4, gap/(rows.length*2));'
+    +'        for(var i=0;i<rows.length;i++){'
+    +'          var tds=rows[i].children;'
+    +'          for(var j=0;j<tds.length;j++){'
+    +'            var cur=parseFloat(tds[j].style.paddingTop)||0;'
+    +'            tds[j].style.paddingTop=(cur+addEach)+"px";'
+    +'            tds[j].style.paddingBottom=(cur+addEach)+"px";'
+    +'          }'
+    +'        }'
+    +'        guard++;'
+    +'        if(curH() > targetPx){'   /* lỡ vượt thì lùi 1 bước rồi dừng */
+    +'          for(var a=0;a<rows.length;a++){'
+    +'            var td2=rows[a].children;'
+    +'            for(var b=0;b<td2.length;b++){'
+    +'              var c2=parseFloat(td2[b].style.paddingTop)||0;'
+    +'              td2[b].style.paddingTop=Math.max(0,c2-addEach)+"px";'
+    +'              td2[b].style.paddingBottom=Math.max(0,c2-addEach)+"px";'
+    +'            }'
+    +'          }'
+    +'          break;'
+    +'        }'
+    +'      }'
     +'    }'
     +'  }'
     +'});'
@@ -7938,8 +7972,8 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
        +'</div>'
        +'<div class="sr-notcl">'
        +'<div class="sc"><b>Người lập báo cáo</b>'+phHtml+'</div>'
-       +'<div class="sc"><b>Trưởng khoa Dược</b><div style="margin-top:60px"></div></div>'
-       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div style="margin-top:60px"></div></div>'
+       +'<div class="sc"><b>Trưởng khoa Dược</b><div class="sign-gap"></div></div>'
+       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div class="sign-gap"></div></div>'
        +'</div>'
       :'<div class="sr" style="margin-bottom:0">'
        +'<div class="sc"></div>'
@@ -7949,37 +7983,68 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
        +'</div>'
        +'<div class="sr">'
        +'<div class="sc"><b>Người lập báo cáo</b>'+phHtml+'</div>'
-       +'<div class="sc"><b>Trưởng khoa Dược</b><div style="margin-top:60px"></div></div>'
-       +'<div class="sc"><b>Bác sĩ phụ trách TCL</b><div style="margin-top:60px"></div></div>'
-       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div style="margin-top:60px"></div></div>'
+       +'<div class="sc"><b>Trưởng khoa Dược</b><div class="sign-gap"></div></div>'
+       +'<div class="sc"><b>Bác sĩ phụ trách TCL</b><div class="sign-gap"></div></div>'
+       +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div class="sign-gap"></div></div>'
        +'</div>'
     )+'</div>'
     +'</div></body></html>';
 
-  // Mở cửa sổ in riêng biệt — KHÔNG đụng đến DOM trang chính
-  // → trang chính không bao giờ bị vỡ layout
-  var pw = window.open('', '_blank', 'width=1100,height=800');
-  if(!pw){
-    alert('Trình duyệt đã chặn popup. Vui lòng cho phép popup cho trang này rồi thử lại.');
-    return;
-  }
-  pw.document.open();
-  pw.document.write(html);
-  pw.document.close();
+  // IN BẰNG IFRAME ẨN — không cần popup nên không bị trình duyệt chặn.
+  // Tránh lỗi "không hiện cửa sổ in" do chặn window.open.
+  try{
+    var oldIf = document.getElementById('__print_frame__');
+    if(oldIf) oldIf.parentNode.removeChild(oldIf);
+    var ifr = document.createElement('iframe');
+    ifr.id = '__print_frame__';
+    ifr.style.position = 'fixed';
+    ifr.style.right = '0';
+    ifr.style.bottom = '0';
+    ifr.style.width = '0';
+    ifr.style.height = '0';
+    ifr.style.border = '0';
+    ifr.style.visibility = 'hidden';
+    document.body.appendChild(ifr);
 
-  // Đóng cửa sổ ngay sau khi in xong
-  var _pwPrinted = false;
-  function _doPwPrint(){
-    if(_pwPrinted) return;   // Chỉ in đúng 1 lần dù onload hay timeout bắn trước
-    _pwPrinted = true;
-    pw.focus();
-    pw.print();
-    // Cửa sổ con tự đóng qua script nội bộ (afterprint trong pw)
-    // pw.close() từ trang cha bị Chrome/Edge block nên không dùng
+    var idoc = ifr.contentWindow.document;
+    idoc.open();
+    idoc.write(html);
+    idoc.close();
+
+    var _printed = false;
+    function _runPrint(){
+      if(_printed) return;
+      _printed = true;
+      try{
+        ifr.contentWindow.focus();
+        ifr.contentWindow.print();
+      }catch(ePr){
+        console.error('iframe print error', ePr);
+        // Fallback: mở popup nếu in iframe lỗi
+        _fallbackPopup();
+      }
+    }
+    ifr.onload = function(){ setTimeout(_runPrint, 350); };
+    setTimeout(_runPrint, 1200); // fallback nếu onload không bắn
+  }catch(eIfr){
+    console.error('Tạo iframe in lỗi:', eIfr);
+    _fallbackPopup();
   }
-  pw.onload = _doPwPrint;
-  // Fallback nếu onload không bắn (một số trình duyệt)
-  setTimeout(_doPwPrint, 800);
+
+  function _fallbackPopup(){
+    var pw = window.open('', '_blank', 'width=1100,height=800');
+    if(!pw){
+      alert('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép popup cho trang này (biểu tượng ổ khóa trên thanh địa chỉ) rồi thử lại.');
+      return;
+    }
+    pw.document.open();
+    pw.document.write(html);
+    pw.document.close();
+    var done=false;
+    function go(){ if(done)return; done=true; pw.focus(); pw.print(); }
+    pw.onload = go;
+    setTimeout(go, 800);
+  }
 }
 
 
