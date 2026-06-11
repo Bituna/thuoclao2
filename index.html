@@ -885,12 +885,22 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
       </div>
       <input type="hidden" id="filter-month-bc" value="2026-05">
-      <div class="fg" style="justify-content:flex-end;margin-top:auto;gap:8px;align-items:center">
-        <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
-        <button class="btn btn-sm" id="btn-lock-manager" style="background:#c0392b;color:white;white-space:nowrap;font-weight:600"
-          onclick="showLockManager()" title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ">🔒 Khóa / Mở báo cáo</button>
-        <button class="btn btn-sm" id="btn-check-cloud" style="background:#34495e;color:white;white-space:nowrap;font-weight:600"
-          onclick="adminCheckCloudSave()" title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không">🩺 Kiểm tra lưu cloud</button>
+      <div class="fg" style="justify-content:flex-end;margin-top:auto;gap:10px;align-items:center;flex:1">
+        <span id="bc-filter-note" style="font-size:11px;color:var(--muted);margin-right:auto"></span>
+        <button id="btn-lock-manager" onclick="showLockManager()"
+          title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ"
+          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 3px 10px rgba(192,57,43,.32);transition:transform .12s,box-shadow .12s"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 16px rgba(192,57,43,.42)'"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(192,57,43,.32)'">
+          <span style="font-size:15px">🔒</span> Khóa / Mở báo cáo
+        </button>
+        <button id="btn-check-cloud" onclick="adminCheckCloudSave()"
+          title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không"
+          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3);transition:transform .12s,box-shadow .12s"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 16px rgba(44,62,80,.4)'"
+          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(44,62,80,.3)'">
+          <span style="font-size:15px">🩺</span> Kiểm tra lưu cloud
+        </button>
       </div>
     </div>
 
