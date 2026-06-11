@@ -6545,18 +6545,49 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   var div1=document.createElement('div'); div1.style.cssText='border-top:1px solid #eee;margin:12px 0'; box.appendChild(div1);
   var newLbl=document.createElement('div'); newLbl.style.cssText='font-size:13px;font-weight:700;color:#27ae60;margin-bottom:10px'; newLbl.textContent='+ Tạo phiếu Xuất Tổ CL mới'; box.appendChild(newLbl);
 
-  var qtyLabel=document.createElement('div'); qtyLabel.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
-  qtyLabel.innerHTML='Số lượng (viên): <span style="color:#27ae60;font-weight:700">Tối đa '+maxCanTransfer.toLocaleString()+'</span> <span style="font-weight:400;color:#888">(0=xóa)</span>';
-  var qtyInp=document.createElement('input'); qtyInp.type='number'; qtyInp.min='0'; qtyInp.max=maxCanTransfer;
-  qtyInp.value=currentDc2>0?currentDc2:''; qtyInp.placeholder='Nhập số lượng (tối đa '+maxCanTransfer+')...';
-  qtyInp.style.cssText='width:100%;padding:9px;border:2px solid #27ae60;border-radius:7px;font-size:15px;font-weight:700;margin-bottom:4px;box-sizing:border-box;text-align:center';
-  var qtyWarn=document.createElement('div'); qtyWarn.style.cssText='font-size:11px;color:#e74c3c;margin-bottom:10px;display:none'; qtyWarn.textContent='⚠ Vượt tồn kho!';
-  qtyInp.oninput=function(){ var v=parseInt(this.value)||0; qtyWarn.style.display=(v>maxCanTransfer)?'':'none'; };
+  var qtyLabel=document.createElement('div'); qtyLabel.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:6px';
+  qtyLabel.innerHTML='Phân bổ cho các đơn vị: <span style="color:#27ae60;font-weight:700">Tồn tối đa '+maxCanTransfer.toLocaleString()+'</span>';
+  box.appendChild(qtyLabel);
 
-  var lbl=document.createElement('div'); lbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; lbl.textContent='Đơn vị tuyến nhận:';
-  var sel=document.createElement('select'); sel.style.cssText='width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:14px';
-  var opt0=document.createElement('option'); opt0.value=''; opt0.textContent='-- Chọn đơn vị nhận --'; sel.appendChild(opt0);
-  receiveUnits.forEach(function(u){ var o=document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o); });
+  // Vùng chứa các dòng (mỗi dòng = 1 đơn vị nhận + số lượng)
+  var rowsWrap=document.createElement('div'); rowsWrap.style.cssText='display:flex;flex-direction:column;gap:7px;margin-bottom:6px';
+  box.appendChild(rowsWrap);
+
+  var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:12px;font-weight:600;margin-bottom:8px;padding:5px 8px;border-radius:5px;background:#f0fff4;color:#1e7e44';
+
+  function _optHtml(){
+    var h='<option value="">-- Chọn đơn vị nhận --</option>';
+    receiveUnits.forEach(function(u){ h+='<option value="'+u.replace(/"/g,'&quot;')+'">'+u+'</option>'; });
+    return h;
+  }
+  function recalcSum(){
+    var rowsEl=rowsWrap.querySelectorAll('.xtcl-row');
+    var total=0;
+    rowsEl.forEach(function(r){ total += Math.max(0, parseInt(r.querySelector('.xtcl-qty').value)||0); });
+    var remain=maxCanTransfer-total;
+    sumNote.textContent='Tổng phân bổ: '+total.toLocaleString()+' viên • Còn lại: '+remain.toLocaleString()+' viên';
+    sumNote.style.background = remain<0 ? '#fdecec' : '#f0fff4';
+    sumNote.style.color      = remain<0 ? '#c0392b' : '#1e7e44';
+  }
+  function addUnitRow(unitVal, qtyVal){
+    var r=document.createElement('div'); r.className='xtcl-row'; r.style.cssText='display:flex;gap:6px;align-items:center';
+    var s=document.createElement('select'); s.className='xtcl-unit'; s.style.cssText='flex:1;padding:8px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px'; s.innerHTML=_optHtml(); if(unitVal) s.value=unitVal;
+    var q=document.createElement('input'); q.type='number'; q.min='0'; q.className='xtcl-qty'; q.placeholder='SL'; q.value=qtyVal||''; q.style.cssText='width:90px;padding:8px;border:2px solid #27ae60;border-radius:6px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box';
+    q.oninput=recalcSum;
+    var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:6px;width:30px;height:32px;cursor:pointer;font-size:13px';
+    del.onclick=function(){ r.remove(); recalcSum(); };
+    r.appendChild(s); r.appendChild(q); r.appendChild(del);
+    rowsWrap.appendChild(r);
+    recalcSum();
+  }
+  addUnitRow('', currentDc2>0?currentDc2:'');  // dòng đầu
+
+  var addBtn=document.createElement('button'); addBtn.textContent='+ Thêm đơn vị nhận';
+  addBtn.style.cssText='border:1px dashed #27ae60;background:#f6fff9;color:#1e7e44;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
+  addBtn.onclick=function(){ addUnitRow('',''); };
+  box.appendChild(addBtn);
+  box.appendChild(sumNote);
+  recalcSum();
 
   var dateLbl=document.createElement('div'); dateLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
   dateLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → báo cáo tháng đó)</span>';
@@ -6572,22 +6603,30 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   var btnC=document.createElement('button'); btnC.textContent='Đóng'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
   var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
-    var qty=parseInt(qtyInp.value);
-    if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
-    if(qty>maxCanTransfer){ toast('⚠ Vượt tồn! Tối đa: '+maxCanTransfer,'var(--danger)'); qtyInp.focus(); return; }
-    var toUnit=sel.value;
-    if(qty>0 && !toUnit){ toast('Chọn đơn vị nhận!','var(--warning)'); sel.focus(); return; }
+    // Gom các dòng đơn vị + số lượng
+    var rowsEl=rowsWrap.querySelectorAll('.xtcl-row');
+    var allocs=[]; var seen={}; var total=0;
+    for(var i=0;i<rowsEl.length;i++){
+      var u=rowsEl[i].querySelector('.xtcl-unit').value;
+      var q=parseInt(rowsEl[i].querySelector('.xtcl-qty').value)||0;
+      if(q<=0) continue;             // bỏ qua dòng trống/0
+      if(!u){ toast('Có dòng nhập số lượng nhưng chưa chọn đơn vị nhận!','var(--warning)'); return; }
+      if(seen[u]){ toast('Đơn vị "'+u+'" bị chọn trùng. Mỗi đơn vị 1 dòng.','var(--warning)'); return; }
+      seen[u]=true;
+      allocs.push({unit:u, qty:q});
+      total+=q;
+    }
     var _dp3=dateInp.value.split('/');
     var txDate2=(_dp3.length===3&&_dp3[2].length===4)?new Date(parseInt(_dp3[2]),parseInt(_dp3[1])-1,parseInt(_dp3[0])):new Date();
     var txDate=txDate2.toISOString().slice(0,10);
     var txPeriod=isNaN(txDate2)?periodKey:txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
-    ov.remove();
+
     var oldDc2=arr[realIdx].dc2||0;
-    var delta=qty-oldDc2;
-    arr[realIdx].dc2=qty; inp.value=qty;
-    updField(prefix,rowIdx,'dc2',qty);
-    if(qty===0){
-      // Hủy toàn bộ phiếu cũ trên cloud nếu có
+
+    // Nếu không phân bổ gì (tổng = 0) → coi như xóa toàn bộ Xuất Tổ CL
+    if(total===0){
+      ov.remove();
+      arr[realIdx].dc2=0; inp.value=0; updField(prefix,rowIdx,'dc2',0);
       if(_supaOnline && oldDc2>0){
         fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(periodKey)
           +'&from_unit=eq.'+encodeURIComponent(fromUnit)
@@ -6596,21 +6635,31 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
           +'&type=eq.dc3_to_tinh&status=eq.pending',
           {headers:_supaHdr})
           .then(function(r){return r.ok?r.json():[];})
-          .then(function(list){
-            list.forEach(function(t){ cancelTransferById(t.id, t.to_unit); });
-          }).catch(function(){});
+          .then(function(list){ list.forEach(function(t){ cancelTransferById(t.id, t.to_unit); }); })
+          .catch(function(){});
       }
       toast('Đã xóa Xuất Tổ CL','var(--warning)'); renderBVPH(); renderBC(); _syncPeriodToCloud(); return;
     }
-    _applyDc3Transfer(prefix,realIdx,row,delta,fromUnit,toUnit,txPeriod,txDate);
+
+    if(total>maxCanTransfer){ toast('⚠ Tổng phân bổ ('+total.toLocaleString()+') vượt tồn tối đa ('+maxCanTransfer.toLocaleString()+')!','var(--danger)'); return; }
+
+    ov.remove();
+    // Đặt dc2 = TỔNG phân bổ (Xuất Tổ CL của BVPH)
+    arr[realIdx].dc2 = oldDc2 + total;
+    inp.value = arr[realIdx].dc2;
+    updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
+
+    // Tạo phiếu cho TỪNG đơn vị nhận
+    allocs.forEach(function(a){
+      _applyDc3Transfer(prefix,realIdx,row,a.qty,fromUnit,a.unit,txPeriod,txDate);
+    });
+    toast('✓ Đã xuất Tổ CL cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên)','#6c3483');
   };
-  box.appendChild(qtyLabel); box.appendChild(qtyInp); box.appendChild(qtyWarn);
-  box.appendChild(lbl); box.appendChild(sel);
   box.appendChild(dateLbl); box.appendChild(dateInp); box.appendChild(mNote);
   btnRow.appendChild(btnC); btnRow.appendChild(btnO); box.appendChild(btnRow);
   ov.appendChild(box); document.body.appendChild(ov);
   ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
-  setTimeout(function(){ qtyInp.focus(); },100);
+  setTimeout(function(){ var fq=rowsWrap.querySelector('.xtcl-qty'); if(fq) fq.focus(); },100);
   _loadTransferList(listSection, periodKey, fromUnit, row, inp, arr, realIdx, prefix, rowIdx, 'dc2_bvph', ov);
 }
 
