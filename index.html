@@ -1098,8 +1098,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
           <button class="btn btn-primary" onclick="addBcRow()" style="padding:8px 14px;white-space:nowrap;height:34px">+ Thêm</button>
           <button class="btn" onclick="addNoUsageRow()"
             style="background:#e74c3c;color:#fff;font-size:11px;padding:8px 12px;white-space:nowrap;height:34px"
-            title="Đơn vị không sử dụng thuốc trong kỳ này — tất cả số liệu = 0">
-            📋 Không SD
+            title="Đánh dấu đơn vị KHÔNG có báo cáo kỳ này — báo cáo in ra sẽ trống (không có dòng thuốc)">
+            📋 Không có báo cáo
           </button>
         </div>
       </div>
@@ -1784,6 +1784,14 @@ async function _autoLoadOnLogin(){
         });
       }
     }
+    // Tải cờ "không có báo cáo" (noUsagePeriods)
+    try{
+      var nur = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.noUsagePeriods&select=value',{headers:_supaHdr});
+      if(nur.ok){
+        var nuv = await nur.json();
+        if(nuv.length && nuv[0].value) noUsagePeriods = nuv[0].value;
+      }
+    }catch(e){}
     fullRender();
     updateSaveBtnUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
@@ -2140,6 +2148,8 @@ var bvphData=[];  // Dữ liệu kho chính BVPH — tải từ localStorage/clo
 var bcData=[];    // Dữ liệu 22 đơn vị — tải từ localStorage/cloud
 
 var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
+// Đánh dấu "không có báo cáo / không phát sinh" theo cặp kỳ|đơn vị, vd {"2026-06_Cơ sở cai nghiện số 1": true}
+var noUsagePeriods={};
 var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
 Object.defineProperty(window,'reportLocked',{
@@ -3854,7 +3864,23 @@ function getSubmittedUnits(){
   bcFiltered.forEach(function(r){
     if(r.unit && _hasActivity(r)) set[r.unit] = true;
   });
+  // Đơn vị đã đánh dấu "Không có báo cáo" trong kỳ = đã nộp (báo cáo trống)
+  var curMon = _tqMonKey();
+  Object.keys(noUsagePeriods).forEach(function(k){
+    if(!noUsagePeriods[k]) return;
+    var sep = k.indexOf('_');
+    if(sep<0) return;
+    var kMon = k.slice(0, sep), kUnit = k.slice(sep+1);
+    if(kMon === curMon && kUnit) set[kUnit] = true;
+  });
   return Object.keys(set);
+}
+
+// Lấy khóa kỳ (YYYY-MM) đang xem ở tab Tổng quan
+function _tqMonKey(){
+  var p = (typeof getTQPeriod==='function') ? getTQPeriod() : null;
+  if(!p) return '';
+  return p.type==='year' ? (p.year+'-01') : p.val;
 }
 
 function renderTQ(){
@@ -5754,21 +5780,68 @@ function addNoUsageRow(){
 
   var period = getSelectedPeriod();
   var mon    = period.type==='year' ? period.year+'-01' : period.val;
+  var nuKey  = mon + '_' + unit;
 
-  // Kiểm tra đơn vị này đã có dữ liệu kỳ này chưa
-  var existing = bcData.filter(function(r){
-    return r.unit===unit && r.bcMonth===mon;
-  });
-  if(existing.length > 0){
-    if(!confirm('Đơn vị "'+unit+'" đã có '+existing.length+' dòng dữ liệu trong kỳ này.\n\nBạn có muốn thêm thêm dòng không sử dụng thuốc không?'))
-      return;
+  // Kiểm tra đơn vị này đã có dòng dữ liệu kỳ này chưa
+  var existing = bcData.filter(function(r){ return r.unit===unit && r.bcMonth===mon; });
+
+  function _applyNoUsage(){
+    // Xóa hết dòng của đơn vị trong kỳ (nếu có)
+    bcData = bcData.filter(function(r){ return !(r.unit===unit && r.bcMonth===mon); });
+    // Đặt cờ "không có báo cáo / không phát sinh"
+    noUsagePeriods[nuKey] = true;
+    _saveNoUsageToCloud();
+    renderBC(); renderTQ();
+    saveLocalCache(buildPayload());
+    _syncPeriodToCloud();
+    toast('✓ Đã ghi nhận "Không có báo cáo" cho '+unit+' kỳ '+mon,'#6c3483');
   }
 
-  // Lấy danh sách thuốc từ catalogData
-  var lots = catalogData.filter(function(r){
-    // Chỉ lấy lô còn hạn
-    return monthsLeft(r.exp) > 0;
-  });
+  if(existing.length > 0){
+    _confirmModal(
+      'Đơn vị "'+unit+'" đang có '+existing.length+' dòng dữ liệu trong kỳ này.',
+      'Bấm Xác nhận sẽ XÓA hết các dòng đó và đánh dấu đơn vị KHÔNG có báo cáo kỳ này. Báo cáo in ra sẽ trống.',
+      _applyNoUsage
+    );
+  } else {
+    _applyNoUsage();
+  }
+}
+
+// Lưu cờ noUsagePeriods lên Supabase settings (PATCH-first)
+async function _saveNoUsageToCloud(){
+  if(!_supaOnline) return;
+  try{
+    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.noUsagePeriods', {
+      method:'PATCH',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:noUsagePeriods})
+    });
+    var updated = pr.ok ? await pr.json() : [];
+    if(pr.ok && !updated.length){
+      await fetch(SUPA_URL+'/rest/v1/settings', {
+        method:'POST',
+        headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'noUsagePeriods', value:noUsagePeriods}])
+      });
+    }
+  }catch(e){ console.warn('saveNoUsage error', e); }
+}
+
+// Bỏ đánh dấu "không có báo cáo" cho đơn vị + kỳ
+function clearNoUsage(unit, mon){
+  var nuKey = mon + '_' + unit;
+  if(noUsagePeriods[nuKey]){
+    delete noUsagePeriods[nuKey];
+    _saveNoUsageToCloud();
+    renderBC(); renderTQ();
+    saveLocalCache(buildPayload());
+    toast('Đã bỏ đánh dấu "Không có báo cáo" cho '+unit,'#27ae60');
+  }
+}
+
+function _addNoUsageRow_OLD_UNUSED(){
+  var unit='', mon='', lots=[];
 
   if(!lots.length){
     toast('Danh mục thuốc chưa có lô nào còn hạn. Hãy thêm tại Danh sách thuốc.','var(--warning)');
@@ -7754,7 +7827,10 @@ function _buildToanTinhRows(bvphArr, bcArr, periodKey){
 }
 
 function _doPrint(unitName, rows, periodKey, hideTCL){
-  if(!rows.length){ toast('Không có dữ liệu kỳ '+periodKey+'!','var(--warning)'); return; }
+  // Cho phép in báo cáo TRỐNG nếu đơn vị đã đánh dấu "Không có báo cáo" kỳ này
+  var _nuKey = periodKey + '_' + (unitName===BVPH?'bvph':unitName);
+  var _isNoUsage = !!noUsagePeriods[_nuKey] || !!noUsagePeriods[periodKey+'_'+unitName];
+  if(!rows.length && !_isNoUsage){ toast('Không có dữ liệu kỳ '+periodKey+'!','var(--warning)'); return; }
   var p=periodKey.split('-');
   var month=parseInt(p[1]||'0');
   var year=parseInt(p[0]||'0');
@@ -8103,7 +8179,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
     +'<th class="hn k">(a)</th><th class="hn k">(b)</th><th class="hn k">(c)</th><th class="hn k">(d)=(b)+(c)+(d)</th>'
     +xKy
     +'</tr>'
-    +'</thead><tbody>'+tableRows+'</tbody></table></div>'
+    +'</thead><tbody>'+(tableRows || ('<tr><td colspan="20" style="text-align:center;padding:26px 8px;font-style:italic;font-size:11pt">Đơn vị không có/hết bệnh nhân dùng thuốc kỳ này</td></tr>'))+'</tbody></table></div>'
     +'<div class="footer-fixed" id="sig-footer">'
     +(hideTCL
       ?'<div class="sr-notcl" style="margin-bottom:0">'
