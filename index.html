@@ -2256,11 +2256,15 @@ function showLockManager(){
     var badge=document.createElement('span');
     badge.style.cssText='font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;'+(lockedNow?'background:#fdecec;color:#c0392b':'background:#eafaf0;color:#1e7e44');
     badge.textContent=lockedNow?'🔒 Đang khóa':'🔓 Đang mở';
-    chk.onchange=function(){
+    // Cập nhật nhãn trạng thái theo ô tích (KHÔNG đụng allChk)
+    chk._updBadge=function(){
       badge.textContent=chk.checked?'🔒 Đang khóa':'🔓 Đang mở';
       badge.style.background=chk.checked?'#fdecec':'#eafaf0';
       badge.style.color=chk.checked?'#c0392b':'#1e7e44';
-      // cập nhật trạng thái "chọn toàn bộ"
+    };
+    // Khi người dùng tự bấm 1 ô đơn vị → cập nhật badge + đồng bộ trạng thái allChk
+    chk.onchange=function(){
+      chk._updBadge();
       allChk.checked = checks.every(function(c){return c.checked;});
     };
     row.appendChild(chk); row.appendChild(nameSpan); row.appendChild(badge);
@@ -2269,9 +2273,10 @@ function showLockManager(){
   });
   box.appendChild(listWrap);
 
+  // Bấm "Chọn toàn bộ" → set tất cả ô con + badge, KHÔNG để chúng ghi đè allChk
   allChk.onchange=function(){
-    checks.forEach(function(c){ c.checked=allChk.checked; c.onchange(); });
-    allChk.checked=allChk.checked; // giữ trạng thái
+    var v=allChk.checked;
+    checks.forEach(function(c){ c.checked=v; if(c._updBadge) c._updBadge(); });
   };
   allChk.checked = checks.length>0 && checks.every(function(c){return c.checked;});
 
