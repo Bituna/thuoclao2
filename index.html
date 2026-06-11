@@ -2174,22 +2174,40 @@ function _currentPeriodKey(){
 }
 // Lưu lockedPeriods lên Supabase settings (PATCH-first)
 async function _saveLockedPeriodsToCloud(){
-  if(!_supaOnline) return;
+  if(!_supaOnline){ toast('⚠ Offline — trạng thái khóa chỉ lưu tạm, sẽ mất khi tải lại.','var(--warning)'); return false; }
   try{
     var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods', {
       method:'PATCH',
       headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
       body:JSON.stringify({value:lockedPeriods})
     });
-    var updated = pr.ok ? await pr.json() : [];
-    if(pr.ok && !updated.length){
-      await fetch(SUPA_URL+'/rest/v1/settings', {
+    if(!pr.ok){
+      var e1 = await pr.text();
+      toast('❌ Lưu khóa lên cloud THẤT BẠI ('+pr.status+'). Trạng thái khóa sẽ mất khi tải lại. '+e1.slice(0,90),'var(--danger)');
+      console.error('saveLockedPeriods PATCH', pr.status, e1);
+      return false;
+    }
+    var updated = await pr.json();
+    if(!updated.length){
+      // Chưa có dòng lockedPeriods → tạo mới
+      var ins = await fetch(SUPA_URL+'/rest/v1/settings', {
         method:'POST',
         headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
         body:JSON.stringify([{key:'lockedPeriods', value:lockedPeriods}])
       });
+      if(!ins.ok){
+        var e2 = await ins.text();
+        toast('❌ Tạo bản ghi khóa THẤT BẠI ('+ins.status+'). '+e2.slice(0,90),'var(--danger)');
+        console.error('saveLockedPeriods POST', ins.status, e2);
+        return false;
+      }
     }
-  }catch(e){ console.warn('saveLockedPeriods error', e); }
+    return true;
+  }catch(e){
+    toast('❌ Lỗi lưu khóa: '+(e&&e.message||e),'var(--danger)');
+    console.warn('saveLockedPeriods error', e);
+    return false;
+  }
 }
 
 // ── ADMIN: Popup khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ ──
@@ -2265,14 +2283,13 @@ function showLockManager(){
   btnC.onclick=function(){ ov.remove(); };
   var btnO=document.createElement('button'); btnO.textContent='✔ Áp dụng';
   btnO.style.cssText='padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
-  btnO.onclick=function(){
+  btnO.onclick=async function(){
     var lockedCount=0, unlockedCount=0;
     checks.forEach(function(chk){
       var u=chk.dataset.unit, key=_lockKey(u);
       if(chk.checked){
         if(!lockedPeriods[key]) lockedCount++;
         lockedPeriods[key]=true;
-        // đánh dấu locked cho dòng của đơn vị
         var arr = (u===BVPH) ? bvphData : bcData;
         arr.filter(function(r){return r.bcMonth===periodKey && (u===BVPH || r.unit===u);}).forEach(function(r){ r.locked=true; r.editing=false; r.openLocked=true; });
       } else {
@@ -2282,17 +2299,20 @@ function showLockManager(){
         arr2.filter(function(r){return r.bcMonth===periodKey && (u===BVPH || r.unit===u);}).forEach(function(r){ r.locked=false; r.openLocked=false; });
       }
     });
-    // Khóa toàn cục chỉ bật khi TẤT CẢ đơn vị được khóa
     if(checks.every(function(c){return c.checked;})) lockedPeriods[periodKey]=true;
     else delete lockedPeriods[periodKey];
 
     saveLocalCache(buildPayload());
-    _saveLockedPeriodsToCloud();
+    btnO.disabled=true; btnO.textContent='Đang lưu...';
+    var ok = await _saveLockedPeriodsToCloud();
     _syncPeriodToCloud();
     renderBVPH(); renderBC(); renderTQ();
     updateSaveBtnUI(); updateLockedUI();
     ov.remove();
-    toast('✓ Đã cập nhật: khóa thêm '+lockedCount+', mở '+unlockedCount+' đơn vị','#1a5276');
+    if(ok){
+      toast('✓ Đã lưu khóa lên cloud: khóa thêm '+lockedCount+', mở '+unlockedCount+' đơn vị','#1a5276');
+    }
+    // Nếu lỗi, _saveLockedPeriodsToCloud đã hiện toast đỏ
   };
   btnRow.appendChild(btnC); btnRow.appendChild(btnO);
   box.appendChild(btnRow);
