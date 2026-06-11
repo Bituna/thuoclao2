@@ -879,26 +879,25 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
     <!-- THANH CHỌN ĐƠN VỊ DÀNH CHO ADMIN (cố định khi cuộn) -->
     <div class="filter-bar admin-only-filter" style="margin-bottom:14px; display:none; background:#eef7ff; border-color:#b3d4f0; position:sticky; top:0; z-index:50; box-shadow:0 2px 8px rgba(26,82,118,.12)">
-      <div class="fg" style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:nowrap">
-        <label for="filter-unit-bc" style="color:#1a5276;white-space:nowrap">Xem và quản lý báo cáo của đơn vị:</label>
-        <select id="filter-unit-bc" title="Lọc theo đơn vị" style="width:280px; font-weight:600; color:#1a5276" onchange="onAdminUnitFilterChange()">
+      <div style="display:flex;flex-direction:row;align-items:center;gap:12px;width:100%;flex-wrap:nowrap">
+        <label for="filter-unit-bc" style="color:#1a5276;white-space:nowrap;font-weight:600;margin:0">Báo cáo đơn vị:</label>
+        <select id="filter-unit-bc" title="Lọc theo đơn vị" style="width:260px;flex-shrink:0;font-weight:600;color:#1a5276" onchange="onAdminUnitFilterChange()">
           <option value="__all__">-- Tổng hợp tất cả đơn vị --</option>
         </select>
         <div id="filter-unit-bc-fixed" style="display:none;padding:6px 12px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:13px;font-weight:600;color:#1a5276"></div>
-        <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
+        <span id="bc-filter-note" style="font-size:11px;color:var(--muted);white-space:nowrap"></span>
         <input type="hidden" id="filter-month-bc" value="2026-05">
 
-        <!-- 2 nút quản lý — căn sát phải cùng hàng -->
         <button id="btn-lock-manager" onclick="showLockManager()"
           title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ"
-          class="adm-btn" style="margin-left:auto;background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 3px 10px rgba(192,57,43,.32)"
+          class="adm-btn" style="margin-left:auto;flex-shrink:0;background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 3px 10px rgba(192,57,43,.32)"
           onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
           onmouseout="this.style.transform='';this.style.filter=''">
           <span style="font-size:15px">🔒</span> Khóa / Mở báo cáo
         </button>
         <button id="btn-check-cloud" onclick="adminCheckCloudSave()"
           title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không"
-          class="adm-btn" style="background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3)"
+          class="adm-btn" style="flex-shrink:0;background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3)"
           onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
           onmouseout="this.style.transform='';this.style.filter=''">
           <span style="font-size:15px">🩺</span> Kiểm tra lưu cloud
