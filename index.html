@@ -131,6 +131,8 @@ td{border:1px solid #edf2f7;padding:7px;text-align:center;color:var(--text);vert
 td.left{text-align:center;font-weight:600;padding-left:7px}
 .tbl-wrap td{white-space:nowrap}
 td.open-stock{background:#fff8e1;font-weight:700;color:#7c5200;border-left:3px solid #f59e0b;border-right:2px solid #f59e0b}
+/* Nút quản lý admin — đồng kích thước, cùng hàng */
+.adm-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:172px;height:40px;padding:0 16px;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;white-space:nowrap;transition:transform .12s,filter .12s,box-shadow .12s}
 td.calc-cell{background:#eef7ff;font-weight:700;color:var(--accent2);border-right:2px solid #94a3b8}
 td.final-ok{font-weight:800;color:#0369a1;font-size:13px;background:#f0f9ff;border-left:2px solid #38bdf8}
 td.final-low{font-weight:800;color:var(--danger);font-size:13px;background:#fff0f0;border-left:2px solid #38bdf8}
@@ -887,18 +889,24 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <input type="hidden" id="filter-month-bc" value="2026-05">
       <div class="fg" style="justify-content:flex-end;margin-top:auto;gap:10px;align-items:center;flex:1">
         <span id="bc-filter-note" style="font-size:11px;color:var(--muted);margin-right:auto"></span>
+        <button id="btn-open-bc-row" onclick="openReport()" title="Mở lại báo cáo đã khóa để sửa"
+          class="adm-btn" style="display:none;background:linear-gradient(135deg,#f39c12,#e67e22)"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
+          onmouseout="this.style.transform='';this.style.filter=''">
+          <span style="font-size:15px">🔓</span> Mở lại để sửa
+        </button>
         <button id="btn-lock-manager" onclick="showLockManager()"
           title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ"
-          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 3px 10px rgba(192,57,43,.32);transition:transform .12s,box-shadow .12s"
-          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 16px rgba(192,57,43,.42)'"
-          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(192,57,43,.32)'">
+          class="adm-btn" style="background:linear-gradient(135deg,#e74c3c,#c0392b);box-shadow:0 3px 10px rgba(192,57,43,.32)"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
+          onmouseout="this.style.transform='';this.style.filter=''">
           <span style="font-size:15px">🔒</span> Khóa / Mở báo cáo
         </button>
         <button id="btn-check-cloud" onclick="adminCheckCloudSave()"
           title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không"
-          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3);transition:transform .12s,box-shadow .12s"
-          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 5px 16px rgba(44,62,80,.4)'"
-          onmouseout="this.style.transform='';this.style.boxShadow='0 3px 10px rgba(44,62,80,.3)'">
+          class="adm-btn" style="background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3)"
+          onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
+          onmouseout="this.style.transform='';this.style.filter=''">
           <span style="font-size:15px">🩺</span> Kiểm tra lưu cloud
         </button>
       </div>
@@ -6580,6 +6588,12 @@ function updateLockedUI(){
         bannerBtn.style.display = (role === 'admin') ? '' : 'none';
       }
     }
+  }
+
+  // Nút "Mở lại để sửa" trên hàng nút admin — chỉ hiện khi đang khóa + là admin
+  var openRowBtn = document.getElementById('btn-open-bc-row');
+  if(openRowBtn){
+    openRowBtn.style.display = (locked && role==='admin') ? 'inline-flex' : 'none';
   }
 
   // Cột Thao tác header — ẩn khi locked
