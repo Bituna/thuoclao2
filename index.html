@@ -5135,13 +5135,39 @@ function onGlobalMonthChange(){
 }
 
 
+// ── ĐỒNG BỘ 2 CHIỀU: ô Xuất Tổ CL (dc2) của Kho chính = TỔNG Tỉnh cấp (tinh) ──
+// của tất cả đơn vị có cùng thuốc|lô|hạn trong cùng kỳ.
+// Đơn vị nhập Tỉnh cấp → tự cộng dồn vào Xuất TCL kho chính. Không gõ tay ô dc2 kho chính.
+function _syncBVPHDc2FromUnits(){
+  // Gom tổng tinh các đơn vị (KHÔNG tính dòng kho chính) theo kỳ + key
+  var sumByKey = {};
+  bcData.forEach(function(r){
+    if(r.unit===BVPH) return;          // chỉ lấy đơn vị tuyến
+    var mon = r.bcMonth || '';
+    var key = mon+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+    sumByKey[key] = (sumByKey[key]||0) + (r.tinh||0);
+  });
+  // Đặt dc2 cho từng dòng kho chính = tổng tinh đơn vị cùng key
+  var changed = false;
+  bvphData.forEach(function(r){
+    if(r.unit && r.unit!==BVPH) return;
+    var mon = r.bcMonth || '';
+    var key = mon+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+    var newDc2 = sumByKey[key] || 0;
+    if((r.dc2||0) !== newDc2){ r.dc2 = newDc2; changed = true; }
+  });
+  return changed;
+}
+
 function renderBVPH(){
+  _syncBVPHDc2FromUnits();
   var filtered = _sortByDrugLot(bvphData.filter(matchPeriod));
   buildTbl(filtered,'bvph-body','bvph');
   checkMismatch();
   updateLockedUI();
 }
 function renderBC(){
+  _syncBVPHDc2FromUnits();
   var selUnit = document.getElementById('filter-unit-bc');
   var unitVal = selUnit ? selUnit.value : '__all__';
 
@@ -6672,17 +6698,17 @@ function onFormDc2BVPHChange(inp){
     note:'Rơi vào: cột Tỉnh cấp của đơn vị nhận',
     maxCan:maxCan, currentVal:currentVal,
     showUnitSel:true, receiveUnits:receiveUnits,
-    onConfirm:function(qty, toUnit, txDate){
-      inp.value = qty;
+    onConfirmMulti:function(allocs, total, txDate){
+      inp.value = total;
       inp.readOnly = true;
-      // Lưu phiếu ngay
-      if(qty>0 && _supaOnline){
-        var txDate2=new Date(txDate);
-        var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
-        var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
-        _saveTransfer(txPeriod,BVPH,toUnit,fakeRow,qty,'dc3_to_tinh',txDate)
-          .then(function(){ toast('✓ Phiếu Xuất Tổ CL đã lưu cloud','#27ae60'); })
-          .catch(function(e){ toast('Chưa lưu phiếu: '+e.message,'orange'); });
+      var txDate2=new Date(txDate);
+      var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+      var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
+      if(_supaOnline){
+        allocs.forEach(function(a){
+          _saveTransfer(txPeriod,BVPH,a.unit,fakeRow,a.qty,'dc3_to_tinh',txDate).catch(function(){});
+        });
+        toast('✓ Đã tạo '+allocs.length+' phiếu Xuất Tổ CL (tổng '+total.toLocaleString()+')','#27ae60');
       }
     }
   });
@@ -6730,15 +6756,16 @@ function onFormDc2BCChange(inp){
     note:'Rơi vào: cột Nhập ĐC của đơn vị nhận',
     maxCan:maxCan, currentVal:currentVal,
     showUnitSel:true, receiveUnits:allUnits,
-    onConfirm:function(qty, toUnit, txDate){
-      inp.value = qty;
-      if(qty>0 && _supaOnline){
-        var txDate2=new Date(txDate);
-        var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
-        var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
-        _saveTransfer(txPeriod,fromUnit,toUnit,fakeRow,qty,'dc2_to_dc',txDate)
-          .then(function(){ toast('✓ Phiếu điều chuyển đã lưu cloud','#1a5276'); })
-          .catch(function(e){ toast('Chưa lưu phiếu: '+e.message,'orange'); });
+    onConfirmMulti:function(allocs, total, txDate){
+      inp.value = total;
+      var txDate2=new Date(txDate);
+      var txPeriod=isNaN(txDate2)?_currentPeriodKey():txDate2.getFullYear()+'-'+(txDate2.getMonth()<9?'0':'')+(txDate2.getMonth()+1);
+      var fakeRow={drug:info.drug,lot:info.lot,exp:info.exp||''};
+      if(_supaOnline){
+        allocs.forEach(function(a){
+          _saveTransfer(txPeriod,fromUnit,a.unit,fakeRow,a.qty,'dc2_to_dc',txDate).catch(function(){});
+        });
+        toast('✓ Đã tạo '+allocs.length+' phiếu điều chuyển (tổng '+total.toLocaleString()+')','#1a5276');
       }
     }
   });
@@ -6750,13 +6777,112 @@ function _showFormTransferPopup(opts){
   var ov=document.createElement('div'); ov.id='_transfer_modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
-  box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:440px;width:95%;box-shadow:0 8px 32px rgba(0,0,0,.2)';
+  box.style.cssText='background:white;border-radius:12px;padding:22px 26px;max-width:460px;width:95%;max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)';
 
   var h=document.createElement('div'); h.style.cssText='font-size:15px;font-weight:700;color:'+opts.color+';margin-bottom:6px'; h.textContent=opts.title;
   var sub=document.createElement('div'); sub.style.cssText='font-size:12px;color:#555;margin-bottom:12px;padding:8px;background:'+opts.bgColor+';border-radius:6px;line-height:1.7';
   sub.innerHTML='<b>Thuốc:</b> '+opts.drug+'<br><b>Lô:</b> '+opts.lot+' | <b>Hạn:</b> '+opts.exp
     +'<br><b>Từ:</b> '+opts.fromUnit+'<br><span style="color:'+opts.color+'">→ '+opts.note+'</span>';
+  box.appendChild(h); box.appendChild(sub);
 
+  // ── CHẾ ĐỘ NHIỀU ĐƠN VỊ (chỉ khi chọn đơn vị nhận trong hệ thống) ──
+  if(opts.showUnitSel){
+    var lblM=document.createElement('div'); lblM.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:6px';
+    lblM.innerHTML='Phân bổ cho các đơn vị: <span style="color:'+opts.color+';font-weight:700">Tồn tối đa '+opts.maxCan.toLocaleString()+'</span>';
+    box.appendChild(lblM);
+
+    var rowsWrap=document.createElement('div'); rowsWrap.style.cssText='display:flex;flex-direction:column;gap:7px;margin-bottom:6px';
+    box.appendChild(rowsWrap);
+
+    var sumNote=document.createElement('div'); sumNote.style.cssText='font-size:14px;font-weight:700;margin-bottom:10px;padding:9px 12px;border-radius:7px;display:flex;justify-content:space-between;align-items:center;border:1.5px solid '+opts.color;
+
+    function _optH(){
+      var s='<option value="">-- Chọn đơn vị nhận --</option>';
+      (opts.receiveUnits||[]).forEach(function(u){ s+='<option value="'+u.replace(/"/g,'&quot;')+'">'+u+'</option>'; });
+      return s;
+    }
+    function recalc(){
+      var rs=rowsWrap.querySelectorAll('.ftp-row'); var total=0,cnt=0;
+      rs.forEach(function(r){ var v=Math.max(0,parseInt(r.querySelector('.ftp-qty').value)||0); if(v>0)cnt++; total+=v; });
+      var remain=opts.maxCan-total;
+      sumNote.innerHTML='<span>📦 TỔNG: <span style="font-size:17px">'+total.toLocaleString()+'</span> viên'
+        +(cnt>0?' <span style="font-weight:400;font-size:12px">('+cnt+' đơn vị)</span>':'')+'</span>'
+        +'<span style="font-size:12px;font-weight:600">Còn lại: '+remain.toLocaleString()+'</span>';
+      var over=remain<0;
+      sumNote.style.background=over?'#fdecec':opts.bgColor;
+      sumNote.style.color=over?'#c0392b':opts.color;
+      sumNote.style.borderColor=over?'#e74c3c':opts.color;
+    }
+    function addRow(uVal,qVal){
+      var r=document.createElement('div'); r.className='ftp-row'; r.style.cssText='display:flex;gap:6px;align-items:center';
+      var s=document.createElement('select'); s.className='ftp-unit'; s.style.cssText='flex:1;padding:8px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px'; s.innerHTML=_optH(); if(uVal) s.value=uVal;
+      var q=document.createElement('input'); q.type='number'; q.min='0'; q.className='ftp-qty'; q.placeholder='SL'; q.value=qVal||''; q.style.cssText='width:90px;padding:8px;border:2px solid '+opts.color+';border-radius:6px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box';
+      q.oninput=recalc;
+      var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:6px;width:30px;height:32px;cursor:pointer';
+      del.onclick=function(){ r.remove(); recalc(); };
+      r.appendChild(s); r.appendChild(q); r.appendChild(del);
+      rowsWrap.appendChild(r); recalc();
+    }
+    addRow('', opts.currentVal>0?opts.currentVal:'');
+
+    var addBtn=document.createElement('button'); addBtn.textContent='+ Thêm đơn vị nhận';
+    addBtn.style.cssText='border:1px dashed '+opts.color+';background:'+opts.bgColor+';color:'+opts.color+';border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
+    addBtn.onclick=function(){ addRow('',''); };
+    box.appendChild(addBtn);
+    box.appendChild(sumNote);
+    recalc();
+
+    // Ngày điều chuyển
+    var dLbl=document.createElement('div'); dLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
+    dLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → báo cáo tháng đó)</span>';
+    var dInp=document.createElement('input'); dInp.type='text'; dInp.placeholder='dd/mm/yyyy';
+    (function(){ var t=new Date(); dInp.value=('0'+t.getDate()).slice(-2)+'/'+('0'+(t.getMonth()+1)).slice(-2)+'/'+t.getFullYear(); })();
+    dInp.style.cssText='width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:6px;box-sizing:border-box';
+    var mNote=document.createElement('div'); mNote.style.cssText='font-size:11px;color:'+opts.color+';background:'+opts.bgColor+';padding:5px 10px;border-radius:5px;margin-bottom:14px';
+    function updMN(){
+      var parts=dInp.value.split('/');
+      if(parts.length===3&&parts[2].length===4){
+        var d=new Date(parseInt(parts[2]),parseInt(parts[1])-1,parseInt(parts[0]));
+        if(!isNaN(d.getTime())) mNote.textContent='→ Vào báo cáo Tháng '+(d.getMonth()+1)+'/'+d.getFullYear();
+      }
+    }
+    dInp.oninput=function(){
+      var v=dInp.value.replace(/[^0-9]/g,'');
+      if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+      if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5);
+      dInp.value=v.slice(0,10); updMN();
+    };
+    updMN();
+    box.appendChild(dLbl); box.appendChild(dInp); box.appendChild(mNote);
+
+    var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+    var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+    var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 22px;border:none;border-radius:7px;background:'+opts.color+';color:white;cursor:pointer;font-size:13px;font-weight:700';
+    btnO.onclick=function(){
+      var rs=rowsWrap.querySelectorAll('.ftp-row'); var allocs=[],seen={},total=0;
+      for(var i=0;i<rs.length;i++){
+        var u=rs[i].querySelector('.ftp-unit').value;
+        var q=parseInt(rs[i].querySelector('.ftp-qty').value)||0;
+        if(q<=0) continue;
+        if(!u){ toast('Có dòng chưa chọn đơn vị nhận!','var(--warning)'); return; }
+        if(seen[u]){ toast('Đơn vị "'+u+'" bị chọn trùng!','var(--warning)'); return; }
+        seen[u]=true; allocs.push({unit:u,qty:q}); total+=q;
+      }
+      if(total===0){ toast('Chưa nhập số lượng nào!','var(--warning)'); return; }
+      if(total>opts.maxCan){ toast('⚠ Tổng ('+total.toLocaleString()+') vượt tồn ('+opts.maxCan.toLocaleString()+')!','var(--danger)'); return; }
+      var dParts=dInp.value.split('/');
+      var dISO=(dParts.length===3&&dParts[2].length===4)?dParts[2]+'-'+('0'+dParts[1]).slice(-2)+'-'+('0'+dParts[0]).slice(-2):new Date().toISOString().slice(0,10);
+      ov.remove();
+      opts.onConfirmMulti(allocs, total, dISO);
+    };
+    btnRow.appendChild(btnC); btnRow.appendChild(btnO); box.appendChild(btnRow);
+    ov.appendChild(box); document.body.appendChild(ov);
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    setTimeout(function(){ var fq=rowsWrap.querySelector('.ftp-qty'); if(fq) fq.focus(); },100);
+    return;
+  }
+
+  // ── CHẾ ĐỘ 1 Ô (tỉnh khác — không phải đơn vị trong hệ thống) ──
   var qtyLbl=document.createElement('div'); qtyLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
   qtyLbl.innerHTML='Số lượng (viên): <span style="color:#27ae60;font-weight:700">Tối đa '+opts.maxCan.toLocaleString()+'</span> <span style="font-weight:400;color:#888">(0=xóa)</span>';
   var qtyInp=document.createElement('input'); qtyInp.type='number'; qtyInp.min='0'; qtyInp.max=opts.maxCan;
@@ -6764,18 +6890,10 @@ function _showFormTransferPopup(opts){
   qtyInp.style.cssText='width:100%;padding:9px;border:2px solid '+opts.color+';border-radius:7px;font-size:15px;font-weight:700;margin-bottom:4px;box-sizing:border-box;text-align:center';
   var qWarn=document.createElement('div'); qWarn.style.cssText='font-size:11px;color:#e74c3c;margin-bottom:10px;display:none'; qWarn.textContent='⚠ Vượt tồn kho!';
   qtyInp.oninput=function(){ var v=parseInt(this.value)||0; qWarn.style.display=(v>opts.maxCan)?'':'none'; };
-
-  box.appendChild(h); box.appendChild(sub); box.appendChild(qtyLbl); box.appendChild(qtyInp); box.appendChild(qWarn);
+  box.appendChild(qtyLbl); box.appendChild(qtyInp); box.appendChild(qWarn);
 
   var toField = null;
-  if(opts.showUnitSel){
-    var uLbl=document.createElement('div'); uLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; uLbl.textContent='Đơn vị nhận:';
-    var uSel=document.createElement('select'); uSel.style.cssText='width:100%;padding:9px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:12px';
-    var o0=document.createElement('option'); o0.value=''; o0.textContent='-- Chọn đơn vị nhận --'; uSel.appendChild(o0);
-    (opts.receiveUnits||[]).forEach(function(u){ var o=document.createElement('option'); o.value=u; o.textContent=u; uSel.appendChild(o); });
-    box.appendChild(uLbl); box.appendChild(uSel);
-    toField = uSel;
-  } else if(opts.showProvince){
+  if(opts.showProvince){
     var pLbl=document.createElement('div'); pLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px'; pLbl.textContent='Tỉnh/Thành phố nhận:';
     var pInp=document.createElement('input'); pInp.type='text'; pInp.placeholder='VD: Quảng Ninh, Hải Dương...';
     pInp.style.cssText='width:100%;padding:9px 10px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:12px;box-sizing:border-box';
@@ -6786,16 +6904,13 @@ function _showFormTransferPopup(opts){
   var dLbl=document.createElement('div'); dLbl.style.cssText='font-size:12px;font-weight:600;color:#333;margin-bottom:4px';
   dLbl.innerHTML='Ngày điều chuyển: <span style="font-weight:400;color:#888">(tháng nào → báo cáo tháng đó)</span>';
   var dInp=document.createElement('input'); dInp.type='text'; dInp.placeholder='dd/mm/yyyy';
-  // Điền ngày hôm nay theo định dạng dd/mm/yyyy
   (function(){ var t=new Date(); dInp.value=('0'+t.getDate()).slice(-2)+'/'+('0'+(t.getMonth()+1)).slice(-2)+'/'+t.getFullYear(); })();
   dInp.style.cssText='width:100%;padding:8px;border:1px solid #cbd5e0;border-radius:7px;font-size:13px;margin-bottom:6px;box-sizing:border-box';
-  // Auto-format: chèn / sau dd và mm
   dInp.oninput=function(){
     var v=dInp.value.replace(/[^0-9]/g,'');
     if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
     if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5);
-    dInp.value=v.slice(0,10);
-    updMN();
+    dInp.value=v.slice(0,10); updMN();
   };
   var mNote=document.createElement('div'); mNote.style.cssText='font-size:11px;color:'+opts.color+';background:'+opts.bgColor+';padding:5px 10px;border-radius:5px;margin-bottom:14px';
   function updMN(){
@@ -6816,9 +6931,8 @@ function _showFormTransferPopup(opts){
     if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
     if(qty>opts.maxCan){ toast('⚠ Vượt tồn! Tối đa: '+opts.maxCan,'var(--danger)'); qtyInp.focus(); return; }
     var toVal = toField ? toField.value.trim() : '';
-    if(qty>0 && !toVal){ toast('Điền thông tin đơn vị/tỉnh nhận!','var(--warning)'); if(toField) toField.focus(); return; }
+    if(qty>0 && !toVal){ toast('Điền thông tin tỉnh nhận!','var(--warning)'); if(toField) toField.focus(); return; }
     ov.remove();
-    // Parse dd/mm/yyyy → ISO date string để lưu DB
     var dParts=dInp.value.split('/');
     var dISO = (dParts.length===3&&dParts[2].length===4)
       ? dParts[2]+'-'+('0'+dParts[1]).slice(-2)+'-'+('0'+dParts[0]).slice(-2)
@@ -6971,20 +7085,12 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
 
     ov.remove();
 
-    // Gán NGAY = tổng cũ + tổng phân bổ mới (hiển thị tức thì, không bị 0)
-    arr[realIdx].dc2 = (arr[realIdx].dc2||0) + total;
-    inp.value = arr[realIdx].dc2;
-    updField(prefix,rowIdx,'dc2',arr[realIdx].dc2);
-
-    // Tạo phiếu cho TỪNG đơn vị nhận
+    // Tạo phiếu cho TỪNG đơn vị nhận → tăng Tỉnh cấp (tinh) của họ.
+    // Ô Xuất Tổ CL (dc2) kho chính sẽ TỰ tính = tổng tinh đơn vị khi render (không set tay).
     allocs.forEach(function(a){
       _applyDc3Transfer(prefix,realIdx,row,a.qty,fromUnit,a.unit,txPeriod,txDate);
     });
-
-    // Đồng bộ lại từ cloud (chỉnh nếu lệch) — chạy sau khi phiếu đã lưu
-    if(txPeriod === periodKey){
-      setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc3_to_tinh'); }, 1200);
-    }
+    renderBVPH(); renderBC();
     toast('✓ Đã xuất Tổ CL cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên)','#6c3483');
   };
   box.appendChild(dateLbl); box.appendChild(dateInp); box.appendChild(mNote);
