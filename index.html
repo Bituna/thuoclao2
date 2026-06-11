@@ -889,6 +889,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         <span id="bc-filter-note" style="font-size:11px;color:var(--muted)"></span>
         <button class="btn btn-sm" id="btn-lock-manager" style="background:#c0392b;color:white;white-space:nowrap;font-weight:600"
           onclick="showLockManager()" title="Khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ">🔒 Khóa / Mở báo cáo</button>
+        <button class="btn btn-sm" id="btn-check-cloud" style="background:#34495e;color:white;white-space:nowrap;font-weight:600"
+          onclick="adminCheckCloudSave()" title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không">🩺 Kiểm tra lưu cloud</button>
       </div>
     </div>
 
@@ -2211,6 +2213,86 @@ async function _saveLockedPeriodsToCloud(){
 }
 
 // ── ADMIN: Popup khóa / mở khóa báo cáo từng đơn vị hoặc toàn bộ ──
+// ── KIỂM TRA THỰC TẾ: lưu & xóa lên cloud có hoạt động không ──
+async function adminCheckCloudSave(){
+  if(!isAdmin()){ toast('Chỉ Admin mới kiểm tra được!','var(--danger)'); return; }
+  if(!_supaOnline){ toast('Đang offline — không kiểm tra được cloud.','var(--warning)'); return; }
+
+  var results=[];
+  var testKey='__healthcheck__';
+  var testVal={t:Date.now(), msg:'test'};
+
+  // 1) Ghi mới (POST) — kiểm tra quyền tạo + trigger
+  try{
+    // xóa dấu vết cũ nếu có
+    await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+testKey,{method:'DELETE',headers:_supaHdr});
+    var ins=await fetch(SUPA_URL+'/rest/v1/settings',{
+      method:'POST',
+      headers:Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
+      body:JSON.stringify([{key:testKey,value:testVal}])
+    });
+    results.push({name:'Ghi mới (INSERT)', ok:ins.ok, detail: ins.ok?'':(ins.status+': '+(await ins.text()).slice(0,80))});
+  }catch(e){ results.push({name:'Ghi mới (INSERT)', ok:false, detail:e.message}); }
+
+  // 2) Cập nhật (PATCH/UPDATE) — đây là chỗ lỗi trigger updated_at thường xảy ra
+  try{
+    var upd=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+testKey,{
+      method:'PATCH',
+      headers:Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:{t:Date.now(),msg:'updated'}})
+    });
+    results.push({name:'Cập nhật (UPDATE)', ok:upd.ok, detail: upd.ok?'':(upd.status+': '+(await upd.text()).slice(0,90))});
+  }catch(e){ results.push({name:'Cập nhật (UPDATE)', ok:false, detail:e.message}); }
+
+  // 3) Đọc lại — kiểm tra quyền đọc
+  try{
+    var rd=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+testKey+'&select=value',{headers:_supaHdr,cache:'no-store'});
+    var rdData=rd.ok?await rd.json():[];
+    results.push({name:'Đọc lại (SELECT)', ok:rd.ok&&rdData.length>0, detail: rd.ok?'':(rd.status+'')});
+  }catch(e){ results.push({name:'Đọc lại (SELECT)', ok:false, detail:e.message}); }
+
+  // 4) Xóa — kiểm tra quyền xóa
+  try{
+    var del=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.'+testKey,{method:'DELETE',headers:_supaHdr});
+    results.push({name:'Xóa (DELETE)', ok:del.ok, detail: del.ok?'':(del.status+': '+(await del.text()).slice(0,80))});
+  }catch(e){ results.push({name:'Xóa (DELETE)', ok:false, detail:e.message}); }
+
+  // Hiển thị kết quả
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:14px;max-width:520px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)';
+  var allOk=results.every(function(r){return r.ok;});
+  var html='<div style="font-size:16px;font-weight:800;color:'+(allOk?'#1e7e44':'#c0392b')+';margin-bottom:6px">'
+    +(allOk?'✅ Lưu & Xóa cloud HOẠT ĐỘNG TỐT':'❌ CÓ LỖI khi lưu/xóa cloud')+'</div>';
+  html+='<div style="font-size:12px;color:#666;margin-bottom:14px">Kiểm tra thực tế trên bảng settings của Supabase:</div>';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:13px">';
+  results.forEach(function(r){
+    html+='<tr style="border-bottom:1px solid #eee">'
+      +'<td style="padding:8px 6px">'+(r.ok?'✅':'❌')+' '+r.name+'</td>'
+      +'<td style="padding:8px 6px;color:#c0392b;font-size:11px">'+(r.detail||'')+'</td></tr>';
+  });
+  html+='</table>';
+  if(!allOk){
+    var has42703 = results.some(function(r){return (r.detail||'').indexOf('42703')>=0 || (r.detail||'').indexOf('updated_at')>=0;});
+    html+='<div style="margin-top:14px;padding:10px;background:#fff3f3;border:1px solid #c0392b;border-radius:8px;font-size:12px;color:#7b1f1f">';
+    if(has42703){
+      html+='⚠ Lỗi do bảng settings thiếu cột <b>updated_at</b> (mã 42703). Chạy lệnh SQL này trên Supabase:<br>'
+        +'<code style="display:block;background:#fff;padding:6px;border-radius:5px;margin-top:6px;font-size:11px">ALTER TABLE settings ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();</code>';
+    } else {
+      html+='⚠ Có thao tác thất bại. Xem mã lỗi ở cột bên phải. Mã 401/403 = RLS chặn quyền; 404 = thiếu bảng.';
+    }
+    html+='</div>';
+  } else {
+    html+='<div style="margin-top:14px;padding:10px;background:#eafaf0;border:1px solid #27ae60;border-radius:8px;font-size:12px;color:#1e7e44">Tất cả thao tác lưu/xóa đều thành công. Dữ liệu sẽ được giữ bền vững trên cloud.</div>';
+  }
+  html+='<div style="text-align:right;margin-top:16px"><button onclick="this.closest(\'.hc-ov\').remove()" style="padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-weight:700">Đóng</button></div>';
+  box.innerHTML=html;
+  ov.className='hc-ov';
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+}
+
 function showLockManager(){
   if(!isAdmin()){ toast('Chỉ Admin mới thao tác được!','var(--danger)'); return; }
   var periodKey = _currentPeriodKey();
