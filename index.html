@@ -1915,8 +1915,9 @@ async function saveToSupabase(periodKey){
     //    Cách này KHÔNG bao giờ để dữ liệu "bị xóa mà chưa ghi lại".
     var upsertOk = false;
     var saveError = null;
+    var _reportsUpsertUrl = SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp';
     try{
-      var upRes = await fetch(SUPA_URL+'/rest/v1/reports', {
+      var upRes = await fetch(_reportsUpsertUrl, {
         method: 'POST',
         headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
         body: JSON.stringify(rows)
@@ -1941,7 +1942,7 @@ async function saveToSupabase(periodKey){
       // TUYỆT ĐỐI KHÔNG xóa dữ liệu trên cloud trong lúc lưu — thà có dòng trùng (xử lý
       // sau bằng SQL khử trùng) còn hơn xóa nhầm mất dữ liệu thật.
       try{
-        var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
+        var insRes = await fetch(_reportsUpsertUrl, {
           method: 'POST',
           headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
           body: JSON.stringify(rows)
@@ -2020,7 +2021,7 @@ async function _saveSupaCatalog(){
   }));
   // AN TOÀN: dùng upsert (merge-duplicates) — KHÔNG xóa toàn bộ catalog.
   // Tránh trường hợp xóa hết rồi insert thiếu (mất danh mục thuốc).
-  var upRes = await fetch(SUPA_URL+'/rest/v1/catalog', {
+  var upRes = await fetch(SUPA_URL+'/rest/v1/catalog?on_conflict=drug,lot,exp', {
     method:'POST',
     headers: Object.assign({}, _supaHdr, {'Prefer':'resolution=merge-duplicates,return=minimal'}),
     body:body
