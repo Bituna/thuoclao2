@@ -5138,21 +5138,37 @@ function onGlobalMonthChange(){
 // ── ĐỒNG BỘ 2 CHIỀU: ô Xuất Tổ CL (dc2) của Kho chính = TỔNG Tỉnh cấp (tinh) ──
 // của tất cả đơn vị có cùng thuốc|lô|hạn trong cùng kỳ.
 // Đơn vị nhập Tỉnh cấp → tự cộng dồn vào Xuất TCL kho chính. Không gõ tay ô dc2 kho chính.
+
+// Chuẩn hóa chuỗi để so khớp (bỏ khoảng trắng thừa, viết hoa, gộp khoảng trắng giữa)
+function _normStr(s){ return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); }
+// Chuẩn hóa hạn dùng về dạng chung YYYY-MM (chấp nhận 12/2026, 2026-12, 2026-12-01...)
+function _normExp(e){
+  e=String(e||'').trim();
+  if(!e) return '';
+  var m;
+  if((m=e.match(/^(\d{4})-(\d{1,2})/))) return m[1]+'-'+('0'+m[2]).slice(-2);      // 2026-12...
+  if((m=e.match(/^(\d{1,2})\/(\d{4})$/))) return m[2]+'-'+('0'+m[1]).slice(-2);      // 12/2026
+  if((m=e.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return m[3]+'-'+('0'+m[2]).slice(-2); // dd/mm/yyyy
+  return e.toUpperCase();
+}
+// Khóa so khớp 1 dòng (kỳ + thuốc + lô + hạn) đã chuẩn hóa
+function _matchKey(r){
+  return (r.bcMonth||'')+'||'+_normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp);
+}
+
 function _syncBVPHDc2FromUnits(){
-  // Gom tổng tinh các đơn vị (KHÔNG tính dòng kho chính) theo kỳ + key
+  // Gom tổng tinh các đơn vị (KHÔNG tính dòng kho chính) theo kỳ + key chuẩn hóa
   var sumByKey = {};
   bcData.forEach(function(r){
     if(r.unit===BVPH) return;          // chỉ lấy đơn vị tuyến
-    var mon = r.bcMonth || '';
-    var key = mon+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+    var key = _matchKey(r);
     sumByKey[key] = (sumByKey[key]||0) + (r.tinh||0);
   });
   // Đặt dc2 cho từng dòng kho chính = tổng tinh đơn vị cùng key
   var changed = false;
   bvphData.forEach(function(r){
     if(r.unit && r.unit!==BVPH) return;
-    var mon = r.bcMonth || '';
-    var key = mon+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+    var key = _matchKey(r);
     var newDc2 = sumByKey[key] || 0;
     if((r.dc2||0) !== newDc2){ r.dc2 = newDc2; changed = true; }
   });
@@ -5211,9 +5227,9 @@ function checkMismatch(){
   var bvphFiltered = bvphData.filter(matchPeriod);
   var bcFiltered   = bcData.filter(matchPeriod);
 
-  // So sánh theo KEY = drug + lot + exp (3 chiều, cùng kỳ báo cáo)
-  // dc2 (Xuất Tổ CL, nhập tay BVPH) phải = tổng tinh (nhập tỉnh cấp) của các đơn vị
-  var KEY = function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
+  // So sánh theo KEY = drug + lot + exp (đã chuẩn hóa, cùng kỳ báo cáo)
+  // dc2 (Xuất Tổ CL) phải = tổng tinh (nhập tỉnh cấp) của các đơn vị
+  var KEY = function(r){ return _normStr(r.drug)+'|'+_normStr(r.lot)+'|'+_normExp(r.exp); };
 
   // Gom Xuất Tổ CL của BVPH theo key (dc2 nhập tay)
   var bvphBySrc = {};
@@ -6977,11 +6993,10 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   // Bảng SOÁT LẠI: liệt kê các đơn vị đang có Tỉnh cấp cho thuốc|lô|hạn này
   var breakdown = document.createElement('div'); breakdown.style.cssText='margin-bottom:14px';
   (function(){
-    var key = (row.bcMonth||'')+'||'+row.drug+'||'+row.lot+'||'+(row.exp||'');
+    var key = _matchKey(row);
     var rows = bcData.filter(function(r){
       if(r.unit===BVPH) return false;
-      var k=(r.bcMonth||'')+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
-      return k===key && (r.tinh||0)>0;
+      return _matchKey(r)===key && (r.tinh||0)>0;
     });
     var totalT = rows.reduce(function(s,r){return s+(r.tinh||0);},0);
     var html='<div style="font-size:12px;font-weight:700;color:#1a5276;margin-bottom:6px">📋 Xuất Tổ CL này gồm Tỉnh cấp của các đơn vị:</div>';
@@ -6989,12 +7004,17 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
       html+='<div style="font-size:12px;color:#888;font-style:italic;padding:6px">Chưa có đơn vị nào nhận Tỉnh cấp thuốc/lô này.</div>';
     } else {
       html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-      html+='<tr style="background:#eef7ff"><th style="text-align:left;padding:6px 8px;border:1px solid #d6e4f0">Đơn vị</th><th style="text-align:right;padding:6px 8px;border:1px solid #d6e4f0;width:90px">Tỉnh cấp</th></tr>';
-      rows.sort(function(a,b){return (b.tinh||0)-(a.tinh||0);}).forEach(function(r){
-        html+='<tr><td style="padding:5px 8px;border:1px solid #e6eef5">'+r.unit+'</td>'
+      html+='<tr style="background:#eef7ff">'
+        +'<th style="text-align:center;padding:6px 8px;border:1px solid #d6e4f0;width:36px">TT</th>'
+        +'<th style="text-align:left;padding:6px 8px;border:1px solid #d6e4f0">Đơn vị</th>'
+        +'<th style="text-align:right;padding:6px 8px;border:1px solid #d6e4f0;width:90px">Tỉnh cấp</th></tr>';
+      rows.sort(function(a,b){return (b.tinh||0)-(a.tinh||0);}).forEach(function(r,i){
+        html+='<tr>'
+          +'<td style="padding:5px 8px;border:1px solid #e6eef5;text-align:center;color:#888">'+(i+1)+'</td>'
+          +'<td style="padding:5px 8px;border:1px solid #e6eef5">'+r.unit+'</td>'
           +'<td style="padding:5px 8px;border:1px solid #e6eef5;text-align:right;font-weight:700;color:#1a5276">'+(r.tinh||0).toLocaleString()+'</td></tr>';
       });
-      html+='<tr style="background:#f0fff4"><td style="padding:6px 8px;border:1px solid #cdeccd;font-weight:700">TỔNG (= ô Xuất Tổ CL)</td>'
+      html+='<tr style="background:#f0fff4"><td colspan="2" style="padding:6px 8px;border:1px solid #cdeccd;font-weight:700">TỔNG (= ô Xuất Tổ CL)</td>'
         +'<td style="padding:6px 8px;border:1px solid #cdeccd;text-align:right;font-weight:800;color:#1e7e44;font-size:13px">'+totalT.toLocaleString()+'</td></tr>';
       html+='</table>';
     }
