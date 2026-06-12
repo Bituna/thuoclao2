@@ -1856,21 +1856,48 @@ async function saveToSupabase(periodKey){
       'Content-Type': 'application/json'
     };
 
-    // Gom rows theo quyền
+    // ── TỐI ƯU ĐA NGƯỜI DÙNG (20 người đồng thời) ──────────────────
+    // Mỗi lần lưu CHỈ ghi đúng phần dữ liệu của người/đơn vị đang thao tác.
+    // KHÔNG quét và ghi đè toàn bộ kỳ — tránh đè lùi dữ liệu mới của người khác.
     var rows = [];
-    if(role==='bvph' || role==='admin'){
+
+    // Kho chính (bvph): chỉ role bvph hoặc admin-đang-xem-kho-chính mới ghi dòng bvph
+    var adminUnitSel = null;
+    if(role==='admin'){
+      var _sel = document.getElementById('filter-unit-bc');
+      adminUnitSel = _sel ? _sel.value : '__all__';
+    }
+    var writeBvph = (role==='bvph') || (role==='admin' && adminUnitSel==='bvph');
+    var writeAllAdmin = (role==='admin' && adminUnitSel==='__all__'); // admin xem tổng hợp
+
+    if(writeBvph || writeAllAdmin){
       bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
         rows.push({period:periodKey, unit:'bvph', drug:r.drug, lot:r.lot,
           exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
           dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
     }
-    if(role==='donvi' || role==='admin'){
-      var bcF = role==='donvi'
-        ? bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;})
-        : bcData.filter(function(r){return r.bcMonth===periodKey;});
-      bcF.forEach(function(r){
+
+    if(role==='donvi'){
+      // Đơn vị: CHỈ ghi dòng của chính đơn vị mình
+      bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;}).forEach(function(r){
         rows.push({period:periodKey, unit:r.unit||unit, drug:r.drug, lot:r.lot,
+          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
+          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
+      });
+    } else if(role==='admin'){
+      // Admin: nếu đang chọn 1 đơn vị cụ thể → chỉ ghi đơn vị đó.
+      // Nếu đang xem "tổng hợp tất cả" → ghi tất cả (admin tự chịu trách nhiệm khi sửa tổng).
+      var bcF;
+      if(adminUnitSel && adminUnitSel!=='__all__' && adminUnitSel!=='bvph'){
+        bcF = bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===adminUnitSel;});
+      } else if(writeAllAdmin){
+        bcF = bcData.filter(function(r){return r.bcMonth===periodKey;});
+      } else {
+        bcF = []; // admin xem kho chính → không ghi dòng đơn vị
+      }
+      bcF.forEach(function(r){
+        rows.push({period:periodKey, unit:r.unit||'', drug:r.drug, lot:r.lot,
           exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
           dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
       });
@@ -3261,6 +3288,7 @@ async function confirmStartupPeriod() {
     
     initApp();
     onGlobalMonthChange();
+    if(typeof _startAutoRefresh==='function') _startAutoRefresh();
   };
 
   // Hàm thực thi khi người dùng bấm Hủy
@@ -11806,11 +11834,37 @@ document.addEventListener('DOMContentLoaded', function(){
 // Cảnh báo khi đóng tab/trình duyệt mà còn dữ liệu chưa lưu
 window.addEventListener('beforeunload', function(e){
   if(_dirty && currentUser){
+    // Cố gắng lưu ngay (flush) trước khi thoát — dùng sendBeacon nếu được
+    try{
+      var periodKey = _currentPeriodKey();
+      if(periodKey && _supaOnline) saveToSupabase(periodKey).catch(function(){});
+    }catch(_e){}
     e.preventDefault();
     e.returnValue = 'Bạn có dữ liệu chưa được lưu lên hệ thống. Bạn có chắc chắn muốn thoát không?';
     return e.returnValue;
   }
 });
+
+// ── ĐỒNG BỘ ĐA NGƯỜI DÙNG: tự làm mới dữ liệu định kỳ để thấy thay đổi của người khác ──
+// Chỉ làm mới khi KHÔNG có dữ liệu đang sửa dở (_dirty=false) và tab đang hiển thị,
+// để không ghi đè thao tác đang nhập của chính mình.
+var _autoRefreshTimer = null;
+function _startAutoRefresh(){
+  if(_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(function(){
+    if(document.hidden) return;            // tab ẩn → bỏ qua
+    if(_dirty) return;                     // đang có thay đổi chưa lưu → không tải đè
+    if(!_supaOnline || !currentUser) return;
+    // Không làm mới khi đang mở popup nhập liệu (tránh gián đoạn)
+    if(document.getElementById('_transfer_modal')) return;
+    var pk = _currentPeriodKey();
+    if(!pk) return;
+    // Tải lại nhẹ nhàng dữ liệu kỳ hiện tại
+    loadFromSupabase(pk).catch(function(){});
+  }, 30000);                                // mỗi 30 giây
+}
+// Khởi động auto-refresh sau khi đăng nhập
+var _origStartAfterLogin = (typeof afterLogin==='function') ? afterLogin : null;
 </script>
 
 <div class="modal-overlay" id="modal-patient">
