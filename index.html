@@ -1914,6 +1914,7 @@ async function saveToSupabase(periodKey){
     //    rồi MỚI dọn các dòng cũ không còn trong dữ liệu hiện tại.
     //    Cách này KHÔNG bao giờ để dữ liệu "bị xóa mà chưa ghi lại".
     var upsertOk = false;
+    var saveError = null;
     try{
       var upRes = await fetch(SUPA_URL+'/rest/v1/reports', {
         method: 'POST',
@@ -1924,9 +1925,10 @@ async function saveToSupabase(periodKey){
         upsertOk = true;
       } else {
         var upErr = await upRes.text();
+        saveError = upRes.status+': '+upErr.slice(0,120);
         console.warn('[saveToSupabase] Upsert chưa dùng được (thiếu UNIQUE?):', upRes.status, upErr);
       }
-    }catch(eU){ console.warn('[saveToSupabase] Upsert exception:', eU); }
+    }catch(eU){ saveError = 'mạng lỗi: '+(eU&&eU.message||eU); console.warn('[saveToSupabase] Upsert exception:', eU); }
 
     if(upsertOk){
       // ⚠ ĐÃ TẮT phần "tự động dọn dòng cũ" để TRÁNH MẤT DỮ LIỆU.
@@ -1938,23 +1940,34 @@ async function saveToSupabase(periodKey){
       // FALLBACK KHÔNG XÓA (an toàn dữ liệu): chỉ thử upsert lại bằng merge-duplicates.
       // TUYỆT ĐỐI KHÔNG xóa dữ liệu trên cloud trong lúc lưu — thà có dòng trùng (xử lý
       // sau bằng SQL khử trùng) còn hơn xóa nhầm mất dữ liệu thật.
-      var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
-        method: 'POST',
-        headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
-        body: JSON.stringify(rows)
-      });
-      if(!insRes.ok){
-        // Nếu merge-duplicates không dùng được (chưa có UNIQUE), thử POST thường
-        var insRes2 = await fetch(SUPA_URL+'/rest/v1/reports', {
+      try{
+        var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
           method: 'POST',
-          headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+          headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
           body: JSON.stringify(rows)
         });
-        if(!insRes2.ok){
-          var insErr = await insRes2.text();
-          console.warn('[saveToSupabase] Insert fallback lỗi:', insRes2.status, insErr);
+        if(insRes.ok){ upsertOk = true; saveError = null; }
+        else {
+          // Nếu merge-duplicates không dùng được (chưa có UNIQUE), thử POST thường
+          var insRes2 = await fetch(SUPA_URL+'/rest/v1/reports', {
+            method: 'POST',
+            headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+            body: JSON.stringify(rows)
+          });
+          if(insRes2.ok){ upsertOk = true; saveError = null; }
+          else {
+            var insErr = await insRes2.text();
+            saveError = insRes2.status+': '+insErr.slice(0,120);
+            console.warn('[saveToSupabase] Insert fallback lỗi:', insRes2.status, insErr);
+          }
         }
-      }
+      }catch(eF){ saveError = 'mạng lỗi: '+(eF&&eF.message||eF); }
+    }
+
+    // Nếu ghi reports thất bại → báo NGAY cho người dùng (dữ liệu chưa lên cloud!)
+    if(!upsertOk){
+      toast('❌ CHƯA LƯU ĐƯỢC lên hệ thống ('+(saveError||'lỗi')+'). Dữ liệu vẫn còn trên màn hình — kiểm tra mạng rồi thử lại.','var(--danger)');
+      return false;
     }
 
     // Bước 3: Lưu lockedPeriods vào settings
@@ -6381,18 +6394,63 @@ var _dirty = false; // true khi có dữ liệu chưa lưu lên Supabase
 
 function _syncPeriodToCloud(){
   _dirty = true;
+  _setSaveStatus('saving');
   // Debounce 1.5s — tránh gọi cloud liên tục khi user nhập nhanh
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(function(){
-    if(!_supaOnline) return;
+    if(!_supaOnline){ _setSaveStatus('offline'); return; }
     var periodKey = _currentPeriodKey();
     if(!periodKey) return;
     saveToSupabase(periodKey).then(function(ok){
-      if(ok) _dirty = false;
+      if(ok){ _dirty = false; _setSaveStatus('saved'); }
+      else { _setSaveStatus('error'); _scheduleRetry(periodKey); }
     }).catch(function(e){
       console.warn('Sync cloud error:', e);
+      _setSaveStatus('error'); _scheduleRetry(periodKey);
     });
   }, 1500);
+}
+
+// Tự thử lại khi lưu thất bại (mạng chập chờn) — tối đa vài lần
+var _retryTimer = null, _retryCount = 0;
+function _scheduleRetry(periodKey){
+  if(_retryCount >= 5) return;          // thử tối đa 5 lần
+  _retryCount++;
+  clearTimeout(_retryTimer);
+  _retryTimer = setTimeout(function(){
+    if(!_dirty){ _retryCount=0; return; }   // đã lưu được ở lần khác
+    if(!_supaOnline) return;
+    saveToSupabase(periodKey).then(function(ok){
+      if(ok){ _dirty=false; _retryCount=0; _setSaveStatus('saved'); }
+      else _scheduleRetry(periodKey);
+    }).catch(function(){ _scheduleRetry(periodKey); });
+  }, 4000 * _retryCount);               // giãn dần: 4s, 8s, 12s...
+}
+
+// Chỉ báo trạng thái lưu (góc màn hình)
+function _setSaveStatus(state){
+  var el = document.getElementById('save-status');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'save-status';
+    el.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:9998;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  var map = {
+    saving:  {t:'⏳ Đang lưu...',      bg:'#fff8e1', c:'#7d5e00'},
+    saved:   {t:'✓ Đã lưu lên hệ thống', bg:'#eafaf0', c:'#1e7e44'},
+    error:   {t:'❌ Chưa lưu được — đang thử lại', bg:'#fdecec', c:'#c0392b'},
+    offline: {t:'⚠ Mất kết nối — dữ liệu chưa lưu', bg:'#fff3e0', c:'#b9560a'}
+  };
+  var m = map[state] || map.saved;
+  el.textContent = m.t;
+  el.style.background = m.bg;
+  el.style.color = m.c;
+  el.style.opacity = '1';
+  if(state==='saved'){
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function(){ el.style.opacity='0'; }, 2500);
+  }
 }
 
 function saveLocalCache(payload){
