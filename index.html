@@ -1902,51 +1902,31 @@ async function saveToSupabase(periodKey){
     }catch(eU){ console.warn('[saveToSupabase] Upsert exception:', eU); }
 
     if(upsertOk){
-      // Dọn dòng cũ: với mỗi đơn vị trong rows, xóa các (drug|lot|exp) KHÔNG còn nữa.
-      var keepByUnit = {};
-      rows.forEach(function(rw){
-        if(!keepByUnit[rw.unit]) keepByUnit[rw.unit] = {};
-        keepByUnit[rw.unit][rw.drug+'|'+rw.lot+'|'+(rw.exp||'')] = true;
-      });
-      for(var uu in keepByUnit){
-        try{
-          var existRes = await fetch(SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
-            +'&unit=eq.'+encodeURIComponent(uu)+'&select=id,drug,lot,exp', {headers:hdBase});
-          if(existRes.ok){
-            var existRows = await existRes.json();
-            var delIds = existRows.filter(function(er){
-              return !keepByUnit[uu][er.drug+'|'+er.lot+'|'+(er.exp||'')];
-            }).map(function(er){ return er.id; });
-            for(var di=0; di<delIds.length; di++){
-              await fetch(SUPA_URL+'/rest/v1/reports?id=eq.'+delIds[di], {method:'DELETE', headers:hdBase});
-            }
-          }
-        }catch(eClean){ console.warn('[saveToSupabase] Dọn dòng cũ lỗi:', eClean); }
-      }
+      // ⚠ ĐÃ TẮT phần "tự động dọn dòng cũ" để TRÁNH MẤT DỮ LIỆU.
+      // Trước đây: với mỗi đơn vị, xóa các dòng (drug|lot|exp) không còn trong rows hiện tại.
+      // Rủi ro: nếu bộ nhớ trình duyệt thiếu dòng (tải lỗi/đồng bộ chưa xong), dòng thật
+      // trên cloud bị coi là "cũ" và bị XÓA NHẦM. Việc xóa dòng giờ CHỈ xảy ra khi người
+      // dùng bấm nút "Xóa" (delR) — xóa đúng 1 dòng cụ thể, không quét xóa hàng loạt.
     } else {
-      // FALLBACK an toàn (khi chưa chạy SQL UNIQUE): xóa theo TỪNG đơn vị rồi insert lại.
-      // Chỉ xóa đúng đơn vị có trong rows, KHÔNG xóa cả kỳ.
-      var unitsToReplace = {};
-      rows.forEach(function(rw){ unitsToReplace[rw.unit] = true; });
-      var unitList = Object.keys(unitsToReplace);
-      for(var ui=0; ui<unitList.length; ui++){
-        var uName = unitList[ui];
-        var delUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
-          + '&unit=eq.'+encodeURIComponent(uName);
-        var delRes = await fetch(delUrl, {method:'DELETE', headers:hdBase});
-        if(!delRes.ok){
-          var errText = await delRes.text();
-          throw new Error('Xóa lỗi '+delRes.status+': '+errText);
-        }
-      }
+      // FALLBACK KHÔNG XÓA (an toàn dữ liệu): chỉ thử upsert lại bằng merge-duplicates.
+      // TUYỆT ĐỐI KHÔNG xóa dữ liệu trên cloud trong lúc lưu — thà có dòng trùng (xử lý
+      // sau bằng SQL khử trùng) còn hơn xóa nhầm mất dữ liệu thật.
       var insRes = await fetch(SUPA_URL+'/rest/v1/reports', {
         method: 'POST',
-        headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+        headers: Object.assign({}, hdBase, {'Prefer': 'resolution=merge-duplicates,return=minimal'}),
         body: JSON.stringify(rows)
       });
       if(!insRes.ok){
-        var insErr = await insRes.text();
-        throw new Error('Insert lỗi '+insRes.status+': '+insErr);
+        // Nếu merge-duplicates không dùng được (chưa có UNIQUE), thử POST thường
+        var insRes2 = await fetch(SUPA_URL+'/rest/v1/reports', {
+          method: 'POST',
+          headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
+          body: JSON.stringify(rows)
+        });
+        if(!insRes2.ok){
+          var insErr = await insRes2.text();
+          console.warn('[saveToSupabase] Insert fallback lỗi:', insRes2.status, insErr);
+        }
       }
     }
 
@@ -1998,14 +1978,18 @@ async function _saveSupaCatalog(){
   var body = JSON.stringify(toSave.map(function(r){
     return {drug:r.drug, lot:r.lot, exp:r.exp||'', note:r.note||''};
   }));
-  // Xóa toàn bộ rồi insert lại (tránh trùng)
-  var delRes = await fetch(SUPA_URL+'/rest/v1/catalog?id=gt.0', {method:'DELETE', headers:_supaHdr});
-  if(!delRes.ok && delRes.status !== 404 && delRes.status !== 416){
-    var delRes2 = await fetch(SUPA_URL+'/rest/v1/catalog?drug=neq.NULL', {method:'DELETE', headers:_supaHdr});
-    if(!delRes2.ok && delRes2.status !== 416) throw new Error('Xóa catalog thất bại: '+delRes2.status);
+  // AN TOÀN: dùng upsert (merge-duplicates) — KHÔNG xóa toàn bộ catalog.
+  // Tránh trường hợp xóa hết rồi insert thiếu (mất danh mục thuốc).
+  var upRes = await fetch(SUPA_URL+'/rest/v1/catalog', {
+    method:'POST',
+    headers: Object.assign({}, _supaHdr, {'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body:body
+  });
+  if(!upRes.ok){
+    // Nếu chưa có UNIQUE để merge → POST thường (chấp nhận có thể trùng, không xóa)
+    var insRes = await fetch(SUPA_URL+'/rest/v1/catalog', {method:'POST', headers:hdPost, body:body});
+    if(!insRes.ok) console.warn('Lưu catalog: '+insRes.status);
   }
-  var insRes = await fetch(SUPA_URL+'/rest/v1/catalog', {method:'POST', headers:hdPost, body:body});
-  if(!insRes.ok) throw new Error('Lưu catalog thất bại: '+insRes.status);
 }
 
 // ── TẢI TỪ SUPABASE ───────────────────────────────────────
@@ -5393,15 +5377,37 @@ function delR(prefix, rowIdx){
   var target = arr[realIdx];
   if(!target) return;
   _confirmModal('Xóa dòng này?','"'+target.drug+' — Lô '+target.lot+'"', function(){
-    var _delUnit = (prefix==='bvph') ? BVPH : (target.unit||'');
+    var _delUnit = (prefix==='bvph') ? 'bvph' : (target.unit||'');
     var _delDrug = target.drug + ' (lô ' + target.lot + ')';
+    var _delPeriod = target.bcMonth || _currentPeriodKey();
+    var _delLot = target.lot, _delExp = target.exp||'', _delDrugName = target.drug;
     arr.splice(realIdx, 1);
     if(prefix==='bvph') renderBVPH(); else renderBC();
     saveLocalCache(buildPayload());
+    // XÓA TRỰC TIẾP dòng này trên cloud (chỉ khi người dùng chủ động bấm Xóa)
+    _deleteRowFromCloud(_delPeriod, _delUnit, _delDrugName, _delLot, _delExp);
     _syncPeriodToCloud();
-    _logReportActivity('report_delete', _delUnit, _delDrug);
+    _logReportActivity('report_delete', (prefix==='bvph'?BVPH:(target.unit||'')), _delDrug);
     toast('Đã xóa dòng', 'var(--danger)');
   });
+}
+
+// Xóa đúng 1 dòng báo cáo trên Supabase (theo period+unit+drug+lot+exp)
+async function _deleteRowFromCloud(period, unit, drug, lot, exp){
+  if(!_supaOnline) return;
+  try{
+    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(period)
+      +'&unit=eq.'+encodeURIComponent(unit)
+      +'&drug=eq.'+encodeURIComponent(drug)
+      +'&lot=eq.'+encodeURIComponent(lot)
+      +'&exp=eq.'+encodeURIComponent(exp||'');
+    var r = await fetch(url, {method:'DELETE', headers:_supaHdr});
+    if(!r.ok){
+      var e = await r.text();
+      console.warn('Xóa dòng cloud lỗi:', r.status, e);
+      toast('⚠ Đã xóa khỏi màn hình nhưng xóa cloud chưa chắc thành công ('+r.status+')','orange');
+    }
+  }catch(e){ console.warn('deleteRow cloud error', e); }
 }
 function editR(prefix, rowIdx){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
