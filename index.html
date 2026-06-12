@@ -422,8 +422,11 @@ em{font-style:normal!important}i{font-style:normal!important}
   background-color:#1a5276;        /* Fallback mặc định */
   background-clip:padding-box;     /* Giữ bg không chảy qua border */
 }
+/* Cố định chiều cao 2 hàng tiêu đề để không bị hở khi cuộn dính */
+.tbl-wrap thead tr:nth-child(1) th{ height:34px; box-sizing:border-box; padding-top:6px; padding-bottom:6px; }
+.tbl-wrap thead tr:nth-child(2) th{ height:30px; box-sizing:border-box; padding-top:5px; padding-bottom:5px; }
 
-/* 3. Sub-header hàng 2 */
+/* 3. Sub-header hàng 2 — chồng 1px lên hàng 1 để KHÔNG hở đường trắng khi cuộn dính */
 .tbl-wrap thead tr:nth-child(2) th{
   top:33px;
   z-index:49;
@@ -6260,39 +6263,14 @@ function addBcRow(){
     toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
   }
 
-  // Kiểm tra tỉnh cấp có khớp với dc2 kho chính BVPH không
-  if(tinh > 0){
-    var bvphDc2 = 0;
-    bvphData.filter(matchPeriod).forEach(function(r){
-      if(r.drug===drug && r.lot===lot && (r.exp||'')===(exp||''))
-        bvphDc2 += (r.dc2||0);
-    });
-    if(bvphDc2 > 0 && tinh !== bvphDc2){
-      var diff = tinh - bvphDc2;
-      var sign = diff > 0 ? '+' : '';
-      var expLabel = expToMMYYYY(exp);
-      var html =
-        '<div style="background:#fff8e1;border-radius:10px;padding:20px 22px;border:2px solid #f39c12">'
-        +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
-        +'BV Phổi Hải Phòng đã xuất cho <b style="color:#1a5276;font-size:15px">'+unit+'</b>'
-        +'<br><b style="font-size:22px;color:#1a5276">'+bvphDc2.toLocaleString()+' viên</b>'
-        +' <span style="font-size:13px;color:#555">'+drug+'</span>'
-        +' — lô <b style="color:#1a2332">'+lot+'</b>'
-        +' — hạn <b style="color:#1a2332">'+expLabel+'</b>'
-        +'</p>'
-        +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
-        +'Bạn đang nhập <b style="font-size:22px;color:#e74c3c">'+tinh.toLocaleString()+' viên</b>'
-        +' — không khớp, lệch <b style="font-size:18px;color:#c0392b">'+sign+diff.toLocaleString()+' viên</b>.'
-        +'</p>'
-        +'<p style="font-size:14px;font-weight:700;color:#7d4e00;margin:0">Bạn có chắc chắn với số lượng này không?</p>'
-        +'</div>';
-      _confirmModal('Cảnh báo: Tỉnh cấp không khớp', html, doAdd, null, 'Chắc chắn, tiếp tục');
-      return;
-    }
-  }
-
+  // Cơ chế 2 chiều mới: ô Xuất Tổ CL kho chính = TỔNG Tỉnh cấp các đơn vị (tự cộng theo).
+  // Vì vậy việc so sánh "1 đơn vị vs tổng kho chính" khi nhập không còn ý nghĩa và dễ
+  // hiểu nhầm (lấy nhầm số của đơn vị khác). Bỏ cảnh báo này — đối chiếu tổng đã có ở
+  // khung cảnh báo lệch (checkMismatch) phía trên bảng kho chính.
   doAdd();
+  return;
 }
+
 function buildPayload(){
   return {
     bvphData:bvphData, bcData:bcData, extraTP:extraTP, catalogData:catalogData,
