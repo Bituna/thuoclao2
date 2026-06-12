@@ -1815,16 +1815,19 @@ async function _autoLoadOnLogin(){
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
     _cacheTransfers(periodKey);
 
-    // Load PATIENTS (BN_DATA) sau khi cloud đã online — cho tất cả role
+    // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng, chống ghi đè đa luồng)
     try{
-      var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
-      var pd2 = pr.ok ? await pr.json() : [];
-      // Nếu còn nhiều dòng PATIENTS trùng (dữ liệu cũ), lấy dòng có danh sách dài nhất
-      var best = [];
-      pd2.forEach(function(row){
-        if(Array.isArray(row.value) && row.value.length >= best.length) best = row.value;
-      });
-      BN_DATA = best;
+      var loadedFromTable = await _loadPatientsFromTable();
+      if(!loadedFromTable){
+        // Fallback: dữ liệu cũ trong settings.PATIENTS (mảng JSON)
+        var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
+        var pd2 = pr.ok ? await pr.json() : [];
+        var best = [];
+        pd2.forEach(function(row){
+          if(Array.isArray(row.value) && row.value.length >= best.length) best = row.value;
+        });
+        BN_DATA = best;
+      }
     }catch(e2){}
     // Nếu trang BN đang active thì refresh
     var bnPage = document.getElementById('page-bn');
@@ -1856,58 +1859,51 @@ async function saveToSupabase(periodKey){
       'Content-Type': 'application/json'
     };
 
-    // ── TỐI ƯU ĐA NGƯỜI DÙNG (20 người đồng thời) ──────────────────
-    // Mỗi lần lưu CHỈ ghi đúng phần dữ liệu của người/đơn vị đang thao tác.
-    // KHÔNG quét và ghi đè toàn bộ kỳ — tránh đè lùi dữ liệu mới của người khác.
+    // ── TỐI ƯU ĐA NGƯỜI DÙNG: CHỈ LƯU DÒNG VỪA ĐƯỢC NGƯỜI DÙNG SỬA (_dirty) ──
+    // Đây là chìa khóa chống MẤT DỮ LIỆU: không bao giờ ghi đè cả mảng (có thể chứa
+    // bản cũ của đơn vị khác → đè lùi dữ liệu mới của họ). Chỉ gửi đúng dòng người
+    // dùng này vừa thay đổi. Dòng của người khác KHÔNG bị động tới.
     var rows = [];
+    var _dirtyRowRefs = [];   // giữ tham chiếu để xóa cờ _dirty sau khi lưu thành công
 
-    // Kho chính (bvph): chỉ role bvph hoặc admin-đang-xem-kho-chính mới ghi dòng bvph
+    function _pushRow(r, unitName){
+      rows.push({period:periodKey, unit:unitName, drug:r.drug, lot:r.lot,
+        exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
+        dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
+      _dirtyRowRefs.push(r);
+    }
+
+    // Quyền ghi: đơn vị chỉ ghi dòng của mình; bvph ghi dòng bvph; admin ghi theo đơn vị đang chọn
     var adminUnitSel = null;
     if(role==='admin'){
       var _sel = document.getElementById('filter-unit-bc');
       adminUnitSel = _sel ? _sel.value : '__all__';
     }
-    var writeBvph = (role==='bvph') || (role==='admin' && adminUnitSel==='bvph');
-    var writeAllAdmin = (role==='admin' && adminUnitSel==='__all__'); // admin xem tổng hợp
 
-    if(writeBvph || writeAllAdmin){
-      bvphData.filter(function(r){return r.bcMonth===periodKey;}).forEach(function(r){
-        rows.push({period:periodKey, unit:'bvph', drug:r.drug, lot:r.lot,
-          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
-          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
+    // Dòng KHO CHÍNH (bvph) — chỉ lưu dòng _dirty
+    var canWriteBvph = (role==='bvph') || (role==='admin' && (adminUnitSel==='bvph' || adminUnitSel==='__all__'));
+    if(canWriteBvph){
+      bvphData.forEach(function(r){
+        if(r.bcMonth===periodKey && r._dirty) _pushRow(r, 'bvph');
       });
     }
 
-    if(role==='donvi'){
-      // Đơn vị: CHỈ ghi dòng của chính đơn vị mình
-      bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===unit;}).forEach(function(r){
-        rows.push({period:periodKey, unit:r.unit||unit, drug:r.drug, lot:r.lot,
-          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
-          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
-      });
-    } else if(role==='admin'){
-      // Admin: nếu đang chọn 1 đơn vị cụ thể → chỉ ghi đơn vị đó.
-      // Nếu đang xem "tổng hợp tất cả" → ghi tất cả (admin tự chịu trách nhiệm khi sửa tổng).
-      var bcF;
-      if(adminUnitSel && adminUnitSel!=='__all__' && adminUnitSel!=='bvph'){
-        bcF = bcData.filter(function(r){return r.bcMonth===periodKey && r.unit===adminUnitSel;});
-      } else if(writeAllAdmin){
-        bcF = bcData.filter(function(r){return r.bcMonth===periodKey;});
-      } else {
-        bcF = []; // admin xem kho chính → không ghi dòng đơn vị
+    // Dòng ĐƠN VỊ — chỉ lưu dòng _dirty, và đúng quyền
+    bcData.forEach(function(r){
+      if(r.bcMonth!==periodKey || !r._dirty) return;
+      var allowed = false;
+      if(role==='donvi') allowed = (r.unit===unit);
+      else if(role==='admin'){
+        if(adminUnitSel==='__all__') allowed = true;
+        else if(adminUnitSel && adminUnitSel!=='bvph') allowed = (r.unit===adminUnitSel);
       }
-      bcF.forEach(function(r){
-        rows.push({period:periodKey, unit:r.unit||'', drug:r.drug, lot:r.lot,
-          exp:r.exp||'', open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0,
-          dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:periodKey});
-      });
-    }
+      // role bvph KHÔNG ghi dòng đơn vị tuyến
+      if(allowed) _pushRow(r, r.unit||'');
+    });
 
-    // ⚠ AN TOÀN DỮ LIỆU: nếu không có dòng nào để ghi (rows rỗng) thì TUYỆT ĐỐI
-    // KHÔNG xóa dữ liệu trên cloud — tránh xóa sạch rồi không insert lại (mất dữ liệu).
+    // Nếu không có dòng nào VỪA SỬA → không cần ghi gì (KHÔNG xóa, KHÔNG đè).
     if(rows.length === 0){
-      console.warn('[saveToSupabase] Bỏ qua: không có dòng nào để lưu kỳ '+periodKey+' (không xóa cloud).');
-      return true;
+      return true;   // coi như thành công (không có gì để lưu)
     }
 
     // ── LƯU AN TOÀN: UPSERT trước (ghi đè theo khóa period+unit+drug+lot+exp),
@@ -1970,6 +1966,9 @@ async function saveToSupabase(periodKey){
       toast('❌ CHƯA LƯU ĐƯỢC lên hệ thống ('+(saveError||'lỗi')+'). Dữ liệu vẫn còn trên màn hình — kiểm tra mạng rồi thử lại.','var(--danger)');
       return false;
     }
+
+    // Lưu thành công → xóa cờ _dirty của các dòng đã ghi (để lần sau không ghi lại thừa)
+    _dirtyRowRefs.forEach(function(r){ delete r._dirty; });
 
     // Bước 3: Lưu lockedPeriods vào settings
     // Dùng PATCH-first để ghi đè đúng dòng key=lockedPeriods (tránh tạo dòng trùng)
@@ -5398,6 +5397,7 @@ function updField(prefix, rowIdx, field, val){
   }
 
   row[field] = v;
+  row._dirty = true;                    // đánh dấu CHỈ dòng này được người dùng sửa
   if(prefix==='bvph') renderBVPH(); else renderBC();
   saveLocalCache(buildPayload());
   _syncPeriodToCloud();
@@ -5484,6 +5484,7 @@ function editR(prefix, rowIdx){
       });
     }
     target.editing = false;
+    target._dirty = true;
     saveLocalCache(buildPayload());
     _syncPeriodToCloud();
     _logReportActivity('report_edit', (prefix==='bvph'?BVPH:(target.unit||'')), target.drug + ' (lô ' + target.lot + ')');
@@ -6011,7 +6012,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
               open:0,tinh:0,ntk:0,dc:0,sd:0,dc2:0,dc3:0,hh:0,
               locked:false,editing:false,bcMonth:periodKey,openLocked:false};
             newRow[fieldToUpdate] = transfer.qty||0;
-            if(myUnit===BVPH) bvphData.push(newRow); else bcData.push(newRow);
+            newRow._dirty=true; if(myUnit===BVPH) bvphData.push(newRow); else bcData.push(newRow);
           }
           renderBVPH(); renderBC(); renderTP();
           _syncPeriodToCloud();
@@ -6207,7 +6208,7 @@ function _addNoUsageRow_OLD_UNUSED(){
     };
     // Áp dụng tồn đầu tự động từ kỳ trước
     applyAutoOpen(newRow, bcData);
-    bcData.push(newRow);
+    newRow._dirty=true; bcData.push(newRow);
     added++;
   });
 
@@ -6254,7 +6255,7 @@ function addBVPHRow(){
     tinh:tinh,ntk:ntk,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
     locked:false,editing:false,bcMonth:mon,openLocked:false};
   applyAutoOpen(newRowBV,bvphData);
-  bvphData.push(newRowBV);
+  newRowBV._dirty=true; bvphData.push(newRowBV);
   var ls=document.getElementById('bvph-lot-sel');if(ls)ls.value='';
   var bd=document.getElementById('bvph-drug');if(bd)bd.value='';
   ['bvph-exp','bvph-open','bvph-dc2',
@@ -6292,7 +6293,7 @@ function addBcRow(){
       tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
       locked:false,editing:false,bcMonth:mon,openLocked:false};
     applyAutoOpen(newRowBC,bcData);
-    bcData.push(newRowBC);
+    newRowBC._dirty=true; bcData.push(newRowBC);
     var ls2=document.getElementById('bc-lot-sel');if(ls2)ls2.value='';
     var bd2=document.getElementById('bc-drug');if(bd2)bd2.value='';
     ['bc-exp','bc-open',
@@ -7735,14 +7736,14 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPerio
       open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
       locked:false, editing:false, bcMonth:periodKey, openLocked:false
     };
-    if(toUnit===BVPH){ bvphData.push(newRow); targetArr=bvphData; }
+    newRow._dirty=true; if(toUnit===BVPH){ bvphData.push(newRow); targetArr=bvphData; }
     else { bcData.push(newRow); targetArr=bcData; }
     targetRow = newRow;
     toast('Đã tự động thêm dòng "'+fromRow.drug+'" vào báo cáo của '+toUnit,'#1a5276');
   }
 
   // Cộng delta vào dc của đơn vị nhận (delta có thể âm)
-  targetRow.dc = Math.max(0, (targetRow.dc||0) + qty);
+  targetRow.dc = Math.max(0, (targetRow.dc||0) + qty); targetRow._dirty=true;
 
   renderBVPH(); renderBC(); renderTP();
   _syncPeriodToCloud();
@@ -7802,7 +7803,7 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
   }
 
   // Cộng vào tinh (Tỉnh cấp) của đơn vị nhận
-  targetRow.tinh = (targetRow.tinh||0) + qty;
+  targetRow.tinh = (targetRow.tinh||0) + qty; targetRow._dirty=true;
 
   renderBVPH(); renderBC(); renderTP();
   _syncPeriodToCloud();
@@ -10039,6 +10040,121 @@ function parsePD(pdStr) {
 }
 
 // ── Lưu/load BN_DATA từ Supabase settings ────────────────────
+// ═══ LƯU BỆNH NHÂN THEO TỪNG DÒNG (bảng patients riêng) — chống ghi đè đa luồng ═══
+function _genPatientId(){
+  return 'bn_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+}
+
+// Chuyển object bệnh nhân (BN_DATA) → bản ghi cho bảng patients
+function _patientToRow(pt){
+  return {
+    id: pt.id || _genPatientId(),
+    unit: pt.unit || pt.donVi || '',
+    name: pt.name || pt.hoTen || pt.tenBN || '',
+    gender: pt.gender || pt.gioiTinh || '',
+    age: (pt.age || pt.tuoi || '') + '',
+    weight: (pt.weight || pt.canNang || '') + '',
+    address: pt.address || pt.diaChi || '',
+    pd: pt.pd || pt.phacDo || '',
+    start_date: pt.startDate || pt.ngayBD || pt.ngayBatDau || '',
+    end_date: pt.endDate || pt.ngayKT || pt.ngayKetThuc || '',
+    status: pt.status || '',
+    custom_drugs: pt.customDrugs || []
+  };
+}
+// Chuyển bản ghi bảng patients → object BN_DATA (giữ mọi alias để tương thích giao diện cũ)
+function _rowToPatient(r){
+  return {
+    id: r.id, unit: r.unit, donVi: r.unit,
+    name: r.name, hoTen: r.name, tenBN: r.name,
+    gender: r.gender, gioiTinh: r.gender,
+    age: r.age, tuoi: r.age, weight: r.weight, canNang: r.weight,
+    address: r.address, diaChi: r.address,
+    pd: r.pd, phacDo: r.pd,
+    startDate: r.start_date, ngayBD: r.start_date, ngayBatDau: r.start_date,
+    endDate: r.end_date, ngayKT: r.end_date, ngayKetThuc: r.end_date,
+    status: r.status, customDrugs: r.custom_drugs || []
+  };
+}
+
+// Lưu 1 bệnh nhân (INSERT mới hoặc UPDATE theo id) — KHÔNG đụng bệnh nhân khác
+async function _savePatientToCloudOne(pt){
+  if(!_supaOnline){ if(typeof toast==='function') toast('⚠ Chưa kết nối — bệnh nhân chưa lưu lên hệ thống','var(--danger)'); return false; }
+  var row = _patientToRow(pt);
+  pt.id = row.id;  // đảm bảo object giữ id
+  try{
+    // upsert theo id (PRIMARY KEY) — chỉ ghi đúng 1 dòng này
+    var r = await fetch(SUPA_URL+'/rest/v1/patients?on_conflict=id', {
+      method:'POST',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body: JSON.stringify([row])
+    });
+    if(!r.ok){
+      var e = await r.text();
+      if(typeof toast==='function') toast('❌ Lưu bệnh nhân lỗi '+r.status+': '+e.slice(0,100),'var(--danger)');
+      console.error('_savePatientToCloudOne', r.status, e);
+      return false;
+    }
+    if(typeof toast==='function') toast('✓ Đã lưu bệnh nhân lên hệ thống','#27ae60');
+    return true;
+  }catch(e){
+    if(typeof toast==='function') toast('❌ Lưu bệnh nhân thất bại: '+e.message,'var(--danger)');
+    return false;
+  }
+}
+
+// Xóa 1 bệnh nhân theo id (chỉ khi chủ động xóa)
+async function _deletePatientFromCloudOne(id){
+  if(!_supaOnline || !id) return false;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/patients?id=eq.'+encodeURIComponent(id), {method:'DELETE', headers:_supaHdr});
+    return r.ok;
+  }catch(e){ return false; }
+}
+
+// Tải toàn bộ bệnh nhân từ bảng patients (mỗi dòng 1 BN)
+async function _loadPatientsFromTable(){
+  if(!_supaOnline) return false;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/patients?select=*&order=name', {headers:_supaHdr, cache:'no-store'});
+    if(!r.ok) return false;   // bảng chưa tồn tại → fallback settings cũ
+    var rows = await r.json();
+    if(!Array.isArray(rows)) return false;
+
+    if(rows.length > 0){
+      BN_DATA = rows.map(_rowToPatient);
+      return true;
+    }
+
+    // Bảng patients RỖNG → kiểm tra dữ liệu cũ trong settings để DI CƯ một lần
+    var oldR = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
+    var oldD = oldR.ok ? await oldR.json() : [];
+    var bestOld = [];
+    oldD.forEach(function(row){ if(Array.isArray(row.value) && row.value.length >= bestOld.length) bestOld = row.value; });
+    if(bestOld.length > 0){
+      // Gán id cho từng BN cũ rồi đẩy lên bảng mới
+      var migrateRows = bestOld.map(function(pt){
+        if(!pt.id) pt.id = _genPatientId();
+        return _patientToRow(pt);
+      });
+      try{
+        await fetch(SUPA_URL+'/rest/v1/patients?on_conflict=id', {
+          method:'POST',
+          headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
+          body: JSON.stringify(migrateRows)
+        });
+        if(typeof toast==='function') toast('☁ Đã chuyển '+migrateRows.length+' bệnh nhân sang bảng mới (an toàn đa người dùng)','#27ae60');
+      }catch(eMig){ console.warn('Di cư BN lỗi', eMig); }
+      BN_DATA = bestOld.map(function(pt){ return _rowToPatient(_patientToRow(pt)); });
+      return true;
+    }
+    // Không có dữ liệu cũ → danh sách rỗng
+    BN_DATA = [];
+    return true;
+  }catch(e){ console.warn('_loadPatientsFromTable', e); }
+  return false;
+}
+
 async function _savePatientsToCloud(){
   if(!_supaOnline){
     if(typeof toast==='function') toast('⚠ Chưa kết nối cloud — danh sách CHƯA được lưu lên hệ thống!', 'var(--danger)');
@@ -11476,7 +11592,16 @@ function savePatient(){
     unit: unitVal, donVi: unitVal, customDrugs: myDrugs
   };
 
-  if(idx >= 0) BN_DATA[idx] = pt; else BN_DATA.push(pt);
+  if(idx >= 0){
+    // Sửa: giữ nguyên id cũ
+    pt.id = BN_DATA[idx].id || _genPatientId();
+    BN_DATA[idx] = pt;
+  } else {
+    pt.id = _genPatientId();
+    BN_DATA.push(pt);
+  }
+  // Lưu RIÊNG từng bệnh nhân lên cloud (INSERT/UPDATE theo id) — chống ghi đè đa luồng
+  _savePatientToCloudOne(pt);
   // Cập nhật giao diện
   if (typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
@@ -11503,24 +11628,21 @@ function savePatient(){
 function deletePatient(idx) {
   if (idx < 0 || idx >= BN_DATA.length) return;
   var ptName = BN_DATA[idx].name || BN_DATA[idx].hoTen || 'bệnh nhân này';
-  
+  var ptId = BN_DATA[idx].id;
+
   if (!confirm('Bạn có chắc chắn muốn xóa [' + ptName + '] khỏi danh sách?')) return;
-  
+
   // 1. Xóa khỏi mảng dữ liệu gốc
   BN_DATA.splice(idx, 1);
-  
+
   // 2. Cập nhật lại giao diện Bảng và Dự trù
   if (typeof _fillBnFilters === 'function') _fillBnFilters();
   renderPatientTable();
   if (typeof renderDuTru === 'function') renderDuTru();
-  
-  // 3. Lưu đồng bộ lên Cloud
-  if (typeof _scheduleBnSync === 'function') {
-      _scheduleBnSync();
-  } else if (typeof _savePatientsToCloud === 'function') {
-      _savePatientsToCloud();
-  }
-  
+
+  // 3. Xóa ĐÚNG bệnh nhân này trên cloud (theo id) — không đụng bệnh nhân khác
+  if (ptId) _deletePatientFromCloudOne(ptId);
+
   if (typeof toast === 'function') toast('Đã xóa bệnh nhân: ' + ptName, 'var(--danger)');
 }
 
