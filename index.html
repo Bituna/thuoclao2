@@ -6263,12 +6263,72 @@ function addBcRow(){
     toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
   }
 
-  // Cơ chế 2 chiều mới: ô Xuất Tổ CL kho chính = TỔNG Tỉnh cấp các đơn vị (tự cộng theo).
-  // Vì vậy việc so sánh "1 đơn vị vs tổng kho chính" khi nhập không còn ý nghĩa và dễ
-  // hiểu nhầm (lấy nhầm số của đơn vị khác). Bỏ cảnh báo này — đối chiếu tổng đã có ở
-  // khung cảnh báo lệch (checkMismatch) phía trên bảng kho chính.
+  // Cảnh báo: so sánh số đơn vị đang nhập (tinh) với số KHO CHÍNH đã xuất RIÊNG cho
+  // đúng đơn vị này (cùng thuốc + lô + hạn). Lấy từ phiếu Xuất Tổ CL (from=BVPH, to=unit).
+  if(tinh > 0 && unit && unit !== BVPH){
+    _checkXuatForUnit(BVPH, unit, drug, lot, exp, mon).then(function(bvphXuat){
+      if(bvphXuat > 0 && tinh !== bvphXuat){
+        var diff = tinh - bvphXuat;
+        var sign = diff > 0 ? '+' : '';
+        var expLabel = expToMMYYYY(exp);
+        var html =
+          '<div style="background:#fff8e1;border-radius:10px;padding:20px 22px;border:2px solid #f39c12">'
+          +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
+          +'BV Phổi Hải Phòng đã xuất cho <b style="color:#1a5276;font-size:15px">'+unit+'</b>'
+          +'<br><b style="font-size:22px;color:#1a5276">'+bvphXuat.toLocaleString()+' viên</b>'
+          +' <span style="font-size:13px;color:#555">'+drug+'</span>'
+          +' — lô <b style="color:#1a2332">'+lot+'</b>'
+          +' — hạn <b style="color:#1a2332">'+expLabel+'</b>'
+          +'</p>'
+          +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 14px">'
+          +'Bạn đang nhập <b style="font-size:22px;color:#e74c3c">'+tinh.toLocaleString()+' viên</b>'
+          +' — không khớp, lệch <b style="font-size:18px;color:#c0392b">'+sign+diff.toLocaleString()+' viên</b>.'
+          +'</p>'
+          +'<p style="font-size:14px;font-weight:700;color:#7d4e00;margin:0">Bạn có chắc chắn với số lượng này không?</p>'
+          +'</div>';
+        _confirmModal('Cảnh báo: Tỉnh cấp không khớp', html, doAdd, null, 'Chắc chắn, tiếp tục');
+      } else {
+        doAdd();
+      }
+    }).catch(function(){ doAdd(); });
+    return;
+  }
+
   doAdd();
   return;
+}
+
+// Lấy tổng số KHO CHÍNH đã xuất RIÊNG cho 1 đơn vị (cùng thuốc|lô|hạn|kỳ) từ phiếu transfer.
+async function _checkXuatForUnit(fromUnit, toUnit, drug, lot, exp, mon){
+  // Ưu tiên dữ liệu phiếu đã cache trong kỳ
+  var nE = _normExp(exp), nD = _normStr(drug), nL = _normStr(lot);
+  function _sum(list){
+    return list.reduce(function(s,t){
+      if(t.type!=='dc3_to_tinh') return s;
+      if((t.status||'')==='cancelled' || (t.status||'')==='cancel_notif') return s;
+      if(_normStr(t.from_unit)!==_normStr(fromUnit)) return s;
+      if(_normStr(t.to_unit)!==_normStr(toUnit)) return s;
+      if(nD && _normStr(t.drug)!==nD) return s;
+      if(nL && _normStr(t.lot)!==nL) return s;
+      if(nE && _normExp(t.exp)!==nE) return s;
+      return s + (t.qty||0);
+    }, 0);
+  }
+  // Nếu cache đúng kỳ, dùng luôn
+  if(_printTransfersPeriod===mon && Array.isArray(_printTransfers) && _printTransfers.length){
+    return _sum(_printTransfers);
+  }
+  // Nếu không, truy vấn cloud
+  if(_supaOnline){
+    try{
+      var r = await fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(mon)
+        +'&from_unit=eq.'+encodeURIComponent(fromUnit)
+        +'&to_unit=eq.'+encodeURIComponent(toUnit)
+        +'&type=eq.dc3_to_tinh', {headers:_supaHdr});
+      if(r.ok){ var list=await r.json(); return _sum(Array.isArray(list)?list:[]); }
+    }catch(e){}
+  }
+  return 0;
 }
 
 function buildPayload(){
