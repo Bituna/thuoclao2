@@ -5561,28 +5561,54 @@ function cpSubmitFormMulti(){
 function cpClearAll(){
   if(!_cpCanEdit()){ toast('Chỉ Admin được xóa cấp phát.','var(--danger)'); return; }
   if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa — không xóa được.','var(--danger)'); return; }
-  var total=(capPhatData||[]).length;
-  if(!total){ toast('Chưa có dòng cấp phát nào để xóa.','orange'); return; }
-  var inPeriod=(capPhatData||[]).filter(matchPeriod).length;
+  if(getSelectedPeriod().type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa/làm trắng.','orange'); return; }
   var p=getSelectedPeriod();
-  var perLabel=(p.type==='year')?('năm '+p.year):('tháng '+(parseInt((p.val||'').split('-')[1])||'?')+'/'+p.year);
-  var body='Xóa cấp phát của <b>kỳ đang chọn ('+perLabel+')</b>: '+inPeriod+' dòng.<br>Hoặc xóa <b>TẤT CẢ các kỳ</b>: '+total+' dòng.<br><br>⚠ Không hoàn tác được.';
-  _confirmModal('Xóa cấp phát thuốc', body,
+  var perLabel='tháng '+(parseInt((p.val||'').split('-')[1])||'?')+'/'+p.year;
+  var nCp=(capPhatData||[]).filter(matchPeriod).length;
+  var nRep=(bcData||[]).filter(function(r){ return matchPeriod(r)&&r.unit!==BVPH&&(Number(r.tinh)||0)>0; }).length;
+  if(!nCp && !nRep){ toast('Bảng kỳ này đã trống.','orange'); return; }
+  var body='<b>Kỳ: '+perLabel+'</b><br><br>'
+    +'• <b>Chỉ xóa cấp phát</b>: gỡ '+nCp+' dòng kho khai, giữ nguyên số đơn vị đã báo.<br><br>'
+    +'• <b>Làm trắng cả bảng</b>: gỡ '+nCp+' dòng cấp phát <u>và</u> đưa số "Tỉnh cấp" của '+nRep+' dòng đơn vị đã báo về 0 (sửa cả báo cáo). <b style="color:#dc2626">⚠ Không hoàn tác được.</b>';
+  _confirmModal('Xóa / làm trắng cấp phát', body,
     function(){
       capPhatData=(capPhatData||[]).filter(function(r){ return !matchPeriod(r); });
       saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){}
-      toast('Đã xóa '+inPeriod+' dòng cấp phát ('+perLabel+').','var(--success)');
+      toast('Đã xóa '+nCp+' dòng cấp phát ('+perLabel+').','var(--success)');
     },
     null,
-    'Xóa kỳ này ('+inPeriod+')',
-    function(){
-      capPhatData=[];
-      saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){}
-      toast('Đã xóa toàn bộ '+total+' dòng cấp phát.','var(--success)');
-    },
-    'Xóa TẤT CẢ ('+total+')');
+    'Chỉ xóa cấp phát ('+nCp+')',
+    function(){ _cpBlankPeriod(perLabel); },
+    'Làm trắng cả bảng');
 }
 
+function _cpBlankPeriod(perLabel){
+  // 1) Xóa cấp phát kỳ này
+  capPhatData=(capPhatData||[]).filter(function(r){ return !matchPeriod(r); });
+  // 2) Đưa "Tỉnh cấp" (tinh) các đơn vị về 0 trong kỳ
+  var changed=[];
+  (bcData||[]).forEach(function(r){
+    if(matchPeriod(r) && r.unit!==BVPH && (Number(r.tinh)||0)!==0){
+      r.tinh=0; r._dirty=true; changed.push(r);
+    }
+  });
+  saveCapPhat();
+  // 3) Đồng bộ tinh=0 lên bảng reports
+  if(_supaOnline && changed.length){
+    try{
+      var hd=Object.assign({}, _supaHdr, {'Content-Type':'application/json'});
+      var pk=(typeof _currentPeriodKey==='function')?_currentPeriodKey():(getSelectedPeriod().val);
+      var rows=changed.map(function(r){ return {period:pk, unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp||'',
+        open:r.open||0, tinh:0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0, dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0,
+        locked:!!r.locked, bc_month:pk}; });
+      fetch(SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp',{method:'POST',
+        headers:Object.assign({},hd,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+        body:JSON.stringify(rows)}).catch(function(){});
+    }catch(e){ console.warn('blankPeriod sync error',e); }
+  }
+  renderCapPhat(); try{renderBVPH();}catch(e){} try{renderBC();}catch(e){} try{renderTP();}catch(e){}
+  toast('Đã làm trắng bảng đối chiếu '+(perLabel||'kỳ này')+'.','var(--success)');
+}
 function cpDownloadTemplate(){
   try{
     var wb=XLSX.utils.book_new();
