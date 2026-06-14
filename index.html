@@ -1317,8 +1317,8 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <button class="btn btn-outline" style="font-size:12px;padding:8px 14px;border-radius:10px;color:#475569;border-color:#cbd5e1;background:#f8fafc" onclick="cpDownloadTemplate()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:text-bottom"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> File Mẫu
       </button>
-      <button class="btn btn-danger" style="font-size:12px;padding:8px 14px;border-radius:10px;background:#ef4444;border:none" onclick="cpDeleteAll()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:text-bottom"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> Xóa tất cả
+      <button class="btn btn-outline" style="font-size:12px;padding:8px 14px;border-radius:10px;color:#dc2626;border-color:#fca5a5;background:#fef2f2" onclick="cpClearAll()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:text-bottom"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg> Xóa tất cả
       </button>
       <input type="file" id="capphat-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="cpImportExcel(this)">
     </div>
@@ -1763,6 +1763,7 @@ async function checkSupabase(){
   var result = await Promise.race([fetchPr, timeout]);
   _supaOnline = !!(result && result.status >= 200 && result.status < 300);
   _updateCloudStatus();
+  if(_supaOnline){ try{ loadCapPhat(); }catch(e){} }  // tải/di trú cấp phát khi đã online
   if(_supaOnline && currentUser && currentUser.role==='donvi'){
     setTimeout(checkPendingTransfers, 500);
   }
@@ -5428,62 +5429,16 @@ function filterCapPhatTable(){
   });
 }
 
-async function cpDelByKey(unit, drug, lot, exp){
+function cpDelByKey(unit, drug, lot, exp){
   if(!_cpCanEdit()) return;
   if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa.','var(--danger)'); return; }
-  var p = getSelectedPeriod();
-  if(p.type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
+  if(getSelectedPeriod().type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
   var before=capPhatData.length;
   capPhatData=capPhatData.filter(function(r){
     var same=matchPeriod(r)&&_normStr(r.unit)===_normStr(unit)&&_normStr(r.drug)===_normStr(drug)&&_normStr(r.lot)===_normStr(lot)&&_normExp(r.exp)===_normExp(exp);
     return !same;
   });
-  if(capPhatData.length!==before){ 
-    if(_supaOnline){
-      try {
-        await fetch(SUPA_URL+'/rest/v1/cap_phat?bc_month=eq.'+encodeURIComponent(p.val)
-          +'&unit=eq.'+encodeURIComponent(unit)
-          +'&drug=eq.'+encodeURIComponent(drug)
-          +'&lot=eq.'+encodeURIComponent(lot)
-          +'&exp=eq.'+encodeURIComponent(exp||''), {
-          method: 'DELETE',
-          headers: _supaHdr
-        });
-      } catch(e) {}
-    }
-    saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){} toast('Đã xóa dòng cấp phát.','var(--success)'); 
-  }
-}
-
-async function cpDeleteAll(){
-  if(!_cpCanEdit()) return;
-  if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa.','var(--danger)'); return; }
-  var p = getSelectedPeriod();
-  if(p.type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
-  if(!confirm('Xóa TOÀN BỘ dữ liệu cấp phát của tháng này? Hành động này không thể hoàn tác!')) return;
-  
-  var before = capPhatData.length;
-  capPhatData = capPhatData.filter(function(r){
-    return !matchPeriod(r);
-  });
-  
-  if(capPhatData.length !== before){
-    if(_supaOnline){
-      // Xóa trực tiếp trên DB theo tháng để tránh lỗi khi có quá nhiều dòng hoặc vượt limit 1000 items
-      try {
-        await fetch(SUPA_URL+'/rest/v1/cap_phat?bc_month=eq.'+encodeURIComponent(p.val), {
-          method: 'DELETE',
-          headers: _supaHdr
-        });
-      } catch(e) {}
-    }
-    saveCapPhat(); 
-    renderCapPhat(); 
-    try{renderBVPH();}catch(e){} 
-    toast('Đã xóa toàn bộ dữ liệu cấp phát của tháng này.','var(--success)'); 
-  } else {
-    toast('Không có dữ liệu cấp phát trong tháng này để xóa.','var(--warning)');
-  }
+  if(capPhatData.length!==before){ saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){} toast('Đã xóa dòng cấp phát.','var(--success)'); }
 }
 
 var _cpSeq=0;
@@ -5601,6 +5556,31 @@ function cpSubmitFormMulti(){
   recs.forEach(function(r){ capPhatData.push(r); });
   saveCapPhat(); _cpCloseOverlay(); renderCapPhat(); try{renderBVPH();}catch(e){}
   toast('Đã lưu '+recs.length+' dòng cấp phát.','var(--success)');
+}
+
+function cpClearAll(){
+  if(!_cpCanEdit()){ toast('Chỉ Admin được xóa cấp phát.','var(--danger)'); return; }
+  if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa — không xóa được.','var(--danger)'); return; }
+  var total=(capPhatData||[]).length;
+  if(!total){ toast('Chưa có dòng cấp phát nào để xóa.','orange'); return; }
+  var inPeriod=(capPhatData||[]).filter(matchPeriod).length;
+  var p=getSelectedPeriod();
+  var perLabel=(p.type==='year')?('năm '+p.year):('tháng '+(parseInt((p.val||'').split('-')[1])||'?')+'/'+p.year);
+  var body='Xóa cấp phát của <b>kỳ đang chọn ('+perLabel+')</b>: '+inPeriod+' dòng.<br>Hoặc xóa <b>TẤT CẢ các kỳ</b>: '+total+' dòng.<br><br>⚠ Không hoàn tác được.';
+  _confirmModal('Xóa cấp phát thuốc', body,
+    function(){
+      capPhatData=(capPhatData||[]).filter(function(r){ return !matchPeriod(r); });
+      saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){}
+      toast('Đã xóa '+inPeriod+' dòng cấp phát ('+perLabel+').','var(--success)');
+    },
+    null,
+    'Xóa kỳ này ('+inPeriod+')',
+    function(){
+      capPhatData=[];
+      saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){}
+      toast('Đã xóa toàn bộ '+total+' dòng cấp phát.','var(--success)');
+    },
+    'Xóa TẤT CẢ ('+total+')');
 }
 
 function cpDownloadTemplate(){
@@ -5780,21 +5760,24 @@ async function loadCapPhat(){
           if(j.length){
             capPhatData=j.map(function(x){ return {bcMonth:x.bc_month, drug:x.drug, lot:x.lot, exp:x.exp||'', unit:x.unit, qty:Number(x.qty)||0}; });
           } else {
-            // Bảng trống: thử di trú dữ liệu cũ từ settings (1 lần), nếu không thì xóa cache cũ
-            var migrated=false;
+            // Bảng trống: di trú từ settings cũ HOẶC từ cache localStorage; không có gì thì để trống
+            var fromOld=null;
             try{
               var old=await fetch(SUPA_URL+'/rest/v1/settings?key=eq.capPhat&select=value',{headers:_supaHdr, cache:'no-store'});
               if(old.ok){ var oj=await old.json();
-                if(oj&&oj.length&&Array.isArray(oj[0].value)&&oj[0].value.length){
-                  capPhatData=oj[0].value; migrated=true;
-                  await saveCapPhat();
-                  try{ var hd2=Object.assign({}, _supaHdr, {'Content-Type':'application/json'});
-                    await fetch(SUPA_URL+'/rest/v1/settings?key=eq.capPhat',{method:'PATCH',headers:hd2,body:JSON.stringify({value:[]})});
-                  }catch(e2){}
-                }
+                if(oj&&oj.length&&Array.isArray(oj[0].value)&&oj[0].value.length) fromOld=oj[0].value;
               }
             }catch(e){}
-            if(!migrated) capPhatData=[];
+            if((!fromOld||!fromOld.length) && Array.isArray(capPhatData) && capPhatData.length) fromOld=capPhatData; // dùng cache localStorage đã nạp ở đầu
+            if(fromOld && fromOld.length){
+              capPhatData=fromOld;
+              await saveCapPhat();
+              try{ var hd2=Object.assign({}, _supaHdr, {'Content-Type':'application/json'});
+                await fetch(SUPA_URL+'/rest/v1/settings?key=eq.capPhat',{method:'PATCH',headers:hd2,body:JSON.stringify({value:[]})});
+              }catch(e2){}
+            } else {
+              capPhatData=[];
+            }
           }
         }
       }
