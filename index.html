@@ -5428,22 +5428,38 @@ function filterCapPhatTable(){
   });
 }
 
-function cpDelByKey(unit, drug, lot, exp){
+async function cpDelByKey(unit, drug, lot, exp){
   if(!_cpCanEdit()) return;
   if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa.','var(--danger)'); return; }
-  if(getSelectedPeriod().type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
+  var p = getSelectedPeriod();
+  if(p.type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
   var before=capPhatData.length;
   capPhatData=capPhatData.filter(function(r){
     var same=matchPeriod(r)&&_normStr(r.unit)===_normStr(unit)&&_normStr(r.drug)===_normStr(drug)&&_normStr(r.lot)===_normStr(lot)&&_normExp(r.exp)===_normExp(exp);
     return !same;
   });
-  if(capPhatData.length!==before){ saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){} toast('Đã xóa dòng cấp phát.','var(--success)'); }
+  if(capPhatData.length!==before){ 
+    if(_supaOnline){
+      try {
+        await fetch(SUPA_URL+'/rest/v1/cap_phat?bc_month=eq.'+encodeURIComponent(p.val)
+          +'&unit=eq.'+encodeURIComponent(unit)
+          +'&drug=eq.'+encodeURIComponent(drug)
+          +'&lot=eq.'+encodeURIComponent(lot)
+          +'&exp=eq.'+encodeURIComponent(exp||''), {
+          method: 'DELETE',
+          headers: _supaHdr
+        });
+      } catch(e) {}
+    }
+    saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){} toast('Đã xóa dòng cấp phát.','var(--success)'); 
+  }
 }
 
-function cpDeleteAll(){
+async function cpDeleteAll(){
   if(!_cpCanEdit()) return;
   if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa.','var(--danger)'); return; }
-  if(getSelectedPeriod().type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
+  var p = getSelectedPeriod();
+  if(p.type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
   if(!confirm('Xóa TOÀN BỘ dữ liệu cấp phát của tháng này? Hành động này không thể hoàn tác!')) return;
   
   var before = capPhatData.length;
@@ -5452,6 +5468,15 @@ function cpDeleteAll(){
   });
   
   if(capPhatData.length !== before){
+    if(_supaOnline){
+      // Xóa trực tiếp trên DB theo tháng để tránh lỗi khi có quá nhiều dòng hoặc vượt limit 1000 items
+      try {
+        await fetch(SUPA_URL+'/rest/v1/cap_phat?bc_month=eq.'+encodeURIComponent(p.val), {
+          method: 'DELETE',
+          headers: _supaHdr
+        });
+      } catch(e) {}
+    }
     saveCapPhat(); 
     renderCapPhat(); 
     try{renderBVPH();}catch(e){} 
