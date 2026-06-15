@@ -3505,7 +3505,7 @@ async function confirmStartupPeriod() {
           // Không dùng AbortController để tránh DataCloneError khi AbortSignal bị serialize.
           // Dùng Promise.race với timeout thuần — fetch chạy ngầm không ảnh hưởng gì.
           var fetchPromise = fetch(
-              SUPA_URL + '/rest/v1/reports?unit=eq.' + encodeURIComponent(myUnit) + '&locked=eq.true&select=period',
+              SUPA_URL + '/rest/v1/settings?key=eq.lockedPeriods&select=value',
               { headers: _supaHdr, cache: 'no-store' }
           );
           var timeoutPromise = new Promise(function(_, reject) {
@@ -3515,8 +3515,18 @@ async function confirmStartupPeriod() {
           var r = await Promise.race([fetchPromise, timeoutPromise]);
           if(!r.ok) throw new Error('HTTP ' + r.status);
           var data = await r.json();
-          var periods = [];
-          data.forEach(function(d){ if(d.period && periods.indexOf(d.period) === -1) periods.push(d.period); });
+          // Khóa kỳ lưu ở settings.lockedPeriods (key kiểu "YYYY-MM", "YYYY-MM_bvph",
+          // "YYYY-MM_<đơn vị>"), KHÔNG ở cột reports.locked. Lấy các kỳ đã khóa của đơn vị này.
+          var lp = (data && data.length && data[0] && data[0].value) ? data[0].value : {};
+          var suffix = '_' + myUnit;
+          var seen = {}, periods = [];
+          Object.keys(lp).forEach(function(k){
+              if(!lp[k]) return;
+              var mine = (k.indexOf('_') < 0) || (String(k).slice(-suffix.length) === suffix);
+              if(!mine) return;
+              var mm = String(k).match(/^(\d{4}-\d{2})/);
+              if(mm && !seen[mm[1]]){ seen[mm[1]] = true; periods.push(mm[1]); }
+          });
           return periods;
       };
 
