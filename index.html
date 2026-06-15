@@ -5416,21 +5416,29 @@ function renderCapPhat(){
   filterCapPhatTable(); // Chạy lại bộ lọc sau khi render
 }
 
+function _cpNoMark(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim(); }
+function _cpPushReportRows(rows){
+  if(!_supaOnline || !rows || !rows.length) return;
+  try{
+    var hd=Object.assign({}, _supaHdr, {'Content-Type':'application/json'});
+    var pk=(typeof _currentPeriodKey==='function')?_currentPeriodKey():getSelectedPeriod().val;
+    var payload=rows.map(function(r){ return {period:pk, unit:(r.unit===BVPH?'bvph':r.unit), drug:r.drug, lot:r.lot, exp:r.exp||'',
+      open:r.open||0, tinh:r.tinh||0, ntk:r.ntk||0, dc:r.dc||0, sd:r.sd||0, dc2:r.dc2||0, dc3:r.dc3||0, hh:r.hh||0, locked:!!r.locked, bc_month:pk}; });
+    fetch(SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp',{method:'POST',
+      headers:Object.assign({},hd,{'Prefer':'resolution=merge-duplicates,return=minimal'}), body:JSON.stringify(payload)}).catch(function(){});
+  }catch(e){ console.warn('pushReportRows',e); }
+}
 function filterCapPhatTable(){
-  var searchVal = (document.getElementById('cp-filter-search').value || '').toLowerCase().trim();
-  var rows = document.querySelectorAll('#capphat-body tr[data-cp-unit]');
-  var visibleIndex = 1;
+  var el=document.getElementById('cp-filter-search');
+  var searchVal=_cpNoMark((el&&el.value)||'');
+  var rows=document.querySelectorAll('#capphat-body tr[data-cp-unit]');
+  var visibleIndex=1;
   rows.forEach(function(tr){
-    var u = tr.getAttribute('data-cp-unit') || '';
-    var d = tr.getAttribute('data-cp-drug') || '';
-    var match = !searchVal || u.indexOf(searchVal) >= 0 || d.indexOf(searchVal) >= 0;
-    if(match){
-      tr.style.display = '';
-      var tt = tr.querySelector('.cp-tt');
-      if(tt) tt.textContent = visibleIndex++;
-    } else {
-      tr.style.display = 'none';
-    }
+    var u=_cpNoMark(tr.getAttribute('data-cp-unit')||'');
+    var d=_cpNoMark(tr.getAttribute('data-cp-drug')||'');
+    var match=!searchVal || u.indexOf(searchVal)>=0 || d.indexOf(searchVal)>=0;
+    if(match){ tr.style.display=''; var tt=tr.querySelector('.cp-tt'); if(tt) tt.textContent=visibleIndex++; }
+    else { tr.style.display='none'; }
   });
 }
 
@@ -5438,12 +5446,25 @@ function cpDelByKey(unit, drug, lot, exp){
   if(!_cpCanEdit()) return;
   if(isCurrentPeriodLocked()){ toast('Kỳ đã khóa.','var(--danger)'); return; }
   if(getSelectedPeriod().type==='year'){ toast('Hãy chọn 1 tháng cụ thể để xóa.','orange'); return; }
-  var before=capPhatData.length;
-  capPhatData=capPhatData.filter(function(r){
-    var same=matchPeriod(r)&&_normStr(r.unit)===_normStr(unit)&&_normStr(r.drug)===_normStr(drug)&&_normStr(r.lot)===_normStr(lot)&&_normExp(r.exp)===_normExp(exp);
-    return !same;
-  });
-  if(capPhatData.length!==before){ saveCapPhat(); renderCapPhat(); try{renderBVPH();}catch(e){} toast('Đã xóa dòng cấp phát.','var(--success)'); }
+  function km(r){ return matchPeriod(r)&&_normStr(r.unit)===_normStr(unit)&&_normStr(r.drug)===_normStr(drug)&&_normStr(r.lot)===_normStr(lot)&&_normExp(r.exp)===_normExp(exp); }
+  var hasDecl=(capPhatData||[]).some(km);
+  var repRows=(bcData||[]).filter(function(r){ return r.unit!==BVPH && km(r) && (Number(r.tinh)||0)!==0; });
+  function delDecl(){ if(hasDecl){ capPhatData=capPhatData.filter(function(r){ return !km(r); }); saveCapPhat(); } }
+  if(!repRows.length){
+    if(!hasDecl){ toast('Dòng này không có dữ liệu cấp phát để xóa.','orange'); return; }
+    delDecl(); renderCapPhat(); try{renderBVPH();}catch(e){}
+    toast('Đã xóa dòng cấp phát.','var(--success)'); return;
+  }
+  var sum=repRows.reduce(function(s,r){ return s+(Number(r.tinh)||0); },0);
+  _confirmModal('Xóa dòng cấp phát',
+    'Dòng này có <b>số đơn vị đã báo nhận</b> ('+fmtNum(sum)+'). Xóa sẽ đưa số "Tỉnh cấp" của đơn vị về 0 (sửa báo cáo — không hoàn tác).',
+    function(){
+      delDecl();
+      repRows.forEach(function(r){ r.tinh=0; r._dirty=true; });
+      _cpPushReportRows(repRows);
+      renderCapPhat(); try{renderBVPH();}catch(e){} try{renderBC();}catch(e){} try{renderTP();}catch(e){}
+      toast('Đã xóa dòng.','var(--success)');
+    }, null, 'Xóa dòng');
 }
 
 var _cpSeq=0;
