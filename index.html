@@ -1279,6 +1279,11 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
           style="padding:6px 14px;border:none;border-radius:6px;background:#1d6f42;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
           📊 Xuất Excel
         </button>
+        <button onclick="document.getElementById('reports-import-file').click()" title="Nhập báo cáo từ Excel (chỉ thêm dòng còn thiếu)"
+          style="padding:6px 14px;border:none;border-radius:6px;background:#7c3aed;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          ⬆ Nhập Excel
+        </button>
+        <input type="file" id="reports-import-file" accept=".xlsx,.xls" style="display:none" onchange="importReportsExcel(this)">
         <button id="btn-in-bc" onclick="printBaoCaoDonVi()" title="In báo cáo BYT"
           style="padding:6px 14px;border:none;border-radius:6px;background:#c0392b;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
           🖨 In báo cáo
@@ -9299,6 +9304,108 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
 // ============================================================
 // XUẤT EXCEL — 4 sheet: Kho chính, 22 đơn vị, Tổng hợp TP, Danh mục
 // ============================================================
+function _riKey(period,unit,drug,lot,exp){
+  var u=(unit==='bvph')?BVPH:unit;
+  return (period||'')+'|'+_normStr(u)+'|'+_normStr(drug)+'|'+_normStr(lot)+'|'+_normExp(exp);
+}
+function _riShowResult(added, dup, periodKey, sameView){
+  _cpCloseOverlay();
+  var ov=document.createElement('div'); ov.id='cp_result_ov'; ov.className='app-popup';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(26,35,50,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var mk=(periodKey||'').split('-'); var per=(mk.length===2)?('Tháng '+parseInt(mk[1])+'/'+mk[0]):periodKey;
+  var hint = sameView ? '' : '<div style="font-size:12px;color:var(--muted);margin-top:10px">Dữ liệu đã lên cloud. Chuyển sang <b>'+per+'</b> rồi bấm "Tải từ cloud" để xem.</div>';
+  var h='<div style="background:#fff;max-width:480px;width:100%;overflow:hidden">'
+    +'<div style="background:linear-gradient(135deg,#1a2332,#2c3e5a);color:#fff;padding:16px 22px;font-size:16px;font-weight:800">✓ Nhập báo cáo — '+per+'</div>'
+    +'<div style="padding:18px 22px;font-size:14px;line-height:1.7">'
+    +'Đã thêm mới <b style="color:#1d7a46;font-size:20px">'+added+'</b> dòng vào cloud.<br>'
+    +'Bỏ qua <b>'+dup+'</b> dòng đã có (giữ nguyên, không ghi đè).'+hint
+    +'</div>'
+    +'<div style="padding:13px 22px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;background:#fafbfd">'
+    +'<button onclick="_cpCloseOverlay()" style="padding:9px 22px;border:none;background:#27ae60;color:#fff;font-weight:700;cursor:pointer">Đã hiểu</button></div></div>';
+  ov.innerHTML=h;
+  ov.addEventListener('click',function(e){ if(e.target===ov) _cpCloseOverlay(); });
+  document.body.appendChild(ov);
+}
+
+function importReportsExcel(input){
+  if(!isAdmin()){ toast('Chỉ Admin được nhập báo cáo.','var(--danger)'); input.value=''; return; }
+  if(typeof XLSX==='undefined'){ toast('Thư viện Excel chưa tải xong.','var(--danger)'); input.value=''; return; }
+  if(!_supaOnline){ toast('Cần kết nối Supabase để nhập. Đợi "Supabase ✓" rồi thử lại.','var(--danger)'); input.value=''; return; }
+  var file=input.files&&input.files[0]; if(!file) return;
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      function norm(s){ return String(s==null?'':s).trim().toLowerCase(); }
+      function ival(v){ var n=parseInt(String(v==null?'':v).replace(/[^\d\-]/g,''),10); return isNaN(n)?0:n; }
+      function toIso(v){ var s=String(v==null?'':v).trim(); if(!s||s==='—') return '';
+        var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+        var m2=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m2) return s.slice(0,10); return s; }
+      function parsePeriod(aoa){ for(var i=0;i<Math.min(aoa.length,4);i++){ var t=String((aoa[i]||[])[0]||'');
+        var m=t.match(/tháng\s*(\d{1,2})\s*\/\s*(\d{4})/i); if(m) return m[2]+'-'+('0'+m[1]).slice(-2); } return ''; }
+      var cand=[], periodKey='';
+      wb.SheetNames.forEach(function(sn){
+        var low=sn.toLowerCase();
+        if(low.indexOf('tổng hợp')>=0||low.indexOf('toàn tp')>=0||low.indexOf('danh mục')>=0) return;
+        var aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:false});
+        if(!periodKey) periodKey=parsePeriod(aoa);
+        var hr=-1, col={};
+        for(var i=0;i<Math.min(aoa.length,8);i++){ var row=aoa[i]||[]; var hd=false,hl=false;
+          for(var c=0;c<row.length;c++){ var h=norm(row[c]); if(h.indexOf('tên thuốc')>=0)hd=true; if(h.indexOf('số lô')>=0||h==='lô')hl=true; }
+          if(hd&&hl){ hr=i; for(var c2=0;c2<row.length;c2++){ var x=norm(row[c2]);
+            if(x.indexOf('đơn vị')>=0) col.unit=c2;
+            else if(x.indexOf('tên thuốc')>=0) col.drug=c2;
+            else if(x.indexOf('số lô')>=0||x==='lô') col.lot=c2;
+            else if(x.indexOf('hạn')>=0) col.exp=c2;
+            else if(x.indexOf('tồn đầu')>=0) col.open=c2;
+            else if(x.indexOf('tỉnh cấp')>=0||x.indexOf('nhập tw')>=0) col.tinh=c2;
+            else if(x.indexOf('nhập tỉnh khác')>=0) col.ntk=c2;
+            else if(x.indexOf('điều chuyển vào')>=0||x.indexOf('nhập đc')>=0) col.dc=c2;
+            else if(x.indexOf('sử dụng')>=0) col.sd=c2;
+            else if(x.indexOf('xuất tổ cl')>=0||x.indexOf('xuất đc')>=0) col.dc2=c2;
+            else if(x.indexOf('xuất tỉnh khác')>=0) col.dc3=c2;
+            else if(x.indexOf('hỏng')>=0||x==='hh') col.hh=c2;
+          } break; }
+        }
+        if(hr<0||col.drug==null||col.lot==null) return;
+        var isBvph=(col.unit==null);
+        for(var r=hr+1;r<aoa.length;r++){ var rec=aoa[r]||[];
+          var drug=String(rec[col.drug]==null?'':rec[col.drug]).trim();
+          var lot=String(rec[col.lot]==null?'':rec[col.lot]).trim();
+          if(!drug||!lot) continue;
+          var unit=isBvph?BVPH:String(rec[col.unit]==null?'':rec[col.unit]).trim();
+          if(!unit) continue;
+          cand.push({unit:unit, drug:drug, lot:lot, exp:toIso(col.exp!=null?rec[col.exp]:''),
+            open:ival(rec[col.open]), tinh:ival(rec[col.tinh]), ntk:col.ntk!=null?ival(rec[col.ntk]):0,
+            dc:col.dc!=null?ival(rec[col.dc]):0, sd:ival(rec[col.sd]),
+            dc2:col.dc2!=null?ival(rec[col.dc2]):0, dc3:col.dc3!=null?ival(rec[col.dc3]):0, hh:ival(rec[col.hh])});
+        }
+      });
+      if(!periodKey){ toast('Không đọc được kỳ báo cáo (Tháng .../...) trong file.','var(--danger)'); input.value=''; return; }
+      if(!cand.length){ toast('Không tìm thấy dòng dữ liệu nào trong file.','orange'); input.value=''; return; }
+      var existing={};
+      try{ var er=await fetch(SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp&limit=100000',{headers:_supaHdr,cache:'no-store'});
+        if(er.ok){ var ej=await er.json(); (ej||[]).forEach(function(z){ existing[_riKey(periodKey,z.unit,z.drug,z.lot,z.exp)]=1; }); }
+      }catch(e){}
+      var seen={}, newRows=[], dup=0;
+      cand.forEach(function(r){ var k=_riKey(periodKey,r.unit,r.drug,r.lot,r.exp);
+        if(existing[k]||seen[k]){ dup++; return; } seen[k]=1; newRows.push(r); });
+      var same=(_currentPeriodKey()===periodKey);
+      if(!newRows.length){ _riShowResult(0, dup, periodKey, same); input.value=''; return; }
+      var hd2=Object.assign({}, _supaHdr, {'Content-Type':'application/json'});
+      var payload=newRows.map(function(r){ return {period:periodKey, unit:(r.unit===BVPH?'bvph':r.unit), drug:r.drug, lot:r.lot, exp:r.exp,
+        open:r.open, tinh:r.tinh, ntk:r.ntk, dc:r.dc, sd:r.sd, dc2:r.dc2, dc3:r.dc3, hh:r.hh, locked:false, bc_month:periodKey}; });
+      var res=await fetch(SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp',{method:'POST',
+        headers:Object.assign({},hd2,{'Prefer':'resolution=ignore-duplicates,return=minimal'}), body:JSON.stringify(payload)});
+      if(!res.ok){ var tt=await res.text(); toast('Lỗi ghi cloud: '+res.status+' '+tt.slice(0,90),'var(--danger)'); input.value=''; return; }
+      if(same){ try{ loadFromSupabase(periodKey); }catch(e){} }
+      _riShowResult(newRows.length, dup, periodKey, same);
+    }catch(err){ toast('Lỗi đọc/nhập Excel: '+(err&&err.message||err),'var(--danger)'); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function exportExcel(){
   if(typeof XLSX === 'undefined'){
     toast('Thư viện Excel chưa tải xong. Kiểm tra kết nối mạng rồi thử lại.','var(--danger)');
