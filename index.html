@@ -1760,6 +1760,18 @@ async function loadCatalogFromCloud(){
   }catch(e){ console.warn('loadCatalogFromCloud error:',e); }
 }
 
+async function _loadAccountsFromCloud(){
+  if(!_supaOnline) return;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value&limit=1',{headers:_supaHdr,cache:'no-store'});
+    if(r.ok){
+      var d = await r.json();
+      if(d.length && d[0].value && d[0].value.length > 0){
+        ACCOUNTS = d[0].value;
+      }
+    }
+  }catch(e){}
+}
 async function checkSupabase(){
   var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve(null); }, 8000); });
   var hdCheck = {'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY};
@@ -1768,7 +1780,7 @@ async function checkSupabase(){
   var result = await Promise.race([fetchPr, timeout]);
   _supaOnline = !!(result && result.status >= 200 && result.status < 300);
   _updateCloudStatus();
-  if(_supaOnline){ try{ loadCapPhat(); }catch(e){} }  // tải/di trú cấp phát khi đã online
+  if(_supaOnline){ try{ loadCapPhat(); }catch(e){} try{ _loadAccountsFromCloud().then(function(){ if(!currentUser){ try{ fillLoginUnits(); }catch(e){} } }); }catch(e){} }  // tải/di trú cấp phát + tài khoản (mật khẩu mới nhất) khi đã online
   if(_supaOnline && currentUser && currentUser.role==='donvi'){
     setTimeout(checkPendingTransfers, 500);
   }
@@ -2553,6 +2565,7 @@ function showLockManager(){
   var btnO=document.createElement('button'); btnO.textContent='✔ Áp dụng';
   btnO.style.cssText='padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
   btnO.onclick=async function(){
+    if(!_mustOnline()) return;
     var lockedCount=0, unlockedCount=0;
     checks.forEach(function(chk){
       var u=chk.dataset.unit, key=_lockKey(u);
@@ -2949,6 +2962,7 @@ function _parseCatalogCSV(csvText){
 
 
 async function saveCatalogNow(){
+  if(!_mustOnline()) return;
   if(!isAdmin()){toast('Chỉ Admin mới lưu danh mục!','var(--danger)');return;}
   if(!catalogData.length){toast('Danh mục đang trống!','var(--warning)');return;}
   // Dedupe
@@ -3358,6 +3372,19 @@ function onLoginUnitChange(){
   if(lp){ lp.value = ''; lp.focus(); }
 }
 
+function _finishLogin(acc, unitName){
+  var errEl=document.getElementById('login-err');
+  if(!acc.unit && unitName){ acc.unit = unitName; }
+  if(acc.unit) acc.unit = String(acc.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
+  if(errEl) errEl.style.display='none';
+  currentUser = acc;
+  document.getElementById('login-screen').style.display='none';
+  var now = new Date();
+  var cm = now.getMonth() + 1;
+  document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
+  document.getElementById('startup-year').value = now.getFullYear();
+  openModal('modal-startup-period');
+}
 function doLogin(){
   var sel   = document.getElementById('l-unit');
   var pass  = document.getElementById('lp').value;
@@ -3372,6 +3399,17 @@ function doLogin(){
   var acc = ACCOUNTS.find(function(a){ return a.user===unitVal && a.pass===pass; });
   if(!acc && unitName){
     acc = ACCOUNTS.find(function(a){ return a.unit===unitName && a.pass===pass; });
+  }
+  if(!acc && _supaOnline){
+    // Mật khẩu có thể vừa đổi ở máy khác → tải lại tài khoản từ cloud rồi thử lại
+    errEl.textContent='Đang kiểm tra tài khoản...'; errEl.style.display='block';
+    _loadAccountsFromCloud().then(function(){
+      var acc2 = ACCOUNTS.find(function(a){ return a.user===unitVal && a.pass===pass; })
+              || (unitName ? ACCOUNTS.find(function(a){ return a.unit===unitName && a.pass===pass; }) : null);
+      if(acc2){ _finishLogin(acc2, unitName); }
+      else { errEl.textContent='Sai mật khẩu!'; errEl.style.display='block'; var lp=document.getElementById('lp'); if(lp){ lp.value=''; lp.focus(); } }
+    }).catch(function(){ errEl.textContent='Sai mật khẩu!'; errEl.style.display='block'; });
+    return;
   }
   if(!acc){
     errEl.textContent='Sai mật khẩu!'; errEl.style.display='block';
@@ -3903,7 +3941,15 @@ function togglePass(i){
 }
 
 // Đặt lại mật khẩu ngay trong bảng
+function _acctOnline(){
+  if(!_supaOnline){
+    toast('⚠ Đang offline — thao tác tài khoản chỉ thực hiện khi online (đợi "Supabase ✓"). Chưa lưu gì cả.','var(--danger)');
+    return false;
+  }
+  return true;
+}
 function resetPass(i){
+  if(!_acctOnline()) return;
   if(!isAdmin()){toast('Chỉ Admin mới đặt lại mật khẩu!','var(--danger)');return;}
   var np=prompt('Mật khẩu mới cho "'+ACCOUNTS[i].name+'":','');
   if(np===null) return;
@@ -4010,6 +4056,7 @@ function onAccRoleChange(){
 }
 // ============================================================
 function saveNewAccount(){
+  if(!_acctOnline()) return;
   var name=document.getElementById('acc-name').value.trim();
   var pass=document.getElementById('acc-pass').value.trim();
   var unit=document.getElementById('acc-unit').value;
@@ -4073,6 +4120,7 @@ function editSelfAccount(i){
 }
 
 async function saveSelfAccount(){
+  if(!_acctOnline()) return;
   if (_selfEditIdx < 0) return;
   var a = ACCOUNTS[_selfEditIdx];
   var newName = document.getElementById('self-edit-name').value.trim();
@@ -4162,6 +4210,7 @@ async function _saveAccountsToCloud(){
 }
 
 function saveRole(){
+  if(!_acctOnline()) return;
   if(_roleEditIdx<0) return;
   var newRole=document.getElementById('role-select').value;
   var target=ACCOUNTS[_roleEditIdx];
@@ -4186,6 +4235,7 @@ function saveRole(){
 }
 
 function deleteAccount(i){
+  if(!_acctOnline()) return;
   if(!isAdmin()){toast('Chỉ Admin mới xóa tài khoản!','var(--danger)');return;}
   var a=ACCOUNTS[i];
   if(currentUser&&a.user===currentUser.user){toast('Không xóa tài khoản đang đăng nhập!','var(--danger)');return;}
@@ -7043,7 +7093,15 @@ function saveLocalCache(payload){
   }catch(e){}
 }
 
+function _mustOnline(){
+  if(!_supaOnline){
+    toast('⚠ Phần mềm chạy trực tuyến — cần kết nối cloud (đợi "Supabase ✓") để lưu. Đang offline nên CHƯA lưu gì cả.','var(--danger)');
+    return false;
+  }
+  return true;
+}
 async function saveBC(){
+  if(!_mustOnline()) return;
   var periodKey = _currentPeriodKey();
   if(!periodKey){ toast('Chưa chọn kỳ báo cáo!','var(--danger)'); return; }
 
@@ -8625,6 +8683,7 @@ async function cancelTransferById(transferId, toUnit){
 }
 
 async function _saveTransfer(period, fromUnit, toUnit, row, qty, type, txDate){
+  if(!_supaOnline) return false;
   var hdPost = Object.assign({}, _supaHdr, {'Prefer':'return=representation','Content-Type':'application/json'});
   var payload = {
     period:period, from_unit:fromUnit, to_unit:toUnit,
@@ -11766,6 +11825,7 @@ function editPatient(idx) {
 }
 
 function savePatient(){
+  if(!_mustOnline()) return;
   var idx = parseInt(document.getElementById('pt-index').value);
   var nameVal = document.getElementById('pt-name').value.trim();
   var genderVal = document.getElementById('pt-gender').value;
@@ -12217,6 +12277,8 @@ function _startAutoRefresh(){
   _autoRefreshTimer = setInterval(function(){
     if(document.hidden) return;            // tab ẩn → bỏ qua
     if(_dirty) return;                     // đang có thay đổi chưa lưu → không tải đè
+    var _ae=document.activeElement;        // đang đặt con trỏ trong ô nhập → KHÔNG làm mới (tránh ngắt ngang)
+    if(_ae && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae.tagName)) return;
     if(!_supaOnline || !currentUser) return;
     // Không làm mới khi đang mở popup nhập liệu (tránh gián đoạn)
     if(document.getElementById('_transfer_modal')) return;
