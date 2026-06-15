@@ -9676,15 +9676,17 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
 
     _fd.bvph.forEach(function(r){
       var k=KEY(r);
-      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0};
+      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0,twBvph:0,ntkBvph:0};
       map[k].open    += (r.open||0);
       map[k].sdAll   += (r.sd||0);
       map[k].bvphDC3 += (r.dc3||0);
       map[k].bvphHH  += (r.hh||0);
+      map[k].twBvph  += (r.tinh||0);   // Nhập TW: chỉ kho chính BVPH (giống renderTP)
+      map[k].ntkBvph += (r.ntk||0);    // Nhập tỉnh khác: chỉ kho chính BVPH
     });
     _fd.bc.forEach(function(r){
       var k=KEY(r);
-      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0};
+      if(!map[k]) map[k]={drug:r.drug,lot:r.lot,exp:r.exp,open:0,sdAll:0,bvphDC3:0,bvphHH:0,twBvph:0,ntkBvph:0};
       map[k].open  += (r.open||0);
       map[k].sdAll += (r.sd||0);
     });
@@ -9708,8 +9710,7 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
 
     keys.forEach(function(k, idx){
       var m   = map[k];
-      var ex  = extraTP[k] || {tw:0,dc:0};
-      var tw  = ex.tw||0, dc = ex.dc||0;
+      var tw  = m.twBvph||0, dc = m.ntkBvph||0;
       var dc3 = m.bvphDC3||0, hh = m.bvphHH||0;
       var tin = tw+dc, tout = m.sdAll+dc3+hh;
       var fin = m.open+tin-tout;
