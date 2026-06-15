@@ -5560,7 +5560,7 @@ function _cpRenumAlloc(box){ if(!box) return; var rows=box.querySelectorAll('.cp
 function cpSubmitFormMulti(){
   var p=getSelectedPeriod();
   if(p.type==='year'){ toast('Hãy chọn 1 tháng cụ thể.','orange'); return; }
-  var blocks=document.querySelectorAll('#cp-blocks .cp-block');
+  var blocks=document.querySelectorAll('#cp-blocks .cpm-block');
   var recs=[], errMsg='';
   for(var i=0;i<blocks.length;i++){
     var n=blocks[i].getAttribute('data-seq');
@@ -5568,7 +5568,7 @@ function cpSubmitFormMulti(){
     var lot=(document.getElementById('cp-lot-'+n)||{}).value||'';
     var expEl=document.getElementById('cp-exp-'+n);
     var exp=expEl?(expEl.getAttribute('data-exp')||''):'';
-    var allocs=blocks[i].querySelectorAll('.cp-alloc');
+    var allocs=blocks[i].querySelectorAll('.cpm-alloc');
     for(var j=0;j<allocs.length;j++){
       var uSel=allocs[j].querySelector('.cp-alloc-unit');
       var qIn=allocs[j].querySelector('.cp-alloc-qty');
