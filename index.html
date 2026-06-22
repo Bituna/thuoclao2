@@ -1876,17 +1876,17 @@ async function _autoLoadOnLogin(){
           toast('⚠ Kỳ '+periodKey+' không khớp. Cloud có dữ liệu kỳ: '+periods+'. Kiểm tra lại tháng/năm đã chọn.', 'var(--warning)');
         }
       }catch(eProbe){}
-      // Cloud chưa có data kỳ này
+      // Cloud chưa có data kỳ này → LUÔN thử đổ tồn từ kỳ trước (lấy thẳng từ cloud)
       var prevKey = _prevPeriodKey(periodKey);
-      var hasPrevLocal = prevKey && (
-        bvphData.some(function(r){return r.bcMonth===prevKey;}) ||
-        bcData.some(function(r){return r.bcMonth===prevKey;})
-      );
-      if(hasPrevLocal && !window._loginGapConfirmed){
-        _createNextPeriodRows(prevKey, periodKey);
-        saveLocalCache(buildPayload());
-        renderBVPH(); renderBC(); renderTP(); renderTQ();
-        toast('Kỳ '+periodKey+': đã tạo tồn đầu từ tồn cuối kỳ trước.','#1a5276');
+      if(prevKey){
+        var created = await _createNextPeriodRows(prevKey, periodKey);
+        if(created > 0){
+          saveLocalCache(buildPayload());
+          renderBVPH(); renderBC(); renderTP(); renderTQ();
+          toast('Kỳ '+periodKey+': đã đổ '+created+' dòng tồn đầu từ tồn cuối kỳ trước.','#1a5276');
+        } else {
+          toast('Kỳ '+periodKey+': chưa có dữ liệu kỳ trước trên cloud.','#1a5276');
+        }
       } else {
         toast('Kỳ '+periodKey+': chưa có dữ liệu trên cloud. Bắt đầu nhập mới.','#1a5276');
       }
@@ -2222,7 +2222,25 @@ async function loadFromSupabase(periodKey, silent){
     if(!r.ok) throw new Error('HTTP '+r.status);
     var rows = await r.json();
 
-    if(!rows.length){ if(!silent) toast('Không có dữ liệu kỳ này trên cloud','var(--warning)'); return; }
+    if(!rows.length){
+      // Cloud kỳ này rỗng → THỬ ĐỔ TỒN TỪ KỲ TRƯỚC (lấy thẳng từ cloud)
+      if(p.type !== 'year'){
+        var prevKey = _prevPeriodKey(periodKey);
+        if(prevKey){
+          var created = await _createNextPeriodRows(prevKey, periodKey);
+          if(created > 0){
+            saveLocalCache(buildPayload());
+            fullRender();
+            updateSaveBtnUI();
+            if(!silent) toast('Kỳ '+periodKey+': đã đổ '+created+' dòng tồn đầu từ kỳ trước.','#1a5276');
+            _cacheTransfers(periodKey);
+            return;
+          }
+        }
+      }
+      if(!silent) toast('Không có dữ liệu kỳ này trên cloud','var(--warning)');
+      return;
+    }
 
     // Phân loại
     var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
@@ -5277,6 +5295,8 @@ function onYearChange(){ onGlobalMonthChange(); }
 
 function onGlobalMonthChange(){
   var p = getSelectedPeriod();
+  // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
+  if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
   // Cập nhật label
   var labelEl = document.getElementById('bc-period-label');
   if(labelEl){
@@ -6777,15 +6797,66 @@ function findPrevRow(arr, unit, drug, lot, exp, prevMon){
   return null;
 }
 
-// Khi addBcRow / addBVPHRow: nếu có dữ liệu kỳ trước → override open + openLocked
-function applyAutoOpen(row, arr){
-  if(window._loginGapConfirmed) return; // user đã xác nhận bỏ qua kỳ thiếu → không đổ tồn cuối
+// Cache fetch theo (period|unit) — TRÁNH gọi Supabase lặp khi user thêm nhiều dòng
+// liên tiếp cùng kỳ + cùng đơn vị. Cache TỰ XÓA khi đổi kỳ (xem onGlobalMonthChange).
+// LƯU Ý: đây là cache "đọc cloud", KHÔNG phải data RAM của user — không bao giờ
+// dùng để ghi/sửa, chỉ là bộ nhớ đệm cho HTTP fetch.
+var _prevPeriodPoolCache = {};
+
+function _clearPrevPeriodCache(){
+  _prevPeriodPoolCache = {};
+}
+
+// Khi addBcRow / addBVPHRow / addCapPhatRow: lấy tồn cuối kỳ trước từ CLOUD → đổ tồn đầu.
+// LUÔN HỎI SUPABASE, KHÔNG dùng bvphData/bcData (vì có thể stale).
+async function applyAutoOpen(row, arr){
   var prev = getPrevPeriod();
   if(!prev) return; // không áp dụng cho "Cả năm"
-  var prevRow = findPrevRow(arr, row.unit, row.drug, row.lot, row.exp, prev);
+  if(!_supaOnline){
+    console.warn('[applyAutoOpen] Bỏ qua: chưa online cloud');
+    return;
+  }
+
+  // Xác định unit filter cho query — bám đúng tài khoản đang nhập
+  // Kho chính → 'bvph'; còn lại → đúng tên đơn vị
+  var unitFilter = (row.unit === BVPH) ? 'bvph' : row.unit;
+  if(!unitFilter) return;
+
+  var cacheKey = prev + '||' + unitFilter;
+  var pool = _prevPeriodPoolCache[cacheKey];
+
+  // Chưa fetch lần nào trong session này → query Supabase
+  if(!pool){
+    try{
+      var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(prev)
+              + '&unit=eq.'+encodeURIComponent(unitFilter);
+      var r = await fetch(url, {headers:_supaHdr, cache:'no-store'});
+      if(!r.ok){
+        console.warn('[applyAutoOpen] HTTP', r.status);
+        return;
+      }
+      var rows = await r.json();
+      pool = rows.map(_mapRow);
+      _prevPeriodPoolCache[cacheKey] = pool;
+    }catch(e){
+      console.warn('[applyAutoOpen] fetch lỗi:', e);
+      return;
+    }
+  }
+
+  // Tìm dòng kỳ trước cùng (drug + lot + exp) — KHÔNG đụng bvphData/bcData
+  var prevRow = null;
+  for(var i=0;i<pool.length;i++){
+    var x = pool[i];
+    if(x.drug===row.drug && x.lot===row.lot && x.exp===row.exp){
+      prevRow = x;
+      break;
+    }
+  }
+
   if(prevRow){
     var res = calcRow(prevRow);
-    row.open = res.final;      // tồn cuối kỳ trước → tồn đầu kỳ này
+    row.open = res.final;       // tồn cuối kỳ trước → tồn đầu kỳ này
     row.openLocked = !isAdmin(); // khoá với non-admin
   }
 }
@@ -6856,7 +6927,7 @@ async function _saveNoUsageToCloud(){
 }
 
 // Bỏ đánh dấu "không có báo cáo" cho đơn vị + kỳ
-function addBVPHRow(){
+async function addBVPHRow(){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước khi nhập thêm.','var(--danger)');return;}
   var drug   = document.getElementById('bvph-drug').value;
   var lotSel = document.getElementById('bvph-lot-sel');
@@ -6880,7 +6951,7 @@ function addBVPHRow(){
   var newRowBV={unit:BVPH,drug:drug,lot:lot,exp:exp,open:open,
     tinh:tinh,ntk:ntk,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
     locked:false,editing:false,bcMonth:mon,openLocked:false};
-  applyAutoOpen(newRowBV,bvphData);
+  await applyAutoOpen(newRowBV,bvphData);
   newRowBV._dirty=true; bvphData.push(newRowBV);
   var ls=document.getElementById('bvph-lot-sel');if(ls)ls.value='';
   var bd=document.getElementById('bvph-drug');if(bd)bd.value='';
@@ -6914,11 +6985,11 @@ function addBcRow(){
   if(!canEditUnit(unit)){toast('Bạn không có quyền nhập đơn vị này!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
 
-  function doAdd(){
+  async function doAdd(){
     var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
       tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
       locked:false,editing:false,bcMonth:mon,openLocked:false};
-    applyAutoOpen(newRowBC,bcData);
+    await applyAutoOpen(newRowBC,bcData);
     newRowBC._dirty=true; bcData.push(newRowBC);
     var ls2=document.getElementById('bc-lot-sel');if(ls2)ls2.value='';
     var bd2=document.getElementById('bc-drug');if(bd2)bd2.value='';
@@ -7165,49 +7236,148 @@ function _keyToLabel(key){
   return key;
 }
 
-// Tạo rows tồn đầu kỳ tiếp từ tồn cuối kỳ này (mỗi thuốc+lô+đơn vị)
-function _createNextPeriodRows(curKey, nextKey){
-  var bvphCur = bvphData.filter(function(r){ return r.bcMonth===curKey; });
-  var bcCur   = bcData.filter(function(r){   return r.bcMonth===curKey; });
-
-  // Tạo rows BVPH kỳ tiếp nếu chưa có
-  bvphCur.forEach(function(r){
-    var fin = Math.max(0, calcRow(r).final); // tồn cuối không âm
-    if(fin === 0) return; // Bỏ qua, không tự động mang thuốc đã hết sạch sang tháng sau
-    var exists = bvphData.some(function(x){
-      return x.bcMonth===nextKey && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
-    });
-    if(!exists){
-      bvphData.push({
-        unit:r.unit||BVPH, drug:r.drug, lot:r.lot, exp:r.exp,
-        open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
-        locked:false, editing:false, bcMonth:nextKey, openLocked:true,
-        _dirty: true
-      });
+// ────────────────────────────────────────────────────────────
+// HELPER: Lấy TOÀN BỘ dòng của 1 kỳ trực tiếp từ Supabase (KHÔNG dùng RAM)
+// Trả về mảng đã map về cấu trúc nội bộ, hoặc null nếu lỗi.
+// opts.respectRole = false → lấy hết, không lọc theo role (cho admin/rollover toàn bộ)
+// ────────────────────────────────────────────────────────────
+async function _fetchPeriodFromCloud(periodKey, opts){
+  opts = opts || {};
+  if(!periodKey || !_supaOnline) return null;
+  try{
+    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=unit,drug,lot';
+    if(opts.respectRole !== false){
+      var role = currentUser ? currentUser.role : 'admin';
+      var unit = currentUser ? currentUser.unit : '';
+      if(role === 'donvi'){
+        url += '&unit=eq.'+encodeURIComponent(unit);
+      } else if(role === 'bvph'){
+        url += '&unit=eq.bvph';
+      }
     }
-  });
+    var r = await fetch(url, {headers:_supaHdr, cache:'no-store'});
+    if(!r.ok){
+      console.warn('[_fetchPeriodFromCloud] HTTP', r.status);
+      return null;
+    }
+    var rows = await r.json();
+    return rows.map(_mapRow);
+  }catch(e){
+    console.warn('[_fetchPeriodFromCloud] lỗi:', e);
+    return null;
+  }
+}
 
-  // Tạo rows 22ĐV kỳ tiếp nếu chưa có
-  bcCur.forEach(function(r){
+// ────────────────────────────────────────────────────────────
+// Tạo rows tồn đầu kỳ tiếp từ tồn cuối kỳ trước.
+// CHỈ DÙNG DỮ LIỆU SUPABASE — KHÔNG fallback RAM.
+// Tự lọc theo role: donvi chỉ đổ tồn của đơn vị mình, bvph chỉ đổ tồn Kho chính,
+// admin đổ tồn cho cả 3 bảng (Kho chính + 22 đơn vị + Toàn TP tự tổng hợp).
+// Trả về số dòng đã tạo mới; trả 0 nếu cloud lỗi/rỗng.
+// ────────────────────────────────────────────────────────────
+async function _createNextPeriodRows(curKey, nextKey){
+  if(!curKey || !nextKey) return 0;
+  if(!_supaOnline){
+    console.warn('[_createNextPeriodRows] Bỏ qua: chưa online cloud');
+    return 0;
+  }
+
+  // (1) Lấy dữ liệu kỳ trước TỪ CLOUD — KHÔNG dùng RAM
+  // _fetchPeriodFromCloud tự lọc theo role hiện hành:
+  //   - donvi → chỉ rows của unit=<đơn vị mình>
+  //   - bvph  → chỉ rows của unit='bvph'
+  //   - admin → toàn bộ rows kỳ đó
+  var prevRows = await _fetchPeriodFromCloud(curKey);
+  if(prevRows === null){
+    console.warn('[_createNextPeriodRows] Không fetch được kỳ '+curKey+' từ cloud');
+    return 0;
+  }
+  if(!prevRows.length) return 0;
+
+  // (2) Lấy luôn rows kỳ tiếp đang có trên cloud để tránh tạo trùng
+  // (vd user đã tạo tay 1-2 dòng trước khi rollover chạy)
+  var nextExisting = await _fetchPeriodFromCloud(nextKey);
+  if(nextExisting === null) nextExisting = [];
+
+  // Tạo index dòng đã có ở kỳ tiếp theo (drug|lot|exp|unit chuẩn hóa)
+  var _existKey = function(r){
+    var u = (r.unit===BVPH || !r.unit || r.unit==='bvph') ? 'bvph' : r.unit;
+    return u+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+  };
+  var existIdx = {};
+  nextExisting.forEach(function(r){ existIdx[_existKey(r)] = true; });
+
+  // (3) Tính tồn cuối từng dòng kỳ trước → đổ làm tồn đầu kỳ tiếp
+  // Đồng thời chuẩn bị payload upsert cloud (BỎ QUA filter role để rollover đầy đủ)
+  var createdCount = 0;
+  var rowsToUpsert = [];
+  prevRows.forEach(function(r){
     var fin = Math.max(0, calcRow(r).final);
-    if(fin === 0) return; // Bỏ qua, không tự động mang thuốc đã hết sạch sang tháng sau
-    var exists = bcData.some(function(x){
-      return x.bcMonth===nextKey && x.unit===r.unit && x.drug===r.drug && x.lot===r.lot && x.exp===r.exp;
-    });
-    if(!exists){
+    // Bỏ qua dòng tồn cuối = 0 VÀ đã hết hạn (giữ lại dòng tồn 0 nếu còn hạn để theo dõi)
+    if(fin === 0 && isExpiredStr(r.exp)) return;
+
+    var isBvphRow = (r.unit === BVPH || !r.unit);
+    var unitKey   = isBvphRow ? 'bvph' : r.unit;
+    var existK    = unitKey+'||'+r.drug+'||'+r.lot+'||'+(r.exp||'');
+    if(existIdx[existK]) return; // đã tồn tại trên cloud → bỏ qua
+
+    if(isBvphRow){
+      bvphData.push({
+        unit:BVPH, drug:r.drug, lot:r.lot, exp:r.exp,
+        open:fin, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+        locked:false, editing:false, bcMonth:nextKey, openLocked:true,
+        _dirty:true
+      });
+    } else {
       bcData.push({
         unit:r.unit, drug:r.drug, lot:r.lot, exp:r.exp,
         open:fin, tinh:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
         locked:false, editing:false, bcMonth:nextKey, openLocked:true,
-        _dirty: true
+        _dirty:true
       });
     }
+    // Payload upsert lên cloud — KHÔNG đi qua saveToSupabase (vì hàm đó lọc theo
+    // filter-unit-bc của admin → có thể bỏ sót đơn vị). Push thẳng cho chắc.
+    rowsToUpsert.push({
+      period:nextKey, unit:unitKey, drug:r.drug, lot:r.lot, exp:r.exp||'',
+      open:fin, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+      locked:false, bc_month:nextKey
+    });
+    existIdx[existK] = true;
+    createdCount++;
   });
 
-  // Đồng bộ kỳ tiếp lên cloud ngay
-  if(_supaOnline){
-    saveToSupabase(nextKey).catch(function(){});
+  // (4) Upsert TRỰC TIẾP lên Supabase — bỏ qua filter role của saveToSupabase.
+  // Lý do: rollover phải đẩy đủ TẤT CẢ đơn vị mà role hiện tại đọc được, không phụ
+  // thuộc dropdown "Báo cáo đơn vị" của admin. Đơn vị nào role không có quyền đọc
+  // ban đầu thì _fetchPeriodFromCloud cũng đã lọc ra rồi.
+  if(rowsToUpsert.length > 0){
+    try{
+      var hdU = Object.assign({}, _supaHdr, {
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      });
+      var upUrl = SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp';
+      var upRes = await fetch(upUrl, {
+        method:'POST', headers:hdU, body:JSON.stringify(rowsToUpsert)
+      });
+      if(!upRes.ok){
+        var errT = await upRes.text();
+        console.warn('[_createNextPeriodRows] upsert HTTP', upRes.status, errT.slice(0,200));
+      } else {
+        // Đánh dấu các dòng vừa đẩy là KHÔNG còn dirty (đã ở cloud rồi)
+        bvphData.forEach(function(r){
+          if(r.bcMonth===nextKey && r._dirty) r._dirty=false;
+        });
+        bcData.forEach(function(r){
+          if(r.bcMonth===nextKey && r._dirty) r._dirty=false;
+        });
+      }
+    }catch(e){
+      console.warn('[_createNextPeriodRows] upsert lỗi:', e);
+    }
   }
+  return createdCount;
 }
 
 // Mở lại báo cáo kỳ đang chọn (chỉ Admin)
