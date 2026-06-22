@@ -1876,25 +1876,22 @@ async function _autoLoadOnLogin(){
           toast('⚠ Kỳ '+periodKey+' không khớp. Cloud có dữ liệu kỳ: '+periods+'. Kiểm tra lại tháng/năm đã chọn.', 'var(--warning)');
         }
       }catch(eProbe){}
-      // Cloud chưa có data kỳ này → LUÔN thử đổ tồn từ kỳ trước (lấy thẳng từ cloud)
-      var prevKey = _prevPeriodKey(periodKey);
-      if(prevKey){
-        var created = await _createNextPeriodRows(prevKey, periodKey);
-        if(created > 0){
-          saveLocalCache(buildPayload());
-          renderBVPH(); renderBC(); renderTP(); renderTQ();
-          toast('Kỳ '+periodKey+': đã đổ '+created+' dòng tồn đầu từ tồn cuối kỳ trước.','#1a5276');
-        } else {
-          toast('Kỳ '+periodKey+': chưa có dữ liệu kỳ trước trên cloud.','#1a5276');
-        }
-      } else {
-        toast('Kỳ '+periodKey+': chưa có dữ liệu trên cloud. Bắt đầu nhập mới.','#1a5276');
-      }
+      // Cloud chưa có data kỳ này → vẫn fall through phía dưới để LUÔN gọi rollover
+      // (rollover được gọi UNCONDITIONALLY sau merge — xem cuối hàm này)
       // KHÔNG return sớm — vẫn phải load PATIENTS bên dưới
       // fall through to PATIENTS load
     }
     if(!rows.length){
-      // Load PATIENTS rồi return
+      // ─── Nhánh CLOUD RỖNG cho scope hiện tại — chạy rollover trước, rồi load PATIENTS ───
+      var _rolloverN = await _ensureRolloverForPeriod(periodKey);
+      if(_rolloverN > 0){
+        // Rollover đã push thẳng vào bvphData/bcData → render
+        fullRender();
+        updateSaveBtnUI();
+        toast('Kỳ '+_keyToLabel(periodKey)+': đã đổ '+_rolloverN+' dòng tồn đầu từ kỳ trước.','#1a5276');
+        _cacheTransfers(periodKey);
+      }
+      // Load PATIENTS rồi return (giữ nguyên flow cũ)
       try{
         var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
         var pdE = prE.ok ? await prE.json() : [];
@@ -1925,6 +1922,15 @@ async function _autoLoadOnLogin(){
                  .concat(rows.filter(function(x){return x.unit==='bvph';}).map(_mapRow));
       bcData   = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
                  .concat(rows.filter(function(x){return x.unit!=='bvph';}).map(_mapRow));
+    }
+
+    // ─── ROLLOVER SAU MERGE (xử lý case admin/sub-account thấy data của đơn vị khác) ───
+    // Vd: Admin mở tháng 7, donvi A đã có data nên rows.length>0, nhưng BVPH chưa.
+    // Rollover sẽ bù dòng BVPH (và các đơn vị khác chưa có) từ kỳ trước.
+    // Dedup trong _createNextPeriodRows tự bỏ qua đơn vị đã có data.
+    var _rolloverNAfter = await _ensureRolloverForPeriod(periodKey);
+    if(_rolloverNAfter > 0){
+      toast('Kỳ '+_keyToLabel(periodKey)+': đã đổ '+_rolloverNAfter+' dòng tồn đầu từ kỳ trước.','#1a5276');
     }
 
     // Tải lockedPeriods từ cloud
@@ -2223,19 +2229,16 @@ async function loadFromSupabase(periodKey, silent){
     var rows = await r.json();
 
     if(!rows.length){
-      // Cloud kỳ này rỗng → THỬ ĐỔ TỒN TỪ KỲ TRƯỚC (lấy thẳng từ cloud)
+      // Cloud kỳ này rỗng cho scope hiện tại → thử rollover từ kỳ trước
       if(p.type !== 'year'){
-        var prevKey = _prevPeriodKey(periodKey);
-        if(prevKey){
-          var created = await _createNextPeriodRows(prevKey, periodKey);
-          if(created > 0){
-            saveLocalCache(buildPayload());
-            fullRender();
-            updateSaveBtnUI();
-            if(!silent) toast('Kỳ '+periodKey+': đã đổ '+created+' dòng tồn đầu từ kỳ trước.','#1a5276');
-            _cacheTransfers(periodKey);
-            return;
-          }
+        var _rolloverN = await _ensureRolloverForPeriod(periodKey);
+        if(_rolloverN > 0){
+          saveLocalCache(buildPayload());
+          fullRender();
+          updateSaveBtnUI();
+          if(!silent) toast('Kỳ '+periodKey+': đã đổ '+_rolloverN+' dòng tồn đầu từ kỳ trước.','#1a5276');
+          _cacheTransfers(periodKey);
+          return;
         }
       }
       if(!silent) toast('Không có dữ liệu kỳ này trên cloud','var(--warning)');
@@ -2263,6 +2266,14 @@ async function loadFromSupabase(periodKey, silent){
         bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); }).concat(newBvph);
       } else {
         bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unitVal2); }).concat(newBc);
+      }
+    }
+
+    // ─── ROLLOVER SAU MERGE — bù các đơn vị chưa có data (vd BVPH khi admin xem) ───
+    if(p.type !== 'year'){
+      var _rolloverNAfter2 = await _ensureRolloverForPeriod(periodKey);
+      if(_rolloverNAfter2 > 0 && !silent){
+        toast('Kỳ '+periodKey+': đã đổ thêm '+_rolloverNAfter2+' dòng tồn đầu từ kỳ trước.','#1a5276');
       }
     }
 
@@ -3601,6 +3612,8 @@ async function confirmStartupPeriod() {
 function doLogout(){
   currentUser=null;
   window._loginGapConfirmed = false;
+  _rolloverRanForPeriod = {};  // reset flag rollover session
+  _clearPrevPeriodCache();      // reset cache fetch kỳ trước
   _dirty = false;
   // Reset toàn bộ dữ liệu trong bộ nhớ — bắt buộc tải lại từ cloud khi đăng nhập lần sau
   BN_DATA = [];
@@ -7234,6 +7247,28 @@ function _keyToLabel(key){
   var p = key.split('-');
   if(p.length === 2) return 'Tháng '+parseInt(p[1])+'/'+p[0];
   return key;
+}
+
+// Cờ session: kỳ nào đã chạy rollover trong phiên này → khỏi lặp HTTP
+// Reset khi logout. KHÔNG phải data RAM của user, chỉ là chống lặp HTTP.
+var _rolloverRanForPeriod = {};
+
+// Gọi rollover cho 1 kỳ — đảm bảo CHỈ chạy 1 lần/session/kỳ.
+// Trả về số dòng tạo mới (0 nếu đã chạy hoặc không cần).
+async function _ensureRolloverForPeriod(periodKey){
+  if(!periodKey || !_supaOnline) return 0;
+  if(_rolloverRanForPeriod[periodKey]) return 0;
+  _rolloverRanForPeriod[periodKey] = true;
+  var prevKey = _prevPeriodKey(periodKey);
+  if(!prevKey) return 0;
+  try{
+    return await _createNextPeriodRows(prevKey, periodKey);
+  }catch(e){
+    console.warn('[_ensureRolloverForPeriod] lỗi:', e);
+    // Cho phép thử lại lần sau nếu lỗi
+    _rolloverRanForPeriod[periodKey] = false;
+    return 0;
+  }
 }
 
 // ────────────────────────────────────────────────────────────
