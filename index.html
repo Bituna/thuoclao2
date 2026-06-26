@@ -1933,11 +1933,14 @@ async function _autoLoadOnLogin(){
         toast('Kỳ '+_keyToLabel(periodKey)+': đã đổ '+_rolloverN+' dòng tồn đầu từ kỳ trước.','#1a5276');
         _cacheTransfers(periodKey);
       }
-      // Load PATIENTS rồi return (giữ nguyên flow cũ)
+      // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng)
       try{
-        var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr});
-        var pdE = prE.ok ? await prE.json() : [];
-        if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value || [];
+        var loadedTblE = await _loadPatientsFromTable();
+        if(!loadedTblE){
+          var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
+          var pdE = prE.ok ? await prE.json() : [];
+          if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value || [];
+        }
       }catch(e3){}
       var bnPageE = document.getElementById('page-bn');
       if(bnPageE && bnPageE.classList.contains('active')){
@@ -6704,31 +6707,24 @@ function _startNotifPolling(){
       }
     }catch(e){}
 
-    // Đồng bộ danh sách bệnh nhân (PATIENTS) — nặng hơn, chỉ chạy mỗi 3 chu kỳ (~45s)
-    // Admin là người duy nhất ghi — các role còn lại chỉ đọc mới nhất.
+    // Đồng bộ danh sách bệnh nhân — nặng hơn, chỉ chạy mỗi 3 chu kỳ (~45s)
+    // Đọc từ bảng patients (cột riêng). Các role chỉ đọc, không ghi đè nhau.
     if(currentUser.role !== 'admin' && (_notifPollCount % 3 === 0)){
       try{
-        var rp = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
-        if(rp.ok){
-          var dp = await rp.json();
-          if(dp.length && Array.isArray(dp[0].value)){
-            var newData = dp[0].value;
-            // Chỉ cập nhật nếu nội dung thay đổi (tránh re-render thừa)
-            if(JSON.stringify(newData) !== JSON.stringify(BN_DATA)){
-              BN_DATA = newData;
-              BN_DATA.forEach(function(b){
-                if(b.unit)  b.unit  = String(b.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-                if(b.donVi) b.donVi = String(b.donVi).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-                if(!b.unit  && b.donVi) b.unit  = b.donVi;
-                if(!b.donVi && b.unit)  b.donVi = b.unit;
-              });
-              var bnPage = document.getElementById('page-bn');
-              if(bnPage && bnPage.classList.contains('active')){
-                _fillBnFilters();
-                renderPatientTable();
-                renderDuTru();
-              }
-            }
+        var prevJSON = JSON.stringify(BN_DATA);
+        var okTbl = await _loadPatientsFromTable();  // cập nhật BN_DATA từ bảng mới
+        if(okTbl && JSON.stringify(BN_DATA) !== prevJSON){
+          BN_DATA.forEach(function(b){
+            if(b.unit)  b.unit  = String(b.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
+            if(b.donVi) b.donVi = String(b.donVi).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
+            if(!b.unit  && b.donVi) b.unit  = b.donVi;
+            if(!b.donVi && b.unit)  b.donVi = b.unit;
+          });
+          var bnPage = document.getElementById('page-bn');
+          if(bnPage && bnPage.classList.contains('active')){
+            _fillBnFilters();
+            renderPatientTable();
+            renderDuTru();
           }
         }
       }catch(ep){}
@@ -10848,38 +10844,18 @@ async function _loadPatientsFromTable(){
   return false;
 }
 
+// ⚠ Bảng patients dùng CÁC CỘT RIÊNG (name, age, unit, weight, custom_drugs...),
+// KHÔNG có cột 'data'. Hàm này giữ lại để tương thích lời gọi cũ, nhưng nay ủy quyền
+// cho _savePatientToCloudOne (ghi đúng schema).
 async function _savePatientsToCloud(singlePt){
   if(!_supaOnline) return false;
-  try{
-    if(!singlePt) return true;
-    var payload = { id: singlePt.id, unit: singlePt.unit || singlePt.donVi || '', data: singlePt };
-    var hdPost = Object.assign({}, _supaHdr, {'Prefer':'resolution=merge-duplicates,return=minimal'});
-    var res = await fetch(SUPA_URL+'/rest/v1/patients?on_conflict=id', {
-      method: 'POST', headers: hdPost,
-      body: JSON.stringify([payload])
-    });
-    if(!res.ok) throw new Error(await res.text());
-    return true;
-  }catch(e){
-    console.error('Lỗi lưu:', e);
-    if(typeof toast==='function') toast('❌ Lưu bệnh nhân thất bại: '+e.message, 'var(--danger)');
-    return false;
-  }
+  if(!singlePt) return true; // không có BN cụ thể → không cần ghi gì
+  return await _savePatientToCloudOne(singlePt);
 }
 
 async function _loadPatientsFromCloud(){
-  if(!_supaOnline) return;
-  try{
-    var r = await fetch(SUPA_URL+'/rest/v1/patients?select=data', {headers:_supaHdr});
-    if(r.ok){
-      var rows = await r.json();
-      BN_DATA = rows.map(function(row){ return row.data; });
-      BN_DATA.forEach(function(b){
-        if(b.unit) b.unit = String(b.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-        if(b.donVi) b.donVi = String(b.donVi).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-      });
-    }
-  }catch(e){}
+  // Ủy quyền cho _loadPatientsFromTable (đọc đúng cột riêng, không đọc cột 'data')
+  return await _loadPatientsFromTable();
 }
 
 // ── Render trang bệnh nhân ────────────────────────────────────
@@ -11194,20 +11170,33 @@ function toggleDienGiai() {
     if(btnText) btnText.innerHTML = isHidden ? '👁 Hiện diễn giải' : '👁 Ẩn diễn giải';
 }
 
-// Phân bổ Bedaquiline theo tháng cho 1 bệnh nhân: tổng cố định 188 viên
-// (56v giai đoạn 1 = 14 ngày × 4v; 132v giai đoạn 2 = 2v × thứ 2,4,6 đến hết 6 tháng).
+// Phân bổ Bedaquiline theo tháng cho 1 bệnh nhân — THEO CÂN NẶNG, 6 tháng (24 tuần) thời gian thực.
+// Liều viên 100mg (WHO 2022):
+//   • 16–≥70 kg: nạp 4v/ngày × 14 ngày (56v) → duy trì 2v × 3 ngày/tuần × 22 tuần (132v) = 188v
+//   • 10–<16 kg: nạp 2v/ngày × 14 ngày (28v) → duy trì 1v × 3 ngày/tuần × 22 tuần (66v) = 94v
+//   • <10 kg : dùng dạng phân tán/ml (ngoài phạm vi viên 100mg) → ước lượng nửa liều 10-16, có cảnh báo
 // Trả về object { '<year>-<month>': số_viên }. Kết thúc = ngày BĐ + 6 tháng.
-function _bdqMonthlyDist(startDateStr){
-  var ONE=86400000;
+function _bdqMonthlyDist(startDateStr, weight){
+  var w = parseFloat(weight);
+  // Xác định liều nạp/ngày và liều duy trì/lần theo cân nặng
+  var loadPerDay, maintPerDose, P2Total;
+  if(isNaN(w) || w >= 16){
+    loadPerDay = 4; maintPerDose = 2; P2Total = 132;   // người lớn ≥16kg → tổng 188
+  } else if(w >= 10){
+    loadPerDay = 2; maintPerDose = 1; P2Total = 66;    // 10–<16kg → tổng 94
+  } else {
+    loadPerDay = 2; maintPerDose = 1; P2Total = 66;    // <10kg: tạm theo mức 10-16 (cảnh báo ở note)
+  }
+
   var st=new Date(startDateStr); st.setHours(0,0,0,0);
   if(isNaN(st)) return {};
-  var be=new Date(st); be.setMonth(be.getMonth()+6); // tròn 6 tháng (vd 13/4 → 13/10)
-  var p1End=new Date(st); p1End.setDate(p1End.getDate()+13); // 14 ngày đầu
+  var be=new Date(st); be.setMonth(be.getMonth()+6); // tròn 6 tháng (24 tuần thực)
+  var p1End=new Date(st); p1End.setDate(p1End.getDate()+13); // 14 ngày đầu (nạp)
   var dist={};
   function addKey(d,v){ var k=d.getFullYear()+'-'+(d.getMonth()+1); dist[k]=(dist[k]||0)+v; }
-  // Giai đoạn 1: 4v/ngày trong 14 ngày đầu
-  for(var t=new Date(st); t<=p1End; t.setDate(t.getDate()+1)){ addKey(t,4); }
-  // Giai đoạn 2: tổng 132v, rải theo số ngày mỗi tháng (tháng cuối nhận phần dư cho đủ)
+  // Giai đoạn 1 (nạp): loadPerDay viên/ngày trong 14 ngày đầu
+  for(var t=new Date(st); t<=p1End; t.setDate(t.getDate()+1)){ addKey(t, loadPerDay); }
+  // Giai đoạn 2 (duy trì): tổng P2Total viên, rải theo số ngày mỗi tháng (tháng cuối nhận phần dư)
   var p2Start=new Date(p1End); p2Start.setDate(p2Start.getDate()+1);
   var dayByMonth={}, order=[], totDays=0;
   for(var t2=new Date(p2Start); t2<=be; t2.setDate(t2.getDate()+1)){
@@ -11215,9 +11204,9 @@ function _bdqMonthlyDist(startDateStr){
     if(dayByMonth[k2]===undefined){ dayByMonth[k2]=0; order.push(k2); }
     dayByMonth[k2]++; totDays++;
   }
-  var P2=132, assigned=0;
+  var assigned=0;
   order.forEach(function(k,idx){
-    var v = (idx===order.length-1) ? (P2-assigned) : Math.round(P2*dayByMonth[k]/totDays);
+    var v = (idx===order.length-1) ? (P2Total-assigned) : Math.round(P2Total*dayByMonth[k]/totDays);
     if(idx!==order.length-1) assigned+=v;
     dist[k]=(dist[k]||0)+v;
   });
@@ -11319,7 +11308,7 @@ function renderDuTru(){
 
                 // ── BEDAQUILINE: tính riêng theo lịch liều thực (tổng 188v), kết thúc = BĐ + 6 tháng ──
                 if(dName.indexOf('Bedaquiline') >= 0){
-                    var _bdqDist = _bdqMonthlyDist(bn.startDate || bn.ngayBD || bn.ngayBatDau);
+                    var _bdqDist = _bdqMonthlyDist(bn.startDate || bn.ngayBD || bn.ngayBatDau, bn.weight || bn.canNang);
                     var bdqKey = selectedYear + '-' + m;
                     var bdqPills = _bdqDist[bdqKey] || 0;
                     if(bdqPills <= 0) return;
@@ -11331,12 +11320,15 @@ function renderDuTru(){
                     stats[dName]['total'] += bdqPills;
                     var _bdqNote2 = '';
                     if(typeof calculateBedaquilineDetails === 'function'){
-                        var _bd = calculateBedaquilineDetails(bn.startDate || bn.ngayBD);
-                        if(_bd) _bdqNote2 = _bd.note || '';
+                        var _bd = calculateBedaquilineDetails(bn.startDate || bn.ngayBD, bn.weight || bn.canNang);
+                        if(_bd) _bdqNote2 = _bd.noteHtml || _bd.note || '';
                     }
                     stats[dName]['p'+m].push({
                         name: bn.name || bn.hoTen || bn.tenBN,
-                        pills: bdqPills, daily: 0, isOng: false, bdqNote: _bdqNote2
+                        pd: bn.pd || bn.phacDo || '',
+                        daily: 0,
+                        days: 0,
+                        pills: bdqPills, isOng: false, bdqNote: _bdqNote2
                     });
                     return; // xong Bedaquiline
                 }
@@ -11508,7 +11500,7 @@ function showBnDungThuoc(drugName, month, year){
             var dailyStr = (p.daily % 1 === 0) ? p.daily : parseFloat(p.daily.toFixed(2));
             var _isBdq = drugName.indexOf('Bedaquiline') >= 0;
             var _noteHtml = (_isBdq && p.bdqNote)
-                ? '<div style="font-size:10.5px;color:#e67e22;font-style:italic;margin-top:5px;line-height:1.5">' + p.bdqNote + '</div>'
+                ? '<div style="font-size:10.5px;margin-top:5px">' + p.bdqNote + '</div>'
                 : '';
             var _unitLbl = p.isOng ? 'ống/tháng' : 'viên/tháng';
             var _dailyLbl = (p.isOng || _isBdq) ? '' : '<div style="font-size:10px;color:#aaa">('+dailyStr+' v/ngày)</div>';
@@ -11575,17 +11567,24 @@ function showDrugPatients(drugName, month, year) {
         html += '<tr><td colspan="4" style="padding:20px;text-align:center;color:#888">Không có dữ liệu chi tiết.</td></tr>';
     } else {
         pList.forEach(function(u, idx) {
-            var dailyStr = Number.isInteger(u.daily) ? u.daily : parseFloat(u.daily.toFixed(2));
+            var _isBdqRow = (u.bdqNote && u.bdqNote.length > 0);
+            var _dailyNum = (typeof u.daily === 'number') ? u.daily : (parseFloat(u.daily) || 0);
+            var dailyStr = Number.isInteger(_dailyNum) ? _dailyNum : parseFloat(_dailyNum.toFixed(2));
             var rowBg = idx%2===0 ? '#fff' : '#f8fafc';
             html += '<tr style="background:'+rowBg+';transition:background .12s" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+rowBg+'\'">';
             html += '<td style="padding:12px 10px;text-align:center;color:#94a3b8;font-size:12px;width:44px;border-bottom:1px solid #f1f5f9">' + (idx+1) + '</td>';
             html += '<td style="padding:12px 10px;text-align:center;border-bottom:1px solid #f1f5f9">';
             html +=   '<div style="font-weight:700;color:#1e293b;font-size:13px">' + capName(u.name) + '</div>';
-            html +=   '<div style="font-size:11px;color:#e67e22;font-weight:600;margin-top:2px">' + u.pd + '</div>';
+            if(u.pd) html += '<div style="font-size:11px;color:#e67e22;font-weight:600;margin-top:2px">' + u.pd + '</div>';
             html += '</td>';
             html += '<td style="padding:12px 10px;text-align:center;border-bottom:1px solid #f1f5f9">';
-            html +=   '<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">' + u.days + ' ngày</span>';
-            html +=   '<div style="color:#94a3b8;font-size:11px;margin-top:3px">' + dailyStr + ' v/ngày</div>';
+            if(_isBdqRow){
+                // Bedaquiline: hiện ghi chú lịch liều 3 dòng có màu (noteHtml tự định màu)
+                html += '<div style="font-size:10.5px;text-align:left;max-width:280px;margin:0 auto">' + u.bdqNote + '</div>';
+            } else {
+                html += '<span style="background:#eff6ff;color:#1d4ed8;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">' + (u.days || 0) + ' ngày</span>';
+                html += '<div style="color:#94a3b8;font-size:11px;margin-top:3px">' + dailyStr + ' v/ngày</div>';
+            }
             html += '</td>';
             html += '<td style="padding:12px 16px;text-align:center;border-bottom:1px solid #f1f5f9">';
             var _unitLabel = u.isOng ? 'ống' : 'viên';
@@ -11650,71 +11649,67 @@ function calculateEndDate() {
     }
 }
 
-// ── Tính chi tiết Bedaquiline dựa trên ngày bắt đầu và kết thúc điều trị ──
-function calculateBedaquilineDetails(startDateStr, endDateStr) {
-    if(!startDateStr) {
-        return { monthTotal: 24, note: "Chưa có ngày bắt đầu" };
+// ── Tính chi tiết Bedaquiline theo NGÀY BẮT ĐẦU và CÂN NẶNG (6 tháng = 24 tuần thực) ──
+// Trả {monthTotal, note, total}. total = tổng viên cả liệu trình (188 nếu ≥16kg, 94 nếu 10-<16kg).
+function calculateBedaquilineDetails(startDateStr, weight) {
+    var w = parseFloat(weight);
+    var loadPerDay, maintPerDose, P2Total, total;
+    if(isNaN(w) || w >= 16){
+        loadPerDay = 4; maintPerDose = 2; P2Total = 132; total = 188;
+    } else if(w >= 10){
+        loadPerDay = 2; maintPerDose = 1; P2Total = 66; total = 94;
+    } else {
+        loadPerDay = 2; maintPerDose = 1; P2Total = 66; total = 94; // <10kg dùng dạng phân tán
     }
-    
+
+    if(!startDateStr) {
+        var _nh1 = '<div style="color:#64748b;font-size:11px">Tổng '+total+'v/6 tháng — <span style="color:#dc2626">chưa có ngày bắt đầu</span></div>';
+        return { monthTotal: 24, total: total, note: "Tổng "+total+"v/6 tháng — chưa có ngày bắt đầu", noteHtml: _nh1 };
+    }
     var startDate = new Date(startDateStr + 'T00:00:00');
     if(isNaN(startDate.getTime())) {
-        return { monthTotal: 24, note: "Ngày bắt đầu không hợp lệ" };
+        var _nh2 = '<div style="color:#64748b;font-size:11px">Tổng '+total+'v/6 tháng — <span style="color:#dc2626">ngày bắt đầu không hợp lệ</span></div>';
+        return { monthTotal: 24, total: total, note: "Tổng "+total+"v/6 tháng — ngày bắt đầu không hợp lệ", noteHtml: _nh2 };
     }
-    
-    // BEDAQUILINE LUÔN dùng 6 tháng tính từ ngày bắt đầu điều trị,
-    // KHÔNG phụ thuộc ngày kết thúc của cả phác đồ (endDateStr bị bỏ qua).
+
+    // Kết thúc = BĐ + 6 tháng (24 tuần thực)
     var endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + 6);
-    
-    // Ngày 15 (kết thúc 14 ngày dùng 4v/ngày)
-    var day15 = new Date(startDate);
-    day15.setDate(day15.getDate() + 14);
-    
-    // Tìm thứ 2 tiếp theo sau ngày 14
-    var nextMonday = new Date(day15);
-    nextMonday.setDate(nextMonday.getDate() + 1);
-    var dayOfWeek = nextMonday.getDay(); // 0=CN, 1=T2, 2=T3,...
-    var daysToMonday = (dayOfWeek === 0) ? 1 : (dayOfWeek === 1) ? 0 : (8 - dayOfWeek);
-    nextMonday.setDate(nextMonday.getDate() + daysToMonday);
-    
-    // Format ngày
+
+    // Ngày 14 (kết thúc giai đoạn nạp)
+    var day14 = new Date(startDate);
+    day14.setDate(day14.getDate() + 13);
+
     var formatDate = function(d) {
         return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear().toString().slice(-2);
     };
-    
-    var startStr = formatDate(startDate);
-    var day14Str = formatDate(day15);
-    var mondayStr = formatDate(nextMonday);
-    var endStr = formatDate(endDate);
-    
-    // Tính viên giai đoạn đầu (14 ngày × 4 viên)
-    var phase1Tablets = 14 * 4; // 56 viên
-    
-    // Tính viên giai đoạn 2-3 (từ ngày 15-30: 2v × 3 lần × 2 tuần)
-    var phase23Tablets = 2 * 3 * 2; // 12 viên
-    
-    // Tính viên giai đoạn cuối (từ thứ 2: 2v × 3 lần/tuần)
-    // Tổng tuần từ ngày 15 đến end
-    var totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-    var daysPhase2 = totalDays - 14; // ngày còn lại từ ngày 15
-    var weeksPhase2 = Math.ceil(daysPhase2 / 7);
-    var phase4Tablets = 2 * 3 * (weeksPhase2 - 2); // -2 vì tuần 3-4 đã tính
-    
-    // Tổng viên
-    var totalTablets = phase1Tablets + phase23Tablets + phase4Tablets;
-    
-    // Nếu khác 188, hiệu chỉnh giai đoạn cuối
-    if(Math.abs(totalTablets - 188) > 1) {
-        phase4Tablets = 188 - phase1Tablets - phase23Tablets;
-    }
-    totalTablets = phase1Tablets + phase23Tablets + phase4Tablets;
-    
-    // Ghi chú chi tiết
-    var note = "Từ " + startStr + " → " + day14Str + ": 4v/ngày (" + phase1Tablets + "v); "
-             + "Từ " + mondayStr + " → " + endStr + ": 2v × thứ 2,4,6 (" + (phase23Tablets + phase4Tablets) + "v); "
-             + "Tổng: " + totalTablets + " viên";
-    
-    return { monthTotal: 24, note: note };
+
+    var phase1 = loadPerDay * 14;          // nạp: loadPerDay × 14 ngày
+    var phase2 = P2Total;                   // duy trì
+    var totalTablets = phase1 + phase2;     // = total
+
+    var wLabel = (isNaN(w) || w >= 16) ? '≥16kg' : (w >= 10 ? '10–<16kg' : '<10kg ⚠ dùng dạng phân tán');
+
+    // Note text thuần (1 dòng) — giữ để tương thích chỗ nào cần
+    var note = "["+wLabel+"] Nạp "+formatDate(startDate)+"→"+formatDate(day14)+": "
+             + loadPerDay+"v/ngày ("+phase1+"v); "
+             + "Duy trì → "+formatDate(endDate)+": "+maintPerDose+"v × T2-4-6 ("+phase2+"v); "
+             + "Tổng "+totalTablets+"v/6 tháng";
+
+    // Note HTML 3 dòng có màu:
+    //   Dòng 1: mốc cân nặng + tổng
+    //   Dòng 2: LIỀU NẠP (màu cam đậm/đỏ cam)
+    //   Dòng 3: LIỀU DUY TRÌ (màu xanh dương)
+    var noteHtml =
+        '<div style="line-height:1.55">'
+      + '<div style="color:#64748b;font-weight:600;font-size:11px">['+wLabel+'] · Tổng '+totalTablets+'v/6 tháng</div>'
+      + '<div style="margin-top:2px"><span style="color:#dc2626;font-weight:700">Liều nạp:</span> '
+        + '<span style="color:#334155">'+formatDate(startDate)+'→'+formatDate(day14)+': '+loadPerDay+'v/ngày ('+phase1+'v)</span></div>'
+      + '<div style="margin-top:1px"><span style="color:#1d4ed8;font-weight:700">Liều duy trì:</span> '
+        + '<span style="color:#334155">→'+formatDate(endDate)+': '+maintPerDose+'v × T2-4-6 ('+phase2+'v)</span></div>'
+      + '</div>';
+
+    return { monthTotal: 24, total: totalTablets, note: note, noteHtml: noteHtml };
 }
 
 // 2. Thuật toán gợi ý TỔNG VIÊN/THÁNG và GHI CHÚ theo Tuổi & Cân Nặng (WHO 2022)
@@ -11787,14 +11782,221 @@ function getDrugsByWeight(pd, weight, age) {
     return _getDrugsByWeightSingle(pdRaw, weight, age);
 }
 
+// ════════════════════════════════════════════════════════════════════
+// BẢNG LIỀU WHO 2022 — thuốc chống lao hàng 2, theo cân nặng (dạng VIÊN NGƯỜI LỚN)
+// Quy ước tính dự trù/tháng:
+//   • Liều ngày thường : viên/ngày × 26
+//   • Liều theo nhịp tuần: viên/lần × số ngày/tuần × 4
+//   • Liều ml (nghiền/hòa viên người lớn trong 10 ml) : GIỮ NGUYÊN ml, ghi chú rõ,
+//       monthTotal tính tương đối = (ml/10 viên) × 26 để vẫn có số dự trù.
+// 11 dải cân nặng (kg): 3,5,7,10,16,24,30,36,46,56,70 (cận dưới mỗi dải)
+// Mỗi entry: hàm nhận w(kg) trả {monthTotal, note}. perDay = số viên/ngày (để hiển thị).
+// ════════════════════════════════════════════════════════════════════
+var DOSE_DAYS_PER_MONTH = 26;       // số ngày dùng/tháng (liều hằng ngày)
+var DOSE_WEEKS_PER_MONTH = 4;       // số tuần/tháng (liều theo nhịp tuần)
+
+// Helper dựng kết quả
+function _md(perDay){ // liều hằng ngày theo viên
+  return { monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2), note: _fmtNum(perDay)+' viên/ngày' };
+}
+function _mw(perDose, daysPerWeek, label){ // liều theo nhịp tuần
+  var mt = perDose*daysPerWeek*DOSE_WEEKS_PER_MONTH;
+  return { monthTotal: +mt.toFixed(2), note: label || (_fmtNum(perDose)+' viên × '+daysPerWeek+' ngày/tuần') };
+}
+function _mml(ml, note){ // liều ml (nghiền/hòa viên người lớn trong 10 ml)
+  // 10 ml = 1 viên người lớn → ml/10 = số viên/ngày tương đương
+  var perDay = ml/10;
+  return { monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2), note: (note||(ml+' ml/ngày'))+' ⚠ nghiền/hòa viên trong 10 ml' };
+}
+function _fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
+
+// Bảng liều: drugName → function(w) → {monthTotal, note}
+// Dựa trên WHO 2022 (bản chuẩn hóa người dùng cung cấp), CHỈ dạng viên người lớn hệ thống quản lý.
+var WHO_DOSE = {
+  // ── NHÓM A ──
+  // Levofloxacin viên 250 mg
+  'Levofloxacin 250mg': function(w){
+    if(w<5)  return _mml(2,  '2 ml/ngày');
+    if(w<10) return _mml(5,  '5 ml (½ viên)/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(1.5);
+    if(w<30) return _md(2);
+    if(w<46) return _md(3);          // 30–<36 và 36–<46
+    return _md(4);                   // 46–≥70
+  },
+  // Levofloxacin viên 500 mg
+  'Levofloxacin 500mg': function(w){
+    if(w<24) return _md(0);          // không dùng dưới 24kg dạng này
+    if(w<30) return _md(1);
+    if(w<46) return _md(1.5);        // 30–<46
+    return _md(2);                   // 46–≥70
+  },
+  // Moxifloxacin viên 400 mg (liều chuẩn)
+  'Moxifloxacin 400mg': function(w){
+    if(w<5)  return _mml(1, '1 ml/ngày');
+    if(w<7)  return _mml(2, '2 ml/ngày');
+    if(w<10) return _mml(3, '3 ml/ngày');
+    if(w<16) return _mml(5, '5 ml (½ viên)/ngày');
+    if(w<24) return _mml(7.5,'7,5 ml (¾ viên)/ngày');
+    return _md(1);                   // 24–≥70
+  },
+  // Linezolid viên 600 mg
+  'Linezolid 600mg': function(w){
+    if(w<5)  return _md(0);          // dùng hỗn dịch, không có dạng này
+    if(w<7)  return _mml(1.25,'1,25 ml/ngày');
+    if(w<16) return _mml(2.5, '2,5 ml/ngày');     // 7–<10 và 10–<16
+    if(w<30) return _mml(5,   '5 ml (½ viên)/ngày'); // 16–<24 và 24–<30
+    if(w<36) return _mml(7.5, '7,5 ml (¾ viên)/ngày');
+    if(w<56) return _md(1);          // 36–<46 và 46–<56
+    return _md(1);                   // 56–≥70 (bản gốc để trống → giữ 1 viên/ngày)
+  },
+  // Linezolid viên 300 mg (suy ra: 1 viên 300mg = ½ viên 600mg)
+  'Linezolid 300mg': function(w){
+    if(w<5)  return _md(0);
+    if(w<7)  return _mml(2.5, '2,5 ml/ngày (≈¼ viên 300)');
+    if(w<16) return _mml(5,   '5 ml/ngày (≈½ viên 300)');
+    if(w<30) return _md(1);          // ≈ ½ viên 600 = 1 viên 300
+    if(w<36) return _md(1.5);
+    return _md(2);                   // ≈ 1 viên 600 = 2 viên 300
+  },
+  // ── NHÓM B ──
+  // Clofazimine viên 100 mg (nhịp tuần ở cân nặng nhỏ)
+  'Clofazimine 100mg': function(w){
+    if(w<5)  return _md(0);
+    if(w<10) return _mw(1, 2, '1 viên × 2 ngày/tuần (T2,T6)');   // 5–<10
+    if(w<24) return _mw(1, 3, '1 viên × 3 ngày/tuần (T2-4-6)');  // 10–<24
+    return _md(1);                   // 24–≥70: 1 viên/ngày
+  },
+  // Cycloserine viên 250 mg
+  'Cycloserine 250mg': function(w){
+    if(w<5)  return _mml(1, '1 ml/ngày');
+    if(w<7)  return _mml(2, '2 ml/ngày');
+    if(w<10) return _mml(5, '5 ml/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(2);
+    if(w<46) return _md(2);          // 24–<30, 30–<36, 36–<46
+    return _md(3);                   // 46–≥70
+  },
+  // ── NHÓM C ──
+  // Ethambutol viên 400 mg
+  'Ethambutol 400mg': function(w){
+    if(w<5)  return _mml(1.5,'1,5 ml/ngày');
+    if(w<7)  return _mml(3,  '3 ml/ngày');
+    if(w<10) return _mml(4,  '4 ml/ngày');
+    if(w<16) return _mml(6,  '6 ml/ngày');
+    if(w<24) return _md(1);
+    if(w<30) return _md(1.5);
+    if(w<46) return _md(2);          // 30–<36 và 36–<46
+    if(w<70) return _md(3);          // 46–<56 và 56–<70
+    return _md(4);                   // ≥70
+  },
+  // Delamanid viên 50 mg (2 lần/ngày → quy về tổng viên/ngày)
+  'Delamanid 50mg': function(w){
+    if(w<5)  return _mml(5, '5 ml (½ viên)/ngày');
+    if(w<10) return _mml(10,'½ viên × 2 lần/ngày (5 ml ×2)'); // ≈1 viên/ngày
+    if(w<16) return _md(2); // 1 viên × 2 lần/ngày
+    if(w<24) return _md(1.5); // 1 viên sáng + ½ viên chiều
+    if(w<30) return _md(2);   // 1 viên × 2 lần/ngày
+    return _md(4);            // 2 viên × 2 lần/ngày
+  },
+  // Pyrazinamid viên 500 mg
+  'Pyrazinamid 500mg': function(w){
+    if(w<5)  return _mml(2, '2 ml/ngày');
+    if(w<10) return _mml(5, '5 ml/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(1.5);
+    if(w<30) return _md(2);
+    if(w<36) return _md(2.5);
+    if(w<70) return _md(3);          // 36–<46, 46–<56, 56–<70
+    return _md(4);                   // ≥70
+  },
+  // Ethionamide/Prothionamide viên 250 mg
+  'Ethionamide 250mg': function(w){
+    if(w<5)  return _md(0);
+    if(w<7)  return _mml(3, '3 ml/ngày');
+    if(w<10) return _mml(5, '5 ml (½ viên)/ngày');
+    if(w<16) return _md(1);
+    if(w<36) return _md(2);          // 16–<24, 24–<30, 30–<36
+    if(w<46) return _md(3);
+    return _md(4);                   // 46–≥70
+  },
+  'Prothionamide 250mg': function(w){ return WHO_DOSE['Ethionamide 250mg'](w); },
+  // Para-aminosalicylic acid (gói 4 g) — 2 lần/ngày, quy về số gói/ngày
+  'Para-aminosalicylic acid 4g': function(w){
+    if(w<5)  return { monthTotal:+(0.3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,3 g × 2 lần/ngày' };
+    if(w<7)  return { monthTotal:+(0.75*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,75 g × 2 lần/ngày' };
+    if(w<10) return { monthTotal:+(1*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'1 g × 2 lần/ngày' };
+    if(w<16) return { monthTotal:+(2*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'2 g × 2 lần/ngày' };
+    if(w<24) return { monthTotal:+(3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3 g × 2 lần/ngày' };
+    if(w<30) return { monthTotal:+(3.5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3,5 g × 2 lần/ngày' };
+    if(w<70) return { monthTotal:+(4*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4 g × 2 lần/ngày' };
+    return { monthTotal:+(5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4–6 g × 2 lần/ngày' };
+  },
+  // ── ISONIAZID ──
+  'Isoniazid 300mg': function(w){
+    if(w<16) return _md(0);          // dùng dạng nhỏ hơn
+    if(w<24) return _md(1);
+    if(w<30) return _md(1.5);
+    if(w<46) return _md(1.5);        // 30–<46
+    return _md(2);                   // 46–≥70
+  },
+  'Isoniazid 100mg': function(w){
+    if(w<5)  return _mml(5, '5 ml (½ viên)/ngày');
+    if(w<7)  return _md(1);
+    if(w<10) return _md(1.5);
+    if(w<16) return _md(2);
+    if(w<24) return _md(3);
+    if(w<30) return _md(4);
+    if(w<36) return _md(4);
+    if(w<46) return _md(4.5);
+    return _md(0);                   // 46–≥70: dùng viên 300mg
+  },
+  // Rifampicin 150 mg — liều cố định 1 viên/ngày (giữ như cũ, bảng WHO không chi tiết hàng 2)
+  'Rifampicin 150mg': function(w){ return _md(1); },
+  // ── THUỐC TIÊM / KHÁC ──
+  'Amikacin 500mg/2ml': function(w){
+    if(w<46) return { monthTotal:0, note:'– (không khuyến cáo dưới 46kg)' };
+    return { monthTotal:0.5*DOSE_DAYS_PER_MONTH, note:'3–4 ml/ngày (theo mg/kg)' };
+  },
+  'Amikacin 1g/4ml': function(w){ return WHO_DOSE['Amikacin 500mg/2ml'](w); },
+  'Kanamycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'theo mg/kg (chuyên khoa)' }; },
+  'Streptomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'theo mg/kg (người lớn)' }; },
+  'Capreomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'1 lọ/ngày' }; },
+  // Pretomanid 200 mg — chỉ trong BPaLM/BPaL, 1 viên/ngày người đủ điều kiện
+  'Pretomanid 200mg': function(w){ return _md(1); }
+};
+
+// Tra liều WHO theo cân nặng. Trả {monthTotal, note}. Nếu không có trong bảng → fallbackDaily.
+function _doseWHO(drugName, w, fallbackDaily){
+  var f = WHO_DOSE[drugName];
+  if(typeof f === 'function'){
+    var r = f(w);
+    if(r && r.monthTotal === 0 && (!r.note || r.note.indexOf('–')<0)){
+      // monthTotal 0 mà không phải "không dùng" → vẫn trả để hiển thị
+    }
+    return r;
+  }
+  var fd = (fallbackDaily != null) ? fallbackDaily : 1;
+  return { monthTotal: fd*DOSE_DAYS_PER_MONTH, note: _fmtNum(fd)+' viên/ngày' };
+}
+
 function _getDrugsByWeightSingle(pd, weight, age) {
     var w = parseFloat(weight) || 50;
     var drugs = [];
     var pdStr = String(pd || '').replace(/\s+/g, '');
     
-    var vBdq = 24; // viên/tháng (giai đoạn ổn định từ tháng 2)
-    var noteBdq = "Tháng 1: 68v (4v/14 ngày + 2v×3 lần×2 tuần); Tháng 2-6: 24v/tháng";
-    
+    // Bedaquiline: liều nạp/duy trì + tổng theo cân nặng (≥16kg=188v; 10–<16kg=94v)
+    var _bdqLoad = (w >= 16 || isNaN(w)) ? 4 : 2;
+    var _bdqMaint = (w >= 16 || isNaN(w)) ? 2 : 1;
+    var _bdqTotal = (w >= 16 || isNaN(w)) ? 188 : 94;
+    var vBdq = 24; // viên/tháng đại diện (giai đoạn duy trì) — số thực phân bổ theo _bdqMonthlyDist
+    var noteBdq = "Nạp "+_bdqLoad+"v/ngày×14 ngày → duy trì "+_bdqMaint+"v×T2-4-6; Tổng "+_bdqTotal+"v/6 tháng (theo ngày BĐ)";
+
+    // Liều theo cân nặng — DÙNG CHUNG cho mọi nhánh, lấy từ bảng WHO 2022.
+    function _doseByWeight(drugName, fallbackDaily){
+        return _doseWHO(drugName, w, fallbackDaily);
+    }
+
     if(PHAC_DO[pdStr]) {
        var pdo = PHAC_DO[pdStr];
        pdo.forEach(function(item){
@@ -11802,7 +12004,8 @@ function _getDrugsByWeightSingle(pd, weight, age) {
              // Bedaquiline LUÔN 6 tháng đầu
              drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq, ranges:[{startMonth:0,endMonth:6}], phaseMonths:6});
           } else {
-             drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+             var ds = _doseByWeight(item.drug, item.daily);
+             drugs.push({d: item.drug, monthTotal: ds.monthTotal, note: ds.note});
           }
        });
        return drugs;
@@ -11815,7 +12018,8 @@ function _getDrugsByWeightSingle(pd, weight, age) {
              if(item.drug === 'Bedaquiline 100mg') {
                 drugs.push({d: item.drug, monthTotal: vBdq, note: noteBdq, ranges:[{startMonth:0,endMonth:6}], phaseMonths:6});
              } else {
-                drugs.push({d: item.drug, monthTotal: item.daily * 26, note: item.daily + " viên/ngày"});
+                var ds2 = _doseByWeight(item.drug, item.daily);
+                drugs.push({d: item.drug, monthTotal: ds2.monthTotal, note: ds2.note});
              }
           });
           return drugs;
@@ -11901,38 +12105,32 @@ function _getDrugsByWeightSingle(pd, weight, age) {
     var tempPdStr = pdAbbr;
     var foundDrugs = {};
 
-    var dLzd = (w < 24) ? 0.5 : ((w < 30) ? 0.75 : 1);
-    var vLzd = dLzd * 26; var noteLzd = dLzd + " viên/ngày";
-    var vCfz = (w < 24) ? 11 : 26; var noteCfz = (w < 24) ? "1 viên x 3 ngày/tuần" : "1 viên/ngày";
-    var dPa = 1; var vPa = dPa * 26; var notePa = dPa + " viên/ngày";
-    var dMfx = (w < 36) ? 0.75 : 1; var vMfx = dMfx * 26; var noteMfx = dMfx + " viên/ngày";
-    var dLfx = (w < 24) ? 2 : ((w < 30) ? 3 : 4); var vLfx = dLfx * 26; var noteLfx = dLfx + " viên/ngày";
-    var dCs = (w < 24) ? 2 : ((w < 70) ? 3 : 4); var vCs = dCs * 26; var noteCs = dCs + " viên/ngày";
-    var dE = (w < 24) ? 1.5 : ((w < 36) ? 2 : ((w < 46) ? 3 : 4)); var vE = dE * 26; var noteE = dE + " viên/ngày";
-    var dZ = (w < 24) ? 2 : ((w < 30) ? 2.5 : ((w < 36) ? 3 : 4)); var vZ = dZ * 26; var noteZ = dZ + " viên/ngày";
-
+    // dosageMap dựng TỪ BẢNG WHO 2022 (_doseWHO) — đồng nhất với nhánh phác đồ chuẩn.
+    // Bedaquiline giữ logic riêng (6 tháng); các thuốc khác tra theo cân nặng w.
     var dosageMap = {
         "Bedaquiline 100mg": { monthTotal: vBdq, note: noteBdq },
-        "Pretomanid 200mg": { monthTotal: vPa, note: notePa },
-        "Delamanid 50mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Linezolid 600mg": { monthTotal: vLzd, note: noteLzd },
-        "Moxifloxacin 400mg": { monthTotal: vMfx, note: noteMfx },
-        "Levofloxacin 500mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Levofloxacin 250mg": { monthTotal: vLfx, note: noteLfx },
-        "Clofazimine 100mg": { monthTotal: vCfz, note: noteCfz },
-        "Cycloserine 250mg": { monthTotal: vCs, note: noteCs },
-        "Amikacin 500mg/2ml": { monthTotal: 10, note: "~10 liều/tháng" },
-        "Kanamycin 1g": { monthTotal: 10, note: "~10 liều/tháng" },
-        "Isoniazid 300mg": { monthTotal: 26, note: "1 viên/ngày (liều cao)" },
-        "Isoniazid 100mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Rifampicin 150mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Pyrazinamid 500mg": { monthTotal: vZ, note: noteZ },
-        "Ethambutol 400mg": { monthTotal: vE, note: noteE },
-        "Prothionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Ethionamide 250mg": { monthTotal: 26, note: "1 viên/ngày" },
-        "Para-aminosalicylic acid 4g": { monthTotal: 26, note: "1 viên/ngày" },
-        "Streptomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" },
-        "Capreomycin 1g": { monthTotal: 26, note: "1 lọ/ngày" }
+        "Pretomanid 200mg":  _doseWHO("Pretomanid 200mg", w),
+        "Delamanid 50mg":    _doseWHO("Delamanid 50mg", w),
+        "Linezolid 600mg":   _doseWHO("Linezolid 600mg", w),
+        "Linezolid 300mg":   _doseWHO("Linezolid 300mg", w),
+        "Moxifloxacin 400mg":_doseWHO("Moxifloxacin 400mg", w),
+        "Levofloxacin 500mg":_doseWHO("Levofloxacin 500mg", w),
+        "Levofloxacin 250mg":_doseWHO("Levofloxacin 250mg", w),
+        "Clofazimine 100mg": _doseWHO("Clofazimine 100mg", w),
+        "Cycloserine 250mg": _doseWHO("Cycloserine 250mg", w),
+        "Amikacin 500mg/2ml":_doseWHO("Amikacin 500mg/2ml", w),
+        "Amikacin 1g/4ml":   _doseWHO("Amikacin 1g/4ml", w),
+        "Kanamycin 1g":      _doseWHO("Kanamycin 1g", w),
+        "Isoniazid 300mg":   _doseWHO("Isoniazid 300mg", w),
+        "Isoniazid 100mg":   _doseWHO("Isoniazid 100mg", w),
+        "Rifampicin 150mg":  _doseWHO("Rifampicin 150mg", w),
+        "Pyrazinamid 500mg": _doseWHO("Pyrazinamid 500mg", w),
+        "Ethambutol 400mg":  _doseWHO("Ethambutol 400mg", w),
+        "Prothionamide 250mg":_doseWHO("Prothionamide 250mg", w),
+        "Ethionamide 250mg": _doseWHO("Ethionamide 250mg", w),
+        "Para-aminosalicylic acid 4g":_doseWHO("Para-aminosalicylic acid 4g", w),
+        "Streptomycin 1g":   _doseWHO("Streptomycin 1g", w),
+        "Capreomycin 1g":    _doseWHO("Capreomycin 1g", w)
     };
 
     // Tổng số tháng của phác đồ (để áp giới hạn [n] cho từng thuốc)
@@ -12030,14 +12228,24 @@ function generateDrugInputs(existingCustomDrugs) {
        html = '<div style="color:#888; font-size:12px; font-style:italic" id="pt-empty-drug-msg">Vui lòng chọn phác đồ, nhập Tuổi và Cân nặng.</div>';
     } else {
        drugsToRender.forEach(function(item) {
-          // Nếu là Bedaquiline, tính chi tiết dựa trên ngày bắt đầu (chỉ tính nếu là tự động quét)
-          if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0 && !existingCustomDrugs) {
-             var bdqDetail = calculateBedaquilineDetails(startDate);
-             item.monthTotal = bdqDetail.monthTotal;
-             item.note = bdqDetail.note;
+          var _bdqNoteHtml = null;
+          if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0){
+             var bdqDetail = calculateBedaquilineDetails(startDate, weight);
+             // LUÔN tạo lại note 3 dòng có màu để hiển thị (cả khi THÊM lẫn SỬA)
+             _bdqNoteHtml = bdqDetail.noteHtml;
+             if(!existingCustomDrugs){
+                // Chỉ tự ghi đè số liệu khi THÊM MỚI (giữ số dược sĩ đã chỉnh khi đang SỬA)
+                item.monthTotal = bdqDetail.monthTotal;
+                item.note = bdqDetail.note;
+             }
           }
           
-          var noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;" class="pt-drug-note">'+item.note+'</div>' : '<div style="display:none" class="pt-drug-note"></div>';
+          var noteStr;
+          if(_bdqNoteHtml){
+             noteStr = '<div style="font-size:11px;margin-top:3px" class="pt-drug-note">'+_bdqNoteHtml+'</div>';
+          } else {
+             noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;" class="pt-drug-note">'+item.note+'</div>' : '<div style="display:none" class="pt-drug-note"></div>';
+          }
           var val = item.monthTotal !== undefined ? item.monthTotal : item.daily;
           var dName = item.d || item.drug;
 
@@ -12233,23 +12441,19 @@ function savePatient(){
   // 3. Cập nhật vào mảng BN_DATA
   if(idx >= 0) BN_DATA[idx] = pt; else BN_DATA.push(pt);
 
-  // 4. Lưu riêng bệnh nhân này lên Cloud (Hàm này bạn đã sửa ở bước sau)
-  _savePatientsToCloud(pt);
-  
-  // Lưu cục bộ và đồng bộ Cloud an toàn
-  if (typeof saveLocalCache === 'function') {
-      saveLocalCache(typeof buildPayload === 'function' ? buildPayload() : {});
-  }
-  
-  if (typeof _savePatientsToCloud === 'function') {
-      _savePatientsToCloud();
-  } else {
-      console.warn("Chưa tìm thấy hàm đồng bộ Cloud cho bệnh nhân.");
-  }
-  
-  if (typeof toast === 'function') {
-      toast('Đã lưu thông tin bệnh nhân!', 'var(--success)');
-  }
+  // 4. Lưu bệnh nhân này lên Supabase (đúng schema cột riêng). Đóng modal + render ngay,
+  //    rồi xác nhận theo kết quả lưu.
+  closeModal('modal-patient');
+  _fillBnFilters();
+  renderPatientTable();
+  renderDuTru();
+
+  _savePatientsToCloud(pt).then(function(ok){
+    if(ok){
+      if(typeof toast==='function') toast('✓ Đã lưu bệnh nhân lên hệ thống!', 'var(--success)');
+    }
+    // Nếu lỗi, _savePatientToCloudOne đã hiện toast đỏ chi tiết
+  });
 }
 
 function deletePatient(idx) {
