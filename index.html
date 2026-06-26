@@ -4428,13 +4428,8 @@ function onTQPeriodChange(){
 
 
 function getSubmittedUnits(){
-  // "Đã nộp" = đơn vị đã LƯU báo cáo (có nhập dữ liệu thật trong kỳ).
-  // Phân biệt với dòng tồn đầu tự động (chỉ có 'open', mọi nhập/xuất = 0 và locked=false).
-  // Một đơn vị tính là đã nộp nếu có ÍT NHẤT 1 dòng thỏa 1 trong các điều kiện:
-  //   - đã khóa (locked=true) — đã chốt/in, hoặc
-  //   - có phát sinh nhập/xuất trong kỳ (tinh|ntk|dc|sd|dc2|dc3|hh > 0), hoặc
-  //   - là dòng "Không sử dụng" chủ động (submitted=true), hoặc
-  //   - openLocked=true (đơn vị đã thao tác/khóa tồn đầu)
+  // "Đã nộp" = đơn vị đã CHỐT (khóa) báo cáo kỳ đó, HOẶC có nhập dữ liệu thật.
+  // Ưu tiên: đơn vị nào đã khóa kỳ (lockedPeriods) → coi là ĐÃ NỘP dù nội dung thế nào.
   function _hasActivity(r){
     if(r.locked === true) return true;
     if(r.submitted === true) return true;
@@ -4449,14 +4444,37 @@ function getSubmittedUnits(){
   bcFiltered.forEach(function(r){
     if(r.unit && _hasActivity(r)) set[r.unit] = true;
   });
-  // Đơn vị đã đánh dấu "Không có báo cáo" trong kỳ = đã nộp (báo cáo trống)
+
+  // ── ĐÃ KHÓA KỲ = ĐÃ NỘP ──
+  // Quét lockedPeriods cho kỳ đang xem: key dạng "YYYY-MM", "YYYY-MM_bvph",
+  // hoặc "YYYY-MM_<tên đơn vị>". Đơn vị/kho chính nào đã chốt kỳ này → đã nộp.
   var curMon = _tqMonKey();
+  if(curMon){
+    Object.keys(lockedPeriods).forEach(function(k){
+      if(!lockedPeriods[k]) return;
+      var sep = k.indexOf('_');
+      var kMon = (sep<0) ? k : k.slice(0, sep);
+      var kSuffix = (sep<0) ? '' : k.slice(sep+1);
+      if(kMon !== curMon) return;
+      if(kSuffix === ''){
+        // Khóa toàn cục kỳ này → coi MỌI đơn vị (kể cả BVPH) đã nộp
+        set[BVPH] = true;
+        UNITS.forEach(function(u){ set[u] = true; });
+      } else if(kSuffix === 'bvph'){
+        set[BVPH] = true;
+      } else {
+        set[kSuffix] = true;
+      }
+    });
+  }
+
+  // Đơn vị đã đánh dấu "Không có báo cáo" trong kỳ = đã nộp (báo cáo trống)
   Object.keys(noUsagePeriods).forEach(function(k){
     if(!noUsagePeriods[k]) return;
-    var sep = k.indexOf('_');
-    if(sep<0) return;
-    var kMon = k.slice(0, sep), kUnit = k.slice(sep+1);
-    if(kMon === curMon && kUnit) set[kUnit] = true;
+    var sep2 = k.indexOf('_');
+    if(sep2<0) return;
+    var kMon2 = k.slice(0, sep2), kUnit2 = k.slice(sep2+1);
+    if(kMon2 === curMon && kUnit2) set[kUnit2] = true;
   });
   return Object.keys(set);
 }
