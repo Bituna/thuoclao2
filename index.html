@@ -5401,7 +5401,7 @@ function buildTbl(data, bodyId, prefix){
 
     var expDisp   = expToMMYYYY(row.exp);
     var trStyle   = reportLocked ? 'background:#f5f5f5' : (isLocked ? 'background:#f8f9fa' : '');
-    var lockBadge = isLocked ? ' <small style="color:#aaa">&#128274;</small>' : '';
+    var lockBadge = '';
 
     var tr = '<tr style="'+trStyle+'">';
     if(_grpIsFirst[idx]){
