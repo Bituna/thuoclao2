@@ -5882,18 +5882,73 @@ function _cpBuildLotMap(){
   (bcData||[]).forEach(function(r){ add(r.drug,r.lot,r.exp); });      // rồi báo cáo đơn vị
   return m;
 }
+
+// Map tên thuốc chuẩn hoá → danh sách {drug, lot, exp} — để fallback khi lô không khớp
+function _cpBuildDrugNameMap(){
+  var m={};
+  function normDrug(s){
+    if(!s) return '';
+    return s.toLowerCase()
+      .replace(/[àáâãäå]/g,'a').replace(/[èéêë]/g,'e').replace(/[ìíîï]/g,'i')
+      .replace(/[òóôõö]/g,'o').replace(/[ùúûü]/g,'u').replace(/[ýÿ]/g,'y')
+      .replace(/đ/g,'d').replace(/[^a-z0-9]/g,'');
+  }
+  function add(d,l,e){
+    if(!d) return;
+    var k=normDrug(d);
+    if(!m[k]) m[k]=[];
+    m[k].push({drug:d,lot:l||'',exp:e||''});
+  }
+  (bvphData||[]).forEach(function(r){ add(r.drug,r.lot,r.exp); });
+  (catalogData||[]).forEach(function(c){ add(c.drug,c.lot,c.exp); });
+  (bcData||[]).forEach(function(r){ add(r.drug,r.lot,r.exp); });
+  // Thêm từ DRUGS list (danh sách thuốc cứng)
+  if(typeof DRUGS!=='undefined') DRUGS.forEach(function(d){ var k=normDrug(d); if(!m[k]) m[k]=[{drug:d,lot:'',exp:''}]; });
+  return {map:m, norm:normDrug};
+}
 // Dò khớp tên đơn vị Excel -> 1 trong các đơn vị của app
+// Xử lý được cả text NFD từ Excel (dấu tiếng Việt bị tách) lẫn NFC thông thường.
 function _cpMapUnit(raw){
   if(!raw) return '';
-  var rn=_normStr(raw), i, u;
-  for(i=0;i<UNITS.length;i++){ if(_normStr(UNITS[i])===rn) return UNITS[i]; }          // khớp tuyệt đối
-  for(i=0;i<UNITS.length;i++){ u=_normStr(UNITS[i]);                                    // chứa nhau (PK 33.., Kho lẻ..)
+
+  // Chuẩn hoá: NFC + uppercase + gộp khoảng trắng
+  var norm = function(s){
+    return String(s||'').normalize('NFC').trim().toUpperCase().replace(/\s+/g,' ');
+  };
+  // Bỏ dấu tiếng Việt + chuyển Đ → D (fallback khi encoding khác)
+  var strip = function(s){
+    return norm(s).normalize('NFD')
+      .replace(/[\u0300-\u036f\u1DC0-\u1DFF\u20D0-\u20FF]/g,'')
+      .replace(/Đ/g,'D').replace(/đ/g,'D')
+      .replace(/\s+/g,' ').trim();
+  };
+  // Lõi tên (bỏ tiền tố hành chính dài)
+  var core = function(s){
+    return strip(s)
+      .replace(/TRUNG TAM Y TE|TT Y TE|TTYT|BENH VIEN DA KHOA|BENH VIEN|PHONG KHAM|^PK |KHO LE|CO SO|HUYEN |QUAN |THANH PHO |TP /g,' ')
+      .replace(/\s+/g,' ').trim();
+  };
+
+  var rn = norm(raw), rs = strip(raw), rc = core(raw);
+  var i, u, us, uc;
+
+  // Bước 1: khớp tuyệt đối (NFC)
+  for(i=0;i<UNITS.length;i++){ if(norm(UNITS[i])===rn) return UNITS[i]; }
+
+  // Bước 2: chứa nhau (NFC) — "Kho lẻ" ⊂ "Kho lẻ Bệnh viện Phổi Hải Phòng"
+  for(i=0;i<UNITS.length;i++){ u=norm(UNITS[i]);
     if(u.length>=4 && rn.length>=4 && (u.indexOf(rn)>=0 || rn.indexOf(u)>=0)) return UNITS[i]; }
-  function core(s){ return _normStr(s)
-    .replace(/TRUNG TÂM Y TẾ|TT Y TẾ|TTYT|BỆNH VIỆN ĐA KHOA|BỆNH VIỆN|PHÒNG KHÁM|^PK |KHO LẺ|CƠ SỞ|HUYỆN |QUẬN |THÀNH PHỐ |TP /g,' ')
-    .replace(/\s+/g,' ').trim(); }
-  var rc=core(raw);
-  if(rc.length>=3){ for(i=0;i<UNITS.length;i++){ if(core(UNITS[i])===rc) return UNITS[i]; } }  // phần lõi (Đồ Sơn, Dương Kinh..)
+
+  // Bước 3: khớp tuyệt đối SAU KHI BỎ DẤU (xử lý NFD Excel)
+  for(i=0;i<UNITS.length;i++){ if(strip(UNITS[i])===rs) return UNITS[i]; }
+
+  // Bước 4: chứa nhau SAU BỎ DẤU
+  for(i=0;i<UNITS.length;i++){ us=strip(UNITS[i]);
+    if(us.length>=4 && rs.length>=4 && (us.indexOf(rs)>=0 || rs.indexOf(us)>=0)) return UNITS[i]; }
+
+  // Bước 5: phần lõi (bỏ "Trung tâm Y tế", "Bệnh viện"...) sau bỏ dấu
+  if(rc.length>=3){ for(i=0;i<UNITS.length;i++){ uc=core(UNITS[i]); if(uc===rc && uc.length>=3) return UNITS[i]; } }
+
   return '';
 }
 
