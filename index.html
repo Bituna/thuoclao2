@@ -12076,7 +12076,8 @@ function _getDrugsByWeightSingle(pd, weight, age) {
         "CAPREOMYCIN": "Capreomycin 1g",
         "PANTOPRAZOLE": "Pantoprazole",
         "CAPTOPRIL": "Captopril",
-        // Từ khóa viết tắt gốc
+
+        // ── Chữ viết tắt 3 ký tự (WHO chuẩn) ──
         LFX5:"Levofloxacin 500mg",
         RFP: "Rifampicin 150mg",
         PZA: "Pyrazinamid 500mg",
@@ -12084,21 +12085,30 @@ function _getDrugsByWeightSingle(pd, weight, age) {
         PTO: "Prothionamide 250mg",
         ETO: "Ethionamide 250mg",
         PAS: "Para-aminosalicylic acid 4g",
-        BDQ: "Bedaquiline 100mg",           // Bedaquiline
-        DLM: "Delamanid 50mg",             // Delamanid
-        LZD: "Linezolid 600mg",            // Linezolid
-        MFX: "Moxifloxacin 400mg",         // Moxifloxacin 400mg
-        LFX: "Levofloxacin 250mg",         // Levofloxacin 250mg
-        CFZ: "Clofazimine 100mg",          // Clofazimine
-        CS:  "Cycloserine 250mg",          // Cycloserine (TZ/CS)
-        TZ:  "Cycloserine 250mg",          // Cycloserine (alias)
-        AM:  "Amikacin 500mg/2ml",         // Amikacin
-        KM:  "Kanamycin 1g",               // Kanamycin
-        HH:  "Isoniazid 300mg",            // Isoniazid 300mg (liều cao)
-        PA:  "Pretomanid 200mg",           // Pretomanid (PA)
-        H:   "Isoniazid 100mg",            // Isoniazid 100mg (liều thường)
-        E:   "Ethambutol 400mg",           // Ethambutol (alias)
-        Z:   "Pyrazinamid 500mg"           // Pyrazinamid (alias)
+        BDQ: "Bedaquiline 100mg",
+        DLM: "Delamanid 50mg",
+        LZD: "Linezolid 600mg",
+        MFX: "Moxifloxacin 400mg",
+        LFX: "Levofloxacin 250mg",
+        CFZ: "Clofazimine 100mg",
+
+        // ── Chữ viết tắt 2 ký tự ──
+        CS:  "Cycloserine 250mg",
+        TZ:  "Cycloserine 250mg",
+        AM:  "Amikacin 500mg/2ml",
+        KM:  "Kanamycin 1g",
+        HH:  "Isoniazid 300mg",
+        PA:  "Pretomanid 200mg",
+
+        // ── Chữ viết tắt 1 ký tự ──
+        // ĐÃ BỔ SUNG: B, L, M từ ký hiệu phác đồ ngắn (6BPaLM)
+        B:   "Bedaquiline 100mg",    // 6BPaLM — THIẾU TRƯỚC ĐÂY → không quét được
+        L:   "Linezolid 600mg",      // 6BPaLM — THIẾU TRƯỚC ĐÂY
+        M:   "Moxifloxacin 400mg",   // 6BPaLM — THIẾU TRƯỚC ĐÂY
+        H:   "Isoniazid 100mg",
+        E:   "Ethambutol 400mg",
+        Z:   "Pyrazinamid 500mg"     // Z = Pyrazinamid trong phác đồ chuẩn
+                                     // (Z = Linezolid 300mg CHỈ trong 18-20LfxZCfzCsE → PHAC_DO xử lý riêng)
     };
 
     var sortedAbbrs = Object.keys(nameMap).sort(function(a, b) { return b.length - a.length; });
