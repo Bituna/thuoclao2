@@ -2729,9 +2729,45 @@ function isCurrentPeriodLocked(){
   }
 }
 
-// Danh mục lô thuốc (admin quản lý) — nguồn chính cho chọn số lô
-// {drug, lot, exp:"YYYY-MM-DD", note}
-var catalogData=[]; // Tải từ cloud (Supabase) khi khởi động
+// Quy ước số thứ tự kỳ "YYYY-MM" → số tháng tuyệt đối (để so sánh sớm/muộn an toàn)
+function _periodToNum(key){
+  if(!key) return 0;
+  var p = String(key).split('-');
+  if(p.length < 2) return 0;
+  return parseInt(p[0],10)*12 + parseInt(p[1],10);
+}
+
+// Tồn đầu chỉ được nhập/sửa ở KỲ ĐẦU TIÊN của đơn vị.
+// "Kỳ đầu tiên" = chưa từng có kỳ nào SỚM HƠN được chốt cho đơn vị này (hoặc toàn cục).
+// Một khi admin đã chốt báo cáo lần đầu → mọi kỳ sau đó khóa tồn đầu
+// (thuốc cũ: tồn đầu = tồn cuối kỳ trước; thuốc mới: cấp qua cột Nhập, tồn đầu = 0).
+function _hasEarlierLockedPeriod(unitRole, periodKey){
+  if(!periodKey) periodKey = _currentPeriodKey();
+  if(!periodKey) return false;
+  var curNum = _periodToNum(periodKey);
+  if(!curNum) return false;
+  for(var k in lockedPeriods){
+    if(!lockedPeriods[k]) continue;
+    var us = k.indexOf('_');
+    var kPeriod = (us < 0) ? k : k.substring(0, us);
+    var kSuffix = (us < 0) ? '' : k.substring(us + 1);
+    if(_periodToNum(kPeriod) >= curNum) continue; // chỉ xét kỳ SỚM HƠN
+    if(kSuffix === '') return true;               // khóa toàn cục kỳ sớm hơn → áp mọi đơn vị
+    if(unitRole === 'bvph' || unitRole === BVPH){
+      if(kSuffix === 'bvph') return true;
+    } else {
+      if(kSuffix === unitRole) return true;
+    }
+  }
+  return false;
+}
+
+// Giữ tên cũ cho tương thích — nay trỏ về logic mới
+function _isPrevPeriodLockedForUnit(unitRole, periodKey){
+  return _hasEarlierLockedPeriod(unitRole, periodKey);
+}
+
+
 var catalogLocked=false;  // true sau khi bấm "Lưu danh mục"
 
 // Session người dùng hiện tại
@@ -5264,8 +5300,13 @@ function buildTbl(data, bodyId, prefix){
     var canEdit   = currentUser ? (isBVPH ? canEditBVPH() : canEditUnit(row.unit)) : false;
     var isLocked  = (row.locked  === true);
     var isEditing = (row.editing === true);
-    // Tồn đầu khoá với non-admin sau khi chốt
-    var openRO    = (!isAdmin() && row.openLocked === true);
+    // Tồn đầu khoá khi:
+    //  (a) tháng TRƯỚC của đơn vị này đã CHỐT → tồn cuối kỳ trước cố định → tồn đầu
+    //      kỳ này là số dẫn xuất, KHÔNG ai sửa được (kể cả admin); HOẶC
+    //  (b) non-admin và dòng đã đánh dấu openLocked (giữ hành vi cũ cho an toàn).
+    var _unitRoleForRow = isBVPH ? 'bvph' : row.unit;
+    var _prevLocked = _isPrevPeriodLockedForUnit(_unitRoleForRow, _currentPeriodKey());
+    var openRO    = _prevLocked || (!isAdmin() && row.openLocked === true);
     var isPeriodLocked = isCurrentPeriodLocked();
 
     // Nút thao tác — chỉ ẩn khi KỲ bị khóa (đã In báo cáo).
@@ -5327,8 +5368,9 @@ function buildTbl(data, bodyId, prefix){
           + ' onchange="' + onCh + '"'
           + '>';
       }
-      var style = readOnly && !isAdmin() ? 'color:var(--muted)' : '';
-      return '<span style="' + style + '">' + fmtNum(val) + '</span>';
+      var style = readOnly ? 'color:var(--muted);background:#f1f5f9' : '';
+      var lockIcon = (readOnly && field==='open') ? ' <small style="color:#94a3b8" title="Tồn đầu khóa do kỳ trước đã chốt">&#128274;</small>' : '';
+      return '<span style="' + style + '">' + fmtNum(val) + lockIcon + '</span>';
     }
 
     var expDisp   = expToMMYYYY(row.exp);
@@ -6156,12 +6198,51 @@ function _syncBVPHDc2FromUnits(){
   return changed;
 }
 
+// Cập nhật trạng thái ô NHẬP TỒN ĐẦU trong form thêm dòng:
+//  - Kỳ đầu tiên (chưa có kỳ nào sớm hơn được chốt) → cho nhập tồn đầu.
+//  - Kỳ tiếp theo → KHÓA ô (đặt 0, không cho gõ) vì tồn đầu là dẫn xuất kỳ trước,
+//    thuốc mới được cấp qua cột Nhập.
+function _updateOpenInputState(prefix){
+  var inp, unitRole;
+  if(prefix === 'bvph'){
+    inp = document.getElementById('bvph-open');
+    unitRole = 'bvph';
+  } else {
+    inp = document.getElementById('bc-open');
+    var sel = document.getElementById('filter-unit-bc');
+    var uv = sel ? sel.value : '';
+    // Khi admin xem "tất cả" thì form nhập của 22ĐV vốn ẩn — bỏ qua
+    unitRole = (uv && uv!=='__all__' && uv!=='bvph') ? uv
+             : (currentUser && currentUser.role==='donvi' ? currentUser.unit : '');
+  }
+  if(!inp) return;
+  var locked = unitRole && _hasEarlierLockedPeriod(unitRole, _currentPeriodKey());
+  var lbl = inp.previousElementSibling; // <label>
+  if(locked){
+    inp.value = 0;
+    inp.readOnly = true;
+    inp.disabled = true;
+    inp.style.background = '#f1f5f9';
+    inp.style.color = '#94a3b8';
+    inp.title = 'Tồn đầu tự động từ tồn cuối kỳ trước — kỳ này không nhập tay (thuốc mới cấp qua cột Nhập).';
+    if(lbl && lbl.tagName==='LABEL') lbl.innerHTML = 'Tồn đầu &#128274;';
+  } else {
+    inp.readOnly = false;
+    inp.disabled = false;
+    inp.style.background = '';
+    inp.style.color = '';
+    inp.title = 'Chỉ nhập tồn đầu ở kỳ đầu tiên (trước khi chốt báo cáo lần đầu).';
+    if(lbl && lbl.tagName==='LABEL') lbl.textContent = 'Tồn đầu';
+  }
+}
+
 function renderBVPH(){
   _syncBVPHDc2FromUnits();
   var filtered = _sortByDrugLot(bvphData.filter(matchPeriod));
   buildTbl(filtered,'bvph-body','bvph');
   checkMismatch();
   updateLockedUI();
+  try{ _updateOpenInputState('bvph'); }catch(e){}
   try{renderCapPhat();}catch(e){}
 }
 function renderBC(){
@@ -6196,6 +6277,7 @@ function renderBC(){
   checkMismatch();renderTQ();renderDrugTable();
   renderTP();
   updateLockedUI();
+  try{ _updateOpenInputState('other'); }catch(e){}
   try{renderCapPhat();}catch(e){}
 }
 
@@ -6314,6 +6396,11 @@ function updFieldLive(prefix, rowIdx, field, val){
   }
   if(realIdx < 0) return;
   var arr = prefix==='bvph' ? bvphData : bcData;
+  // Chặn sửa Tồn đầu khi kỳ trước đã chốt (giống updField)
+  if(field === 'open'){
+    var _ur2 = (prefix==='bvph') ? 'bvph' : (arr[realIdx].unit||'');
+    if(_isPrevPeriodLockedForUnit(_ur2, arr[realIdx].bcMonth || _currentPeriodKey())) return;
+  }
   arr[realIdx][field] = v;
   // Không render, không sync ở đây — tránh mất focus khi gõ.
 }
@@ -6337,6 +6424,16 @@ function updField(prefix, rowIdx, field, val){
 
   var arr = prefix==='bvph' ? bvphData : bcData;
   var row = arr[realIdx];
+
+  // CHẶN sửa Tồn đầu khi kỳ TRƯỚC đã chốt — tồn đầu là dẫn xuất từ tồn cuối kỳ trước.
+  if(field === 'open'){
+    var _ur = (prefix==='bvph') ? 'bvph' : (row.unit||'');
+    if(_isPrevPeriodLockedForUnit(_ur, row.bcMonth || _currentPeriodKey())){
+      toast('🔒 Tồn đầu không sửa được: kỳ trước đã chốt nên tồn đầu kỳ này được lấy cố định từ tồn cuối kỳ trước.','var(--danger)');
+      if(prefix==='bvph') renderBVPH(); else renderBC();
+      return;
+    }
+  }
 
   // Kiểm tra tồn không âm với các cột xuất
   var outFields = ['sd','dc2','dc3','hh'];
@@ -7139,6 +7236,8 @@ async function addBVPHRow(){
   var lot    = lotSel ? lotSel.value.trim() : '';
   var expRaw = document.getElementById('bvph-exp').value.trim();
   var open   = Math.max(0, parseInt(document.getElementById('bvph-open').value)||0);
+  // Kỳ tiếp theo: KHÔNG nhận tồn đầu gõ tay (thuốc cũ → rollover, thuốc mới → 0)
+  if(_hasEarlierLockedPeriod('bvph', _currentPeriodKey())) open = 0;
   var _p2   = getSelectedPeriod();
   var mon    = _p2.type==='year' ? _p2.year+'-01' : _p2.val;
   var tinh   = Math.max(0, parseInt(document.getElementById('bvph-tinh').value)||0);
@@ -7178,6 +7277,8 @@ function addBcRow(){
   var lot     = lotSel2 ? lotSel2.value.trim() : '';
   var expRaw = document.getElementById('bc-exp').value.trim();
   var open   = Math.max(0, parseInt(document.getElementById('bc-open').value)||0);
+  // Kỳ tiếp theo: KHÔNG nhận tồn đầu gõ tay (thuốc cũ → rollover, thuốc mới → 0)
+  if(unit && _hasEarlierLockedPeriod(unit, _currentPeriodKey())) open = 0;
   var _p    = getSelectedPeriod();
   var mon    = _p.type==='year' ? _p.year+'-01' : _p.val;
   var tinh   = Math.max(0, parseInt(document.getElementById('bc-tinh').value)||0);
