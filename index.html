@@ -1682,6 +1682,10 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       Đơn vị: <strong id="self-edit-unit">—</strong><br>
       Tên đăng nhập: <span id="self-edit-user" style="font-family:monospace">—</span>
     </div>
+    <div class="fg" id="self-edit-display-wrap" style="margin-bottom:10px;display:none">
+      <label for="self-edit-display">Tên hiển thị đơn vị <span style="font-weight:400;color:var(--muted)">(chỉ Admin — đổi tên hiển thị toàn phần mềm)</span></label>
+      <input type="text" id="self-edit-display" aria-label="Tên hiển thị đơn vị" placeholder="VD: Kho chính, Kho nội trú...">
+    </div>
     <div class="fg" style="margin-bottom:10px">
       <label for="self-edit-name">Tên dược sĩ phụ trách</label>
       <input type="text" id="self-edit-name" aria-label="Tên dược sĩ phụ trách" placeholder="Nhập họ và tên...">
@@ -2436,6 +2440,20 @@ var BVPH="Bệnh viện Phổi Hải Phòng";
 // "Kho lẻ Bệnh viện Phổi Hải Phòng" / 'kholen'→ hiển thị "Kho nội trú"
 var KHO_LE_FULL = "Kho lẻ Bệnh viện Phổi Hải Phòng";
 function _displayUnit(name){
+  if(!name) return '';
+  // 1) Tra tên hiển thị tùy chỉnh (admin đặt) trong ACCOUNTS
+  if(typeof ACCOUNTS !== 'undefined' && ACCOUNTS && ACCOUNTS.length){
+    // Chuẩn hoá: nếu name là mã role ('bvph'/'kholen') → map về unit đầy đủ trước
+    for(var i=0;i<ACCOUNTS.length;i++){
+      var a = ACCOUNTS[i];
+      if(!a) continue;
+      var match = (a.unit === name) || (a.user === name) ||
+                  (name==='bvph' && a.role==='bvph') ||
+                  (name==='kholen' && a.user==='kholen');
+      if(match && a.displayUnit) return a.displayUnit;
+    }
+  }
+  // 2) Mặc định cho 2 tài khoản đặc biệt
   if(name === BVPH || name === 'bvph') return 'Kho chính';
   if(name === KHO_LE_FULL || name === 'kholen') return 'Kho nội trú';
   return name || '';
@@ -3511,12 +3529,25 @@ function fillLoginUnits() {
     var prev = sel.value;
     sel.innerHTML = '<option value="">-- Chọn đơn vị --</option>';
 
-    // Thêm các đơn vị vào dropdown
-    currentAccounts.forEach(function(a) {
+    // Sắp xếp thứ tự: Chỉ đạo tuyến (admin) → Kho chính (bvph) → Kho nội trú (kholen) → các đơn vị
+    var _rank = function(a){
+      if(a.role === 'admin') return 0;
+      if(a.role === 'bvph' || a.user === 'bvph') return 1;
+      if(a.user === 'kholen' || a.unit === KHO_LE_FULL) return 2;
+      return 3;
+    };
+    var sorted = currentAccounts.slice().sort(function(a,b){
+      var ra=_rank(a), rb=_rank(b);
+      if(ra !== rb) return ra - rb;
+      // Cùng nhóm đơn vị tuyến → sắp theo tên hiển thị
+      return _displayUnit(a.unit).localeCompare(_displayUnit(b.unit), 'vi');
+    });
+
+    // Thêm các đơn vị vào dropdown theo thứ tự đã sắp
+    sorted.forEach(function(a) {
         var o = document.createElement('option');
         o.value = a.user;
         o.dataset.unit = a.unit;
-        // Hiển thị tên đơn vị
         o.textContent = a.role === 'admin' ? 'Phòng Chỉ đạo tuyến' : _displayUnit(a.unit);
         sel.appendChild(o);
     });
@@ -4283,6 +4314,19 @@ function editSelfAccount(i){
   document.getElementById('self-edit-user').textContent = a.user || '—';
   document.getElementById('self-edit-name').value = a.name || '';
   document.getElementById('self-edit-pass').value = ''; // Để trống tức là không đổi mật khẩu
+
+  // Ô "Tên hiển thị đơn vị": chỉ Admin thấy, và không áp dụng cho chính tài khoản admin
+  var dispWrap = document.getElementById('self-edit-display-wrap');
+  var dispInp  = document.getElementById('self-edit-display');
+  if(dispWrap && dispInp){
+    if(isAdmin() && a.role !== 'admin'){
+      dispWrap.style.display = 'block';
+      dispInp.value = a.displayUnit || _displayUnit(a.unit) || '';
+    } else {
+      dispWrap.style.display = 'none';
+      dispInp.value = '';
+    }
+  }
   openModal('modal-self-edit');
 }
 
@@ -4292,27 +4336,68 @@ async function saveSelfAccount(){
   var a = ACCOUNTS[_selfEditIdx];
   var newName = document.getElementById('self-edit-name').value.trim();
   var newPass = document.getElementById('self-edit-pass').value.trim();
-  
+
   if (!newName) { toast('Tên dược sĩ không được để trống!', 'var(--danger)'); return; }
-  
+
   a.name = newName;
   if (newPass) a.pass = newPass;
-  
+
+  // Tên hiển thị đơn vị (chỉ Admin sửa, không áp cho tài khoản admin)
+  var dispInp = document.getElementById('self-edit-display');
+  var displayChanged = false;
+  if(isAdmin() && a.role !== 'admin' && dispInp){
+    var nd = dispInp.value.trim();
+    if(nd && nd !== a.displayUnit){
+      a.displayUnit = nd;
+      displayChanged = true;
+    } else if(!nd && a.displayUnit){
+      // Xóa trống → quay về tên mặc định
+      delete a.displayUnit;
+      displayChanged = true;
+    }
+  }
+
   // Cập nhật lại thông tin cá nhân trên thanh Sidebar
   if (currentUser && currentUser.user === a.user) {
     currentUser.name = a.name;
     if (newPass) currentUser.pass = newPass;
-    document.getElementById('sb-name').textContent = a.name || a.unit;
+    if (a.displayUnit !== undefined) currentUser.displayUnit = a.displayUnit;
+    document.getElementById('sb-name').textContent = a.name || _displayUnit(a.unit);
   }
-  
+
   saveLocalCache(buildPayload());
-  renderAccounts();
   closeModal('modal-self-edit');
   var ok = await _saveAccountsToCloud();
-  if(ok){
-    toast(newPass ? 'Đã đổi mật khẩu & lưu lên cloud thành công!' : 'Đã cập nhật thông tin tài khoản!', 'var(--success)');
+
+  // Đổi tên hiển thị → làm mới TOÀN BỘ giao diện để áp dụng ngay
+  if(displayChanged){
+    try{ _refreshAllUnitDisplays(); }catch(e){}
   }
-  // Nếu lỗi, _saveAccountsToCloud đã hiện toast đỏ cảnh báo
+  renderAccounts();
+
+  if(ok){
+    var msg = newPass ? 'Đã đổi mật khẩu' : 'Đã cập nhật';
+    if(displayChanged) msg += ' + đổi tên hiển thị "'+_displayUnit(a.unit)+'" (áp dụng toàn phần mềm)';
+    toast(msg + ' & lưu lên cloud thành công!', 'var(--success)');
+  }
+}
+
+// Làm mới mọi nơi hiển thị tên đơn vị sau khi đổi tên hiển thị
+function _refreshAllUnitDisplays(){
+  try{ if(typeof renderBVPH==='function') renderBVPH(); }catch(e){}
+  try{ if(typeof renderBC==='function') renderBC(); }catch(e){}
+  try{ if(typeof renderTQ==='function') renderTQ(); }catch(e){}
+  try{ if(typeof renderCapPhat==='function') renderCapPhat(); }catch(e){}
+  try{ if(typeof renderPatientTable==='function') renderPatientTable(); }catch(e){}
+  try{ if(typeof renderDuTru==='function') renderDuTru(); }catch(e){}
+  try{ if(typeof _fillBnFilters==='function') _fillBnFilters(); }catch(e){}
+  try{ if(typeof fillLoginUnits==='function') fillLoginUnits(); }catch(e){}
+  try{ if(typeof _fillAdminUnitFilter==='function') _fillAdminUnitFilter(); }catch(e){}
+  // Cập nhật sidebar
+  if(currentUser){
+    var sb=document.getElementById('sb-name');
+    if(sb) sb.textContent = currentUser.name || _displayUnit(currentUser.unit);
+  }
 }
 
 var _roleEditIdx=-1;
