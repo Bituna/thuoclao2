@@ -2401,6 +2401,9 @@ async function loadFromSupabase(periodKey, silent){
     fullRender();
     updateSaveBtnUI();
     if(!silent) toast('✓ Đã tải '+rows.length+' dòng từ cloud (kỳ '+periodKey+')','#27ae60');
+    // Tự động tính lại dc2 kho chính từ Supabase sau mỗi lần load
+    // (kể cả silent/auto-refresh) để bvph thấy đúng Xuất TCL mà không cần bấm nút
+    try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
   }catch(e){
     if(!silent){
       var _m=(e&&e.message||'')+'';
