@@ -6306,47 +6306,92 @@ function _matchKey(r){
 }
 
 function _syncBVPHDc2FromUnits(){
-  // Gom tổng tinh các đơn vị (KHÔNG tính dòng kho chính) theo kỳ + key chuẩn hóa
+  // Chỉ cập nhật RAM từ bcData (dùng để render giao diện ngay lập tức)
+  // Việc ghi dc2 lên Supabase do _syncBVPHDc2ToCloud() đảm nhận (lấy đủ từ cloud)
   var sumByKey = {};
   bcData.forEach(function(r){
-    if(r.unit===BVPH) return;          // chỉ lấy đơn vị tuyến
+    if(r.unit===BVPH) return;
     var key = _matchKey(r);
     sumByKey[key] = (sumByKey[key]||0) + (r.tinh||0);
   });
-  // Đặt dc2 cho từng dòng kho chính = tổng tinh đơn vị cùng key
   var changed = false;
-  var toSave = []; // các dòng cần PATCH lên Supabase
   bvphData.forEach(function(r){
     if(r.unit && r.unit!==BVPH) return;
     var key = _matchKey(r);
     var newDc2 = sumByKey[key] || 0;
-    if((r.dc2||0) !== newDc2){
-      r.dc2 = newDc2;
-      changed = true;
-      toSave.push({period: r.bcMonth, drug: r.drug, lot: r.lot, exp: r.exp||'', dc2: newDc2});
-    }
+    if((r.dc2||0) !== newDc2){ r.dc2 = newDc2; changed = true; }
   });
-  // PATCH dc2 lên Supabase để tồn cuối tính đúng (đặc biệt cho cascade tồn đầu)
-  if(toSave.length && _supaOnline){
+  return changed;
+}
+
+// Tính dc2 kho chính TƯƠI TỪ SUPABASE (tổng tinh 22 đơn vị) rồi PATCH lên cloud.
+// Gọi sau mỗi lần lưu tinh của đơn vị. Không phụ thuộc role/bcData RAM.
+var _dc2SyncTimer = null;
+function _scheduleDc2Sync(periodKey){
+  if(!periodKey || !_supaOnline) return;
+  clearTimeout(_dc2SyncTimer);
+  _dc2SyncTimer = setTimeout(function(){
+    _syncBVPHDc2ToCloud(periodKey).catch(function(e){ console.warn('[dc2sync]', e); });
+  }, 800);
+}
+
+async function _syncBVPHDc2ToCloud(periodKey){
+  if(!periodKey || !_supaOnline) return;
+  try{
+    // 1. Lấy TẤT CẢ dòng kỳ này từ cloud (không lọc theo role)
+    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp,tinh,dc2&order=unit,drug,lot';
+    var r = await fetch(url, {headers: Object.assign({}, _supaHdr), cache:'no-store'});
+    if(!r.ok) return;
+    var rows = await r.json();
+
+    // 2. Gom tổng tinh của 22 đơn vị theo thuốc|lô|hạn
+    var sumByKey = {};
+    rows.forEach(function(r){
+      var u = r.unit||'';
+      if(u===BVPH||u==='bvph') return; // bỏ dòng kho chính
+      var k = _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'');
+      sumByKey[k] = (sumByKey[k]||0) + (r.tinh||0);
+    });
+
+    // 3. So với dc2 hiện tại của dòng bvph → PATCH những dòng lệch
     var hd = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
-    toSave.forEach(function(pt){
-      var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(pt.period)
+    var patches = [];
+    rows.forEach(function(r){
+      var u = r.unit||'';
+      if(u!==BVPH && u!=='bvph') return; // chỉ xét dòng kho chính
+      var k = _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'');
+      var correctDc2 = sumByKey[k] || 0;
+      if((r.dc2||0) !== correctDc2){
+        patches.push({drug:r.drug, lot:r.lot, exp:r.exp||'', dc2:correctDc2});
+        // Cập nhật RAM luôn
+        bvphData.forEach(function(x){
+          if(x.bcMonth===periodKey && x.drug===r.drug && x.lot===r.lot && (x.exp||'')===(r.exp||'')){
+            x.dc2 = correctDc2;
+          }
+        });
+      }
+    });
+
+    // 4. Gửi PATCH từng dòng lên Supabase
+    for(var i=0; i<patches.length; i++){
+      var pt = patches[i];
+      var pUrl = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
         +'&unit=eq.'+encodeURIComponent(BVPH)
         +'&drug=eq.'+encodeURIComponent(pt.drug)
         +'&lot=eq.'+encodeURIComponent(pt.lot)
         +'&exp=eq.'+encodeURIComponent(pt.exp);
-      fetch(url, {method:'PATCH', headers:hd, body:JSON.stringify({dc2: pt.dc2})})
-        .then(function(res){
-          if(!res.ok) console.warn('[syncDc2] PATCH HTTP', res.status, pt.drug, pt.lot);
-          else {
-            // Sau khi lưu dc2 đúng → kích hoạt cascade tồn đầu kỳ sau
-            try{ if(typeof _scheduleCascade==='function') _scheduleCascade(pt.period); }catch(e){}
-          }
-        })
-        .catch(function(e){ console.warn('[syncDc2] PATCH lỗi', e); });
-    });  // end toSave.forEach
-  }      // end if(toSave.length)
-  return changed;
+      try{
+        await fetch(pUrl, {method:'PATCH', headers:hd, body:JSON.stringify({dc2: pt.dc2})});
+      }catch(e){ console.warn('[dc2sync] PATCH lỗi', e); }
+    }
+
+    if(patches.length){
+      // Cascade tồn đầu kỳ sau vì dc2 (tồn cuối) đã đổi
+      try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
+      // Làm mới giao diện
+      try{ renderBVPH(); }catch(e){}
+    }
+  }catch(e){ console.warn('[_syncBVPHDc2ToCloud]', e); }
 }
 
 // Cập nhật trạng thái ô NHẬP TỒN ĐẦU trong form thêm dòng:
@@ -7564,7 +7609,14 @@ function _syncPeriodToCloud(){
     var periodKey = _currentPeriodKey();
     if(!periodKey) return;
     saveToSupabase(periodKey, {skipMeta:true}).then(function(ok){
-      if(ok){ _dirty = false; _setSaveStatus('saved'); }
+      if(ok){
+        _dirty = false;
+        _setSaveStatus('saved');
+        // Sau khi lưu tinh/các cột → tính lại dc2 kho chính từ Supabase rồi PATCH
+        try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
+        // Cascade tồn đầu kỳ sau
+        try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
+      }
       else { _setSaveStatus('error'); _scheduleRetry(periodKey); }
     }).catch(function(e){
       console.warn('Sync cloud error:', e);
@@ -9402,8 +9454,18 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
   targetRow.tinh = (targetRow.tinh||0) + qty; targetRow._dirty=true;
   targetRow._dirty = true;
 
+  // Tính lại dc2 của bvph (= tổng tinh đơn vị) TRƯỚC khi render và lưu cloud
+  // để đảm bảo dc2 đúng và được PATCH lên Supabase ngay
+  var dc2Changed = (typeof _syncBVPHDc2FromUnits==='function') ? _syncBVPHDc2FromUnits() : false;
+
   renderBVPH(); renderBC(); renderTP();
   _syncPeriodToCloud();
+
+  // Nếu dc2 vừa thay đổi → đã được PATCH trong _syncBVPHDc2FromUnits rồi,
+  // kích hoạt cascade tồn đầu kỳ sau
+  if(dc2Changed){
+    try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
+  }
 
   if(_supaOnline){
     _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh', txDate)
@@ -9654,8 +9716,14 @@ async function cancelTransferById(transferId, toUnit){
           }
         }
 
+        // Tính lại dc2 bvph (= tổng tinh đơn vị) sau khi hủy → PATCH lên Supabase
+        if(typeof _syncBVPHDc2FromUnits==='function') _syncBVPHDc2FromUnits();
+
         renderBVPH(); renderBC(); renderTP();
         setTimeout(renderTQTransfers, 800);
+
+        // Cascade cập nhật tồn đầu kỳ sau vì tồn cuối vừa đổi
+        try{ if(typeof _scheduleCascade==='function') _scheduleCascade(tPeriod); }catch(e){}
 
         var msg = 'Đã hủy phiếu '+(t.qty||0).toLocaleString()+' viên '+t.drug;
         if(wasConfirmed) msg += ' — đã trừ lại số nhập ĐC của '+rcvUnit;
