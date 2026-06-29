@@ -2868,6 +2868,14 @@ function expToMMYYYY(s){
   return s;
 }
 
+// Format ngày thành dd/mm/yyyy (dùng toàn cục thay thế toLocaleDateString)
+function _fmtDate(val){
+  if(!val) return '—';
+  var d = (val instanceof Date) ? val : new Date(val);
+  if(isNaN(d.getTime())) return String(val);
+  return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
+}
+
 function validateMonthExp(str){
   if(!str) return false;
   var m=str.trim().match(/^(\d{2})\/(\d{4})$/);
@@ -4958,7 +4966,7 @@ async function renderTQTransfers(){
         +'</tr></thead><tbody>';
       list.forEach(function(tx,i){
         var bg=i%2===0?'#f8f9fa':'white';
-        var dt=tx.transfer_date?new Date(tx.transfer_date).toLocaleDateString('vi-VN'):(tx.created_at?new Date(tx.created_at).toLocaleDateString('vi-VN'):'—');
+        var dt=tx.transfer_date?_fmtDate(tx.transfer_date):(tx.created_at?_fmtDate(tx.created_at):'—');
         var expD=tx.exp?expFmt(tx.exp):'—';
         var subLabel = tx.type==='dc3_to_tinh'?'<span style="font-size:10px;background:#27ae60;color:white;padding:1px 5px;border-radius:3px;margin-left:4px">Tổ CL</span>':'';
         // Chi tiết đối chiếu
@@ -7083,7 +7091,7 @@ function renderNotifPanel(notifs){
     }
     if(!msg) return '';
 
-    var dt = t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '';
+    var dt = t.created_at ? _fmtDate(t.created_at) : '';
     var clickFn=(!t.status||t.status==='pending')?'openPendingTransferById(\''+t.id+'\')':'markNotifRead(\''+t.id+'\')';
     return '<div onclick="'+clickFn+'" style="padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;background:'+bg+';display:flex;gap:10px;align-items:flex-start">'
       +icon
@@ -7329,7 +7337,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     var info = document.createElement('div');
     info.style.cssText = 'font-size:12px;color:#333;line-height:1.7;margin-bottom:8px';
     var expDisp = t.exp ? (function(){ var ep=t.exp.split('-'); return ep.length>=2?ep[1]+'/'+ep[0]:t.exp; })() : '';
-    var dt = t.transfer_date ? new Date(t.transfer_date).toLocaleDateString('vi-VN') : (t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '');
+    var dt = t.transfer_date ? _fmtDate(t.transfer_date) : (t.created_at ? _fmtDate(t.created_at) : '');
     info.innerHTML = '<b>'+_displayUnit(t.from_unit)+'</b> đã điều chuyển cho bạn:<br>'
       +'<span style="color:#1a5276;font-weight:700">'+t.qty.toLocaleString('vi-VN')+' viên</span>'
       +' <b>'+t.drug+'</b>'
@@ -9329,7 +9337,7 @@ async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx
     var thead=document.createElement('thead'); thead.appendChild(hdr); tbl.appendChild(thead);
     var tbody=document.createElement('tbody');
     transfers.forEach(function(t){
-      var dt = t.transfer_date ? new Date(t.transfer_date).toLocaleDateString('vi-VN') : (t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—');
+      var dt = t.transfer_date ? _fmtDate(t.transfer_date) : (t.created_at ? _fmtDate(t.created_at) : '—');
       var tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #eee';
       var tdUnit = document.createElement('td'); tdUnit.style.cssText='padding:5px 7px'; tdUnit.textContent=t.to_unit;
@@ -9685,8 +9693,8 @@ async function showDcDetail(prefix, rowIdx){
     transfers.forEach(function(t,i){
       var tr=document.createElement('tr'); tr.style.background=i%2===0?'#f8f9fa':'white';
       var dt = t.transfer_date
-        ? new Date(t.transfer_date).toLocaleDateString('vi-VN')
-        : (t.created_at ? new Date(t.created_at).toLocaleDateString('vi-VN') : '—');
+        ? _fmtDate(t.transfer_date)
+        : (t.created_at ? _fmtDate(t.created_at) : '—');
       var tdU=document.createElement('td'); tdU.style.cssText='padding:6px 8px'; tdU.textContent=t.from_unit;
       var tdQ=document.createElement('td'); tdQ.style.cssText='padding:6px 8px;text-align:center;font-weight:700;color:#27ae60'; tdQ.textContent=(t.qty||0).toLocaleString()+' viên';
       var tdD=document.createElement('td'); tdD.style.cssText='padding:6px 8px;text-align:center;color:#888'; tdD.textContent=dt;
@@ -9767,7 +9775,7 @@ async function cancelTransferById(transferId, toUnit){
         var drugStr = qty.toLocaleString('vi-VN')+' viên '+t.drug
           +' lô '+t.lot+(t.exp?' hạn '+expToMMYYYY(t.exp):'');
 
-        var cancelDate = new Date().toLocaleDateString('vi-VN');
+        var cancelDate = _fmtDate(new Date());
         var hdPatch = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
         var hdPost = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
 
@@ -12557,7 +12565,7 @@ function calculateBedaquilineDetails(startDateStr, weight) {
     day14.setDate(day14.getDate() + 13);
 
     var formatDate = function(d) {
-        return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear().toString().slice(-2);
+        return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
     };
 
     var phase1 = loadPerDay * 14;          // nạp: loadPerDay × 14 ngày
@@ -13399,8 +13407,8 @@ function exportPatientExcel(){
     var st = getRealStatus(bn);
     var startStr = ''; var endStr = '';
     var start = bn.startDate || bn.ngayBD; var end = bn.endDate || bn.ngayKT;
-    if(start){ var d1=new Date(start); if(!isNaN(d1)) startStr=d1.toLocaleDateString('vi-VN'); }
-    if(end){ var d2=new Date(end); if(!isNaN(d2)) endStr=d2.toLocaleDateString('vi-VN'); }
+    if(start){ var d1=new Date(start); if(!isNaN(d1)) startStr=_fmtDate(d1); }
+    if(end){ var d2=new Date(end); if(!isNaN(d2)) endStr=_fmtDate(d2); }
     aoa.push([
       i+1, bn.name || bn.hoTen || '', bn.gender || bn.gioiTinh || '', 
       bn.age || bn.tuoi || '', bn.weight || bn.canNang || '', bn.address || bn.diaChi || '', 
