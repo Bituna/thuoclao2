@@ -1980,8 +1980,27 @@ async function _autoLoadOnLogin(){
       bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unit); })
                .concat(rows.map(_mapRow));
     } else if(role === 'bvph'){
+      var _bvphMapped = rows.map(_mapRow);
+      // Tính dc2 từ Supabase (toàn bộ kỳ) ghi vào RAM trước khi render
+      try{
+        var _dc2Url2 = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp,tinh&order=unit';
+        var _dc2R2 = await fetch(_dc2Url2, {headers:_supaHdr, cache:'no-store'});
+        if(_dc2R2.ok){
+          var _dc2Rows2 = await _dc2R2.json();
+          var _sumDc2B = {};
+          _dc2Rows2.forEach(function(x){
+            if(x.unit==='bvph'||x.unit===BVPH) return;
+            var _k = _normStr(x.drug)+'||'+_normStr(x.lot)+'||'+_normExp(x.exp||'');
+            _sumDc2B[_k] = (_sumDc2B[_k]||0) + (x.tinh||0);
+          });
+          _bvphMapped.forEach(function(x){
+            var _k = _normStr(x.drug)+'||'+_normStr(x.lot)+'||'+_normExp(x.exp||'');
+            x.dc2 = _sumDc2B[_k] || 0;
+          });
+        }
+      }catch(e){ console.warn('[_autoLoadOnLogin] dc2 prefetch lỗi', e); }
       bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
-                 .concat(rows.map(_mapRow));
+                 .concat(_bvphMapped);
     } else {
       // Admin
       bvphData = bvphData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)); })
@@ -2348,6 +2367,29 @@ async function loadFromSupabase(periodKey, silent){
     // Phân loại
     var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
     var newBc   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
+
+    // Với role bvph: rows chỉ có unit=bvph nên newBc rỗng.
+    // Tính dc2 đúng từ Supabase (fetch toàn bộ kỳ không lọc role) và ghi vào newBvph
+    // TRƯỚC KHI merge vào RAM — để render đúng ngay lần đầu, không cần đợi _syncBVPHDc2ToCloud
+    if(role === 'bvph' && newBvph.length){
+      try{
+        var _dc2Url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp,tinh&order=unit';
+        var _dc2R = await fetch(_dc2Url, {headers:_supaHdr, cache:'no-store'});
+        if(_dc2R.ok){
+          var _dc2Rows = await _dc2R.json();
+          var _sumDc2 = {};
+          _dc2Rows.forEach(function(x){
+            if(x.unit==='bvph'||x.unit===BVPH) return;
+            var _k = _normStr(x.drug)+'||'+_normStr(x.lot)+'||'+_normExp(x.exp||'');
+            _sumDc2[_k] = (_sumDc2[_k]||0) + (x.tinh||0);
+          });
+          newBvph.forEach(function(x){
+            var _k = _normStr(x.drug)+'||'+_normStr(x.lot)+'||'+_normExp(x.exp||'');
+            x.dc2 = _sumDc2[_k] || 0;
+          });
+        }
+      }catch(e){ console.warn('[loadFromSupabase] dc2 prefetch lỗi', e); }
+    }
 
     // Merge vào data hiện tại theo role
     if(role === 'donvi'){
@@ -6329,8 +6371,14 @@ function _matchKey(r){
 }
 
 function _syncBVPHDc2FromUnits(){
-  // Chỉ cập nhật RAM từ bcData (dùng để render giao diện ngay lập tức)
-  // Việc ghi dc2 lên Supabase do _syncBVPHDc2ToCloud() đảm nhận (lấy đủ từ cloud)
+  // Chỉ chạy tính dc2 từ bcData RAM khi có đủ dữ liệu 22 đơn vị (admin xem tất cả).
+  // Với role bvph/donvi, bcData RAM trống hoặc chỉ có 1 đơn vị → KHÔNG ghi đè dc2
+  // (dc2 đúng đã được _syncBVPHDc2ToCloud tính từ Supabase và ghi vào RAM).
+  var role = currentUser ? currentUser.role : 'admin';
+  if(role !== 'admin'){
+    // Không đủ bcData → giữ nguyên dc2 hiện tại trong RAM, không ghi đè
+    return false;
+  }
   var sumByKey = {};
   bcData.forEach(function(r){
     if(r.unit===BVPH) return;
