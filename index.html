@@ -1945,7 +1945,7 @@ async function _autoLoadOnLogin(){
         // Rollover đã push thẳng vào bvphData/bcData → render
         fullRender();
         updateSaveBtnUI();
-        toast('Kỳ '+_keyToLabel(periodKey)+': đã đổ '+_rolloverN+' dòng tồn đầu từ kỳ trước.','#1a5276');
+        toast('Kỳ '+_keyToLabel(periodKey)+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverN+' dòng.','#1a5276');
         _cacheTransfers(periodKey);
       }
       // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng)
@@ -1991,7 +1991,7 @@ async function _autoLoadOnLogin(){
     var _rolloverNAfter = await _ensureRolloverForPeriod(periodKey);
     if(_rolloverNAfter > 0){
       saveLocalCache(buildPayload());
-      toast('Kỳ '+_keyToLabel(periodKey)+': đã đổ '+_rolloverNAfter+' dòng tồn đầu từ kỳ trước.','#1a5276');
+      toast('Kỳ '+_keyToLabel(periodKey)+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverNAfter+' dòng.','#1a5276');
     }
 
     // Tải lockedPeriods từ cloud
@@ -2327,7 +2327,7 @@ async function loadFromSupabase(periodKey, silent){
           saveLocalCache(buildPayload());
           fullRender();
           updateSaveBtnUI();
-          if(!silent) toast('Kỳ '+periodKey+': đã đổ '+_rolloverN+' dòng tồn đầu từ kỳ trước.','#1a5276');
+          if(!silent) toast('Kỳ '+periodKey+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverN+' dòng.','#1a5276');
           _cacheTransfers(periodKey);
           return;
         }
@@ -2364,7 +2364,7 @@ async function loadFromSupabase(periodKey, silent){
     if(p.type !== 'year'){
       var _rolloverNAfter2 = await _ensureRolloverForPeriod(periodKey);
       if(_rolloverNAfter2 > 0 && !silent){
-        toast('Kỳ '+periodKey+': đã đổ thêm '+_rolloverNAfter2+' dòng tồn đầu từ kỳ trước.','#1a5276');
+        toast('Kỳ '+periodKey+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverNAfter2+' dòng (bổ sung).','#1a5276');
       }
     }
 
@@ -6315,12 +6315,37 @@ function _syncBVPHDc2FromUnits(){
   });
   // Đặt dc2 cho từng dòng kho chính = tổng tinh đơn vị cùng key
   var changed = false;
+  var toSave = []; // các dòng cần PATCH lên Supabase
   bvphData.forEach(function(r){
     if(r.unit && r.unit!==BVPH) return;
     var key = _matchKey(r);
     var newDc2 = sumByKey[key] || 0;
-    if((r.dc2||0) !== newDc2){ r.dc2 = newDc2; changed = true; }
+    if((r.dc2||0) !== newDc2){
+      r.dc2 = newDc2;
+      changed = true;
+      toSave.push({period: r.bcMonth, drug: r.drug, lot: r.lot, exp: r.exp||'', dc2: newDc2});
+    }
   });
+  // PATCH dc2 lên Supabase để tồn cuối tính đúng (đặc biệt cho cascade tồn đầu)
+  if(toSave.length && _supaOnline){
+    var hd = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
+    toSave.forEach(function(pt){
+      var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(pt.period)
+        +'&unit=eq.'+encodeURIComponent(BVPH)
+        +'&drug=eq.'+encodeURIComponent(pt.drug)
+        +'&lot=eq.'+encodeURIComponent(pt.lot)
+        +'&exp=eq.'+encodeURIComponent(pt.exp);
+      fetch(url, {method:'PATCH', headers:hd, body:JSON.stringify({dc2: pt.dc2})})
+        .then(function(res){
+          if(!res.ok) console.warn('[syncDc2] PATCH HTTP', res.status, pt.drug, pt.lot);
+          else {
+            // Sau khi lưu dc2 đúng → kích hoạt cascade tồn đầu kỳ sau
+            try{ if(typeof _scheduleCascade==='function') _scheduleCascade(pt.period); }catch(e){}
+          }
+        })
+        .catch(function(e){ console.warn('[syncDc2] PATCH lỗi', e); });
+    });  // end toSave.forEach
+  }      // end if(toSave.length)
   return changed;
 }
 
