@@ -4955,6 +4955,7 @@ async function renderTQTransfers(){
       var canCancel=isAdmin();
       var t='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">';
       t+='<thead><tr style="background:'+headerColor+';color:white">'
+        +'<th style="padding:7px 10px;text-align:center;width:36px">TT</th>'
         +'<th style="padding:7px 10px;text-align:left">Chuyển đi</th>'
         +'<th style="padding:7px 10px;text-align:left">Chuyển đến</th>'
         +'<th style="padding:7px 10px;text-align:left">Thuốc</th>'
@@ -4979,6 +4980,7 @@ async function renderTQTransfers(){
         else if(det.status==='no')  matchCell='<span'+clickAttr+'display:inline-flex;align-items:center;gap:3px;background:#fff3e0;color:#c46a00;border:1px solid #ffc88a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700" title="Bấm xem chi tiết đối chiếu">✗ Chưa khớp</span>';
         else                matchCell='<span style="color:#aaa;font-size:11px">—</span>';
         t+='<tr style="background:'+bg+';border-bottom:1px solid #eee">'
+          +'<td style="padding:6px 10px;text-align:center;color:#888;font-size:11px">'+(i+1)+'</td>'
           +'<td style="padding:6px 10px;font-weight:600;white-space:nowrap">'+_displayUnit(tx.from_unit)+'</td>'
           +'<td style="padding:6px 10px;color:'+headerColor+';font-weight:600;white-space:nowrap">'+_displayUnit(tx.to_unit)+'</td>'
           +'<td style="padding:6px 10px">'+tx.drug+subLabel+'</td>'
@@ -7376,16 +7378,24 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           var fieldToUpdate = (transfer.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
           if(targetRow){
             targetRow[fieldToUpdate] = (targetRow[fieldToUpdate]||0) + (transfer.qty||0);
+            targetRow._dirty = true; // ← ĐÁNH DẤU để saveToSupabase ghi lên cloud
           } else {
             // Tự thêm dòng mới nếu chưa có
-            var newRow = {unit:myUnit,drug:transfer.drug,lot:transfer.lot,exp:transfer.exp||'',
+            // Dùng đúng giá trị unit: bvph dùng hằng BVPH, đơn vị dùng myUnit
+            var _unitVal = (myUnit===BVPH||myUnit==='bvph') ? BVPH : myUnit;
+            var newRow = {unit:_unitVal,drug:transfer.drug,lot:transfer.lot,exp:transfer.exp||'',
               open:0,tinh:0,ntk:0,dc:0,sd:0,dc2:0,dc3:0,hh:0,
               locked:false,editing:false,bcMonth:periodKey,openLocked:false};
             newRow[fieldToUpdate] = transfer.qty||0;
-            newRow._dirty=true; if(myUnit===BVPH) bvphData.push(newRow); else bcData.push(newRow);
+            newRow._dirty=true;
+            if(myUnit===BVPH||myUnit==='bvph') bvphData.push(newRow); else bcData.push(newRow);
           }
           renderBVPH(); renderBC(); renderTP();
           _syncPeriodToCloud();
+          // Nếu bvph xác nhận nhận tinh từ đơn vị → cập nhật dc2 kho chính
+          if((myUnit===BVPH||myUnit==='bvph') && transfer.type==='dc3_to_tinh'){
+            try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
+          }
           // Ẩn card này
           card.style.cssText = 'background:#f0fff4;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
           card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Đã xác nhận — '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug+' đã vào báo cáo</span>';
