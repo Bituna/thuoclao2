@@ -2210,14 +2210,8 @@ async function saveToSupabase(periodKey, opts){
     // Lưu thành công → xóa cờ _dirty của các dòng đã ghi (để lần sau không ghi lại thừa)
     _dirtyRowRefs.forEach(function(r){ delete r._dirty; });
 
-    // Vừa lưu/sửa kỳ này → tồn cuối có thể đã đổi → cho phép rollover KỲ SAU chạy lại
-    // (cập nhật tồn đầu kỳ sau cho khớp). Xóa cờ session của kỳ tiếp theo.
-    try{
-      if(typeof _nextPeriodKey === 'function'){
-        var _nk = _nextPeriodKey(periodKey);
-        if(_nk && _rolloverRanForPeriod[_nk]) _rolloverRanForPeriod[_nk] = false;
-      }
-    }catch(e){}
+    // Vừa lưu/sửa kỳ này → tồn cuối có thể đã đổi → LAN tồn đầu xuống các kỳ sau.
+    try{ if(typeof _scheduleCascade === 'function') _scheduleCascade(periodKey); }catch(e){}
 
     // ── GHI METADATA (lockedPeriods + catalog) — BỎ QUA khi skipMeta=true (lưu nháp nhanh) ──
     // lockedPeriods chỉ thay đổi khi chốt/mở báo cáo; catalog chỉ đổi khi admin sửa danh mục.
@@ -5613,15 +5607,10 @@ function matchPeriod(r){
 function onYearChange(){ onGlobalMonthChange(); }
 
 function onGlobalMonthChange(){
-    var p = getSelectedPeriod();
-    // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
-    if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
-    // ← THÊM MỚI: reset cờ rollover của kỳ đang chọn để nếu user vừa sửa
-    // kỳ trước rồi chuyển sang kỳ này, rollover sẽ chạy lại và cập nhật đúng.
-    if(p.type !== 'year'){
-        _rolloverRanForPeriod[p.val] = false;
-    }
-    // Cập nhật label
+  var p = getSelectedPeriod();
+  // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
+  if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
+  // Cập nhật label
   var labelEl = document.getElementById('bc-period-label');
   if(labelEl){
     if(p.type === 'year'){
@@ -7550,24 +7539,12 @@ function _syncPeriodToCloud(){
     var periodKey = _currentPeriodKey();
     if(!periodKey) return;
     saveToSupabase(periodKey, {skipMeta:true}).then(function(ok){
-    if(ok){
-        _dirty = false;
-        _setSaveStatus('saved');
-        // ← THÊM MỚI: reset cờ rollover kỳ tiếp để khi user chuyển sang
-        // xem kỳ tiếp, rollover sẽ chạy lại với tồn cuối mới nhất.
-        try{
-            var _nk = _nextPeriodKey(periodKey);
-            if(_nk) _rolloverRanForPeriod[_nk] = false;
-        }catch(e){}
-    } else {
-        _setSaveStatus('error');
-        _scheduleRetry(periodKey);
-    }
-}).catch(function(e){
-    console.warn('Sync cloud error:', e);
-    _setSaveStatus('error');
-    _scheduleRetry(periodKey);
-});
+      if(ok){ _dirty = false; _setSaveStatus('saved'); }
+      else { _setSaveStatus('error'); _scheduleRetry(periodKey); }
+    }).catch(function(e){
+      console.warn('Sync cloud error:', e);
+      _setSaveStatus('error'); _scheduleRetry(periodKey);
+    });
   }, 500);
 }
 
@@ -7889,6 +7866,163 @@ async function _createNextPeriodRows(curKey, nextKey){
     }
   }
   return createdCount;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CASCADE TỒN ĐẦU — tồn cuối kỳ này → tồn đầu kỳ sau, lan theo dây chuyền.
+// Gọi sau mỗi lần lưu. Chỉ ghi cột "open", giữ nguyên các cột nhập/xuất.
+// Cập nhật cả tháng đã khóa. Dừng khi tồn đầu kỳ sau không còn thay đổi.
+// ════════════════════════════════════════════════════════════════════
+var _cascadeTimer = null;
+var _cascadeRunning = false;
+var _cascadePending = null;
+
+// Hẹn giờ chạy cascade (gộp nhiều lần lưu liên tiếp), debounce 1.2s
+function _scheduleCascade(periodKey){
+  if(!periodKey || !_supaOnline) return;
+  // Luôn cascade từ kỳ SỚM NHẤT trong các yêu cầu đang chờ
+  if(!_cascadePending || _periodToNum(periodKey) < _periodToNum(_cascadePending)){
+    _cascadePending = periodKey;
+  }
+  clearTimeout(_cascadeTimer);
+  _cascadeTimer = setTimeout(function(){
+    var startKey = _cascadePending; _cascadePending = null;
+    if(startKey) _cascadeOpeningStock(startKey).catch(function(e){ console.warn('cascade lỗi', e); });
+  }, 1200);
+}
+
+async function _cascadeOpeningStock(startPeriodKey){
+  if(!startPeriodKey || !_supaOnline) return 0;
+  if(_cascadeRunning) return 0; // tránh chạy chồng
+  _cascadeRunning = true;
+  var SAFETY = 24;            // tối đa 24 tháng tới
+  var totalUpdated = 0;
+  var touchedCurrent = false;
+  var curViewKey = (typeof _currentPeriodKey==='function') ? _currentPeriodKey() : '';
+
+  try{
+    var curKey = startPeriodKey;
+    for(var step=0; step<SAFETY; step++){
+      var nextKey = _nextPeriodKey(curKey);
+      if(!nextKey) break;
+
+      // Lấy tồn cuối kỳ hiện tại TƯƠI từ cloud (không dùng RAM có thể stale)
+      var curRows = await _fetchPeriodFromCloud(curKey);
+      if(curRows === null) break;
+      // Lấy tồn đầu kỳ tiếp đang lưu trên cloud
+      var nextRows = await _fetchPeriodFromCloud(nextKey);
+      if(nextRows === null) nextRows = [];
+
+      var _uk = function(r){ return (r.unit===BVPH||r.unit==='bvph') ? 'bvph' : (r.unit||''); };
+      var _key = function(r){ return _uk(r)+'||'+r.drug+'||'+r.lot+'||'+(r.exp||''); };
+
+      // Tồn cuối kỳ hiện tại theo từng dòng
+      var closingMap = {};
+      curRows.forEach(function(r){ var k=_uk(r); if(!k) return; closingMap[_key(r)] = Math.max(0, calcRow(r).final); });
+
+      // Index dòng kỳ tiếp đang có
+      var nextIdx = {};
+      nextRows.forEach(function(r){ var k=_uk(r); if(!k) return; nextIdx[_key(r)] = r; });
+
+      var patches = [];   // {unit,drug,lot,exp,open,create}
+      var anyChange = false;
+
+      Object.keys(closingMap).forEach(function(key){
+        var fin = closingMap[key];
+        var ex = nextIdx[key];
+        if(ex){
+          // Dòng đã có ở kỳ tiếp: cập nhật open nếu lệch (kể cả đã khóa)
+          if((ex.open||0) !== fin){
+            patches.push({unit:_uk(ex), drug:ex.drug, lot:ex.lot, exp:ex.exp||'', open:fin, create:false});
+            anyChange = true;
+          }
+        } else if(fin > 0){
+          // Kỳ tiếp chưa có dòng nhưng còn tồn → tạo mới
+          var p = key.split('||');
+          patches.push({unit:p[0], drug:p[1], lot:p[2], exp:p[3], open:fin, create:true});
+          anyChange = true;
+        }
+      });
+
+      if(patches.length){
+        await _applyOpenPatches(nextKey, patches);
+        totalUpdated += patches.length;
+        if(nextKey === curViewKey) touchedCurrent = true;
+
+        // Cập nhật RAM nếu đang giữ kỳ tiếp trong bvphData/bcData
+        patches.forEach(function(pt){
+          var arr = (pt.unit==='bvph') ? bvphData : bcData;
+          var found = false;
+          arr.forEach(function(x){
+            var xuk = (x.unit===BVPH||x.unit==='bvph')?'bvph':(x.unit||'');
+            if(x.bcMonth===nextKey && xuk===pt.unit && x.drug===pt.drug && x.lot===pt.lot && (x.exp||'')===(pt.exp||'')){
+              x.open = pt.open; found = true;
+            }
+          });
+          if(!found && pt.create){
+            arr.push({
+              unit:(pt.unit==='bvph'?BVPH:pt.unit), drug:pt.drug, lot:pt.lot, exp:pt.exp,
+              open:pt.open, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+              locked:false, editing:false, bcMonth:nextKey, openLocked:true
+            });
+          }
+        });
+      }
+
+      // ĐIỂM DỪNG: tồn đầu kỳ tiếp không đổi → tồn cuối kỳ tiếp cũng không đổi → dừng lan.
+      if(!anyChange) break;
+
+      curKey = nextKey; // lan sang kỳ kế tiếp
+    }
+  } finally {
+    _cascadeRunning = false;
+  }
+
+  // Nếu kỳ đang xem bị ảnh hưởng → làm mới giao diện ngay
+  if(touchedCurrent){
+    try{ renderBVPH(); }catch(e){}
+    try{ renderBC(); }catch(e){}
+    try{ renderDrugTable(); }catch(e){}
+    try{ renderTQ(); }catch(e){}
+  }
+  if(totalUpdated > 0){
+    try{ toast('Đã cập nhật tồn đầu '+totalUpdated+' dòng ở các kỳ sau theo tồn cuối mới.','#1a5276'); }catch(e){}
+  }
+  return totalUpdated;
+}
+
+// Ghi tồn đầu lên cloud: PATCH chỉ cột open (giữ nguyên nhập/xuất); tạo dòng mới nếu cần.
+async function _applyOpenPatches(periodKey, patches){
+  var hd = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
+  var creates = [];
+  for(var i=0; i<patches.length; i++){
+    var pt = patches[i];
+    if(pt.create){
+      creates.push({
+        period:periodKey, unit:pt.unit, drug:pt.drug, lot:pt.lot, exp:pt.exp||'',
+        open:pt.open, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+        locked:false, bc_month:periodKey
+      });
+    } else {
+      // PATCH chỉ cột open — KHÔNG đụng tinh/dc/sd/... dữ liệu người dùng đã nhập
+      var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
+        +'&unit=eq.'+encodeURIComponent(pt.unit)
+        +'&drug=eq.'+encodeURIComponent(pt.drug)
+        +'&lot=eq.'+encodeURIComponent(pt.lot)
+        +'&exp=eq.'+encodeURIComponent(pt.exp||'');
+      try{ await fetch(url, {method:'PATCH', headers:hd, body:JSON.stringify({open:pt.open})}); }
+      catch(e){ console.warn('cascade PATCH lỗi', e); }
+    }
+  }
+  if(creates.length){
+    try{
+      await fetch(SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp',{
+        method:'POST',
+        headers:Object.assign({},hd,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+        body:JSON.stringify(creates)
+      });
+    }catch(e){ console.warn('cascade create lỗi', e); }
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════
