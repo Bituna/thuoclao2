@@ -2030,6 +2030,9 @@ async function _autoLoadOnLogin(){
     updateSaveBtnUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
     _cacheTransfers(periodKey);
+    // Sau khi load xong → tính lại dc2 kho chính từ Supabase (đúng với mọi role)
+    // Tài khoản bvph không có bcData của 22 đơn vị → phải lấy từ cloud
+    try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
 
     // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng, chống ghi đè đa luồng)
     try{
@@ -6385,12 +6388,26 @@ async function _syncBVPHDc2ToCloud(periodKey){
       }catch(e){ console.warn('[dc2sync] PATCH lỗi', e); }
     }
 
+    // Dù có patch hay không → luôn cập nhật RAM với giá trị đúng từ cloud
+    // (vì lần đầu load, bvphData có thể mang dc2=0 từ Supabase chưa được ghi đúng)
+    rows.forEach(function(r){
+      var u = r.unit||'';
+      if(u!==BVPH && u!=='bvph') return;
+      var k = _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'');
+      var correctDc2 = sumByKey[k] || 0;
+      bvphData.forEach(function(x){
+        if(x.bcMonth===periodKey && x.drug===r.drug && x.lot===r.lot && (x.exp||'')===(r.exp||'')){
+          x.dc2 = correctDc2;
+        }
+      });
+    });
+
     if(patches.length){
       // Cascade tồn đầu kỳ sau vì dc2 (tồn cuối) đã đổi
       try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
-      // Làm mới giao diện
-      try{ renderBVPH(); }catch(e){}
     }
+    // Luôn render lại để hiển thị dc2 đúng (kể cả khi Supabase chưa cần patch)
+    try{ renderBVPH(); }catch(e){}
   }catch(e){ console.warn('[_syncBVPHDc2ToCloud]', e); }
 }
 
