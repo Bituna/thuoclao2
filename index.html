@@ -5613,10 +5613,15 @@ function matchPeriod(r){
 function onYearChange(){ onGlobalMonthChange(); }
 
 function onGlobalMonthChange(){
-  var p = getSelectedPeriod();
-  // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
-  if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
-  // Cập nhật label
+    var p = getSelectedPeriod();
+    // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
+    if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
+    // ← THÊM MỚI: reset cờ rollover của kỳ đang chọn để nếu user vừa sửa
+    // kỳ trước rồi chuyển sang kỳ này, rollover sẽ chạy lại và cập nhật đúng.
+    if(p.type !== 'year'){
+        _rolloverRanForPeriod[p.val] = false;
+    }
+    // Cập nhật label
   var labelEl = document.getElementById('bc-period-label');
   if(labelEl){
     if(p.type === 'year'){
@@ -7545,12 +7550,24 @@ function _syncPeriodToCloud(){
     var periodKey = _currentPeriodKey();
     if(!periodKey) return;
     saveToSupabase(periodKey, {skipMeta:true}).then(function(ok){
-      if(ok){ _dirty = false; _setSaveStatus('saved'); }
-      else { _setSaveStatus('error'); _scheduleRetry(periodKey); }
-    }).catch(function(e){
-      console.warn('Sync cloud error:', e);
-      _setSaveStatus('error'); _scheduleRetry(periodKey);
-    });
+    if(ok){
+        _dirty = false;
+        _setSaveStatus('saved');
+        // ← THÊM MỚI: reset cờ rollover kỳ tiếp để khi user chuyển sang
+        // xem kỳ tiếp, rollover sẽ chạy lại với tồn cuối mới nhất.
+        try{
+            var _nk = _nextPeriodKey(periodKey);
+            if(_nk) _rolloverRanForPeriod[_nk] = false;
+        }catch(e){}
+    } else {
+        _setSaveStatus('error');
+        _scheduleRetry(periodKey);
+    }
+}).catch(function(e){
+    console.warn('Sync cloud error:', e);
+    _setSaveStatus('error');
+    _scheduleRetry(periodKey);
+});
   }, 500);
 }
 
