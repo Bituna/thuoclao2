@@ -4116,13 +4116,14 @@ function renderAccounts(){
     }
 
     // Nút thao tác
+    var _bStyle = 'display:inline-flex;align-items:center;gap:3px;padding:5px 10px;font-size:11px;font-weight:600;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;';
     var btns='';
     if(isAdminView){
-      btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editAccount('+i+')">✏ Sửa</button> ';
-      btns+='<button class="btn btn-xs" style="background:#6c757d;color:white;border-radius:5px" onclick="changeRole('+i+')">⚙ Quyền</button>';
-      if(!isSelf && a.role!=='admin') btns+=' <button class="btn btn-xs" style="background:#e74c3c;color:white;border-radius:5px" onclick="deleteAccount('+i+')">✕ Xóa</button>';
+      btns='<button style="'+_bStyle+'background:#f39c12;color:white" onclick="editAccount('+i+')">✏ Sửa</button> ';
+      btns+='<button style="'+_bStyle+'background:#6c757d;color:white" onclick="changeRole('+i+')">⚙ Quyền</button>';
+      if(!isSelf && a.role!=='admin') btns+=' <button style="'+_bStyle+'background:#e74c3c;color:white" onclick="deleteAccount('+i+')">✕ Xóa</button>';
     } else {
-      btns='<button class="btn btn-xs" style="background:#f39c12;color:white;border-radius:5px" onclick="editSelfAccount('+i+')">✏ Sửa</button>';
+      btns='<button style="'+_bStyle+'background:#f39c12;color:white" onclick="editSelfAccount('+i+')">✏ Sửa thông tin</button>';
     }
 
     // Dòng bảng — bỏ cột username, thêm cột Dược sĩ (tức là tên người dùng)
@@ -12006,27 +12007,35 @@ function renderPatientTable(){
     var idx = BN_DATA.indexOf(bn);
     var isCompleted = (st.label === 'Hoàn thành');
     var dLeft = (st.label === 'Đang điều trị') ? _daysLeft(bn) : Infinity;
-    // Màu nền theo mức độ cấp bách
+    // ── MÀU NỀN & BADGE theo số ngày còn lại (chỉ BN đang điều trị) ──
+    // > 60 ngày  : bình thường
+    // 31–60 ngày : vàng nhạt — sắp kết thúc, chú ý
+    // 15–30 ngày : cam nhạt  — cần chuẩn bị
+    // ≤ 14 ngày  : đỏ nhạt   — rất gấp
+    // (BN qua ngày kết thúc tự động thành Hoàn thành — không có trạng thái quá hạn)
     var bg, borderLeft = '';
     if(isCompleted){
       bg = '#f0f0f0';
-    } else if(dLeft <= 7){
-      bg = (i%2===0) ? '#fff0f0' : '#ffe5e5';  // đỏ nhạt: ≤7 ngày
+    } else if(dLeft <= 14){
+      bg = (i%2===0) ? '#fff0f0' : '#ffe5e5';   // đỏ nhạt: ≤14 ngày
       borderLeft = 'border-left:4px solid #e74c3c;';
     } else if(dLeft <= 30){
-      bg = (i%2===0) ? '#fff8ec' : '#fff3dc';  // cam nhạt: ≤30 ngày
-      borderLeft = 'border-left:4px solid #f39c12;';
+      bg = (i%2===0) ? '#fff5ec' : '#ffedd8';   // cam nhạt: 15–30 ngày
+      borderLeft = 'border-left:4px solid #f97316;';
+    } else if(dLeft <= 60){
+      bg = (i%2===0) ? '#fefce8' : '#fef9c3';   // vàng nhạt: 31–60 ngày
+      borderLeft = 'border-left:4px solid #eab308;';
     } else {
-      bg = (i%2===0) ? '#fff' : '#f8f9fa';
+      bg = (i%2===0) ? '#fff' : '#f8f9fa';      // bình thường: >60 ngày
     }
-    // Badge cảnh báo ngày kết thúc
+    // Badge số ngày còn lại
     var urgentBadge = '';
-    if(dLeft <= 7 && dLeft >= 0){
-      urgentBadge = ' <span style="font-size:10px;background:#e74c3c;color:white;padding:1px 5px;border-radius:3px;font-weight:700">⚠ '+dLeft+' ngày</span>';
-    } else if(dLeft <= 30 && dLeft >= 0){
-      urgentBadge = ' <span style="font-size:10px;background:#f39c12;color:white;padding:1px 5px;border-radius:3px;font-weight:700">'+dLeft+' ngày</span>';
-    } else if(dLeft < 0){
-      urgentBadge = ' <span style="font-size:10px;background:#7f8c8d;color:white;padding:1px 5px;border-radius:3px">Hết hạn</span>';
+    if(dLeft <= 14){
+      urgentBadge = ' <span style="font-size:10px;background:#e74c3c;color:white;padding:1px 6px;border-radius:3px;font-weight:700">🔴 '+dLeft+' ngày</span>';
+    } else if(dLeft <= 30){
+      urgentBadge = ' <span style="font-size:10px;background:#f97316;color:white;padding:1px 6px;border-radius:3px;font-weight:700">🟠 '+dLeft+' ngày</span>';
+    } else if(dLeft <= 60){
+      urgentBadge = ' <span style="font-size:10px;background:#ca8a04;color:white;padding:1px 6px;border-radius:3px;font-weight:600">🟡 '+dLeft+' ngày</span>';
     }
     var name = capName(bn.name || bn.hoTen || '');
     var gender = bn.gender || bn.gioiTinh || '';
