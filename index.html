@@ -11980,11 +11980,54 @@ function renderPatientTable(){
     return fmtDate(d)+'<br><small style="color:#aaa;font-weight:normal">(Dự kiến)</small>';
   }
 
+  // ── SẮP XẾP: BN sắp kết thúc lên đầu ──
+  var today = new Date(); today.setHours(0,0,0,0);
+  function _getEndMs(bn){
+    var d = getEndDate(bn);
+    return d ? d.getTime() : Infinity;
+  }
+  function _daysLeft(bn){
+    var ms = _getEndMs(bn);
+    if(ms === Infinity) return Infinity;
+    return Math.ceil((ms - today.getTime()) / 86400000);
+  }
+  list = list.slice().sort(function(a, b){
+    var stA = bnStatus(a).label, stB = bnStatus(b).label;
+    var isActiveA = (stA === 'Đang điều trị'), isActiveB = (stB === 'Đang điều trị');
+    // BN đang điều trị lên trước BN hoàn thành/khác
+    if(isActiveA !== isActiveB) return isActiveA ? -1 : 1;
+    // Trong nhóm đang điều trị: sắp xếp theo ngày kết thúc tăng dần (sắp hết lên trên)
+    if(isActiveA && isActiveB) return _getEndMs(a) - _getEndMs(b);
+    return 0;
+  });
+
   tbody.innerHTML = list.map(function(bn,i){
     var st = bnStatus(bn);
     var idx = BN_DATA.indexOf(bn);
     var isCompleted = (st.label === 'Hoàn thành');
-    var bg = isCompleted ? '#f0f0f0' : (i%2===0 ? '#fff' : '#f8f9fa');
+    var dLeft = (st.label === 'Đang điều trị') ? _daysLeft(bn) : Infinity;
+    // Màu nền theo mức độ cấp bách
+    var bg, borderLeft = '';
+    if(isCompleted){
+      bg = '#f0f0f0';
+    } else if(dLeft <= 7){
+      bg = (i%2===0) ? '#fff0f0' : '#ffe5e5';  // đỏ nhạt: ≤7 ngày
+      borderLeft = 'border-left:4px solid #e74c3c;';
+    } else if(dLeft <= 30){
+      bg = (i%2===0) ? '#fff8ec' : '#fff3dc';  // cam nhạt: ≤30 ngày
+      borderLeft = 'border-left:4px solid #f39c12;';
+    } else {
+      bg = (i%2===0) ? '#fff' : '#f8f9fa';
+    }
+    // Badge cảnh báo ngày kết thúc
+    var urgentBadge = '';
+    if(dLeft <= 7 && dLeft >= 0){
+      urgentBadge = ' <span style="font-size:10px;background:#e74c3c;color:white;padding:1px 5px;border-radius:3px;font-weight:700">⚠ '+dLeft+' ngày</span>';
+    } else if(dLeft <= 30 && dLeft >= 0){
+      urgentBadge = ' <span style="font-size:10px;background:#f39c12;color:white;padding:1px 5px;border-radius:3px;font-weight:700">'+dLeft+' ngày</span>';
+    } else if(dLeft < 0){
+      urgentBadge = ' <span style="font-size:10px;background:#7f8c8d;color:white;padding:1px 5px;border-radius:3px">Hết hạn</span>';
+    }
     var name = capName(bn.name || bn.hoTen || '');
     var gender = bn.gender || bn.gioiTinh || '';
     var age = bn.age || bn.tuoi || '';
@@ -11993,7 +12036,9 @@ function renderPatientTable(){
     var unit = bn.unit || bn.donVi || '';
     var sdFmt = fmtDate(bn.startDate || bn.ngayBD || '');
     var edFmt = calcEndStr(bn);
-    var rowStyle = isCompleted ? 'background:'+bg+';border-bottom:1px solid #eee;opacity:0.55' : 'background:'+bg+';border-bottom:1px solid #eee';
+    var rowStyle = isCompleted
+      ? 'background:'+bg+';border-bottom:1px solid #eee;opacity:0.55;'
+      : 'background:'+bg+';border-bottom:1px solid #eee;'+borderLeft;
     return '<tr style="'+rowStyle+'">'
       + '<td style="padding:6px 8px;text-align:center;color:#888">'+(i+1)+'</td>'
       + '<td style="padding:6px 8px;font-weight:600">'+escH(name)+'</td>'
@@ -12001,7 +12046,7 @@ function renderPatientTable(){
       + '<td style="padding:6px 8px;text-align:center">'+escH(String(age))+'</td>'
       + '<td style="padding:6px 8px">'+escH(address)+'</td>'
       + '<td style="padding:6px 8px;text-align:center;white-space:nowrap">'+sdFmt+'</td>'
-      + '<td style="padding:6px 8px;text-align:center;white-space:nowrap;color:#d35400;font-weight:600">'+edFmt+'</td>'
+      + '<td style="padding:6px 8px;text-align:center;white-space:nowrap;color:#d35400;font-weight:600">'+edFmt+urgentBadge+'</td>'
       + '<td style="padding:6px 8px"><span style="font-size:12px;background:#eef7ff;color:#1a5276;padding:2px 8px;border-radius:4px;font-weight:600">'+escH(pd)+'</span></td>'
       + '<td style="padding:6px 8px;font-size:12px;color:#555">'+escH(_displayUnit(unit))+'</td>'
       + '<td style="padding:6px 8px;text-align:center"><span class="'+st.cls+'" style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">'+st.label+'</span></td>'
