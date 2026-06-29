@@ -986,6 +986,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
             onmouseout="this.style.transform='';this.style.filter=''">
             <span style="font-size:15px">🔍</span> Kiểm tra tồn đầu
           </button>
+          <button id="btn-sync-tcl" onclick="adminSyncXuatTCL()"
+            title="Tính lại Xuất Tổ CL của Kho chính (= tổng Nhập tỉnh của 22 đơn vị) và ghi lên Cloud cho kỳ đang chọn"
+            class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#9333ea,#7c3aed);box-shadow:0 3px 10px rgba(124,58,237,.3)"
+            onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
+            onmouseout="this.style.transform='';this.style.filter=''">
+            <span style="font-size:15px">🔄</span> Đồng bộ Xuất TCL
+          </button>
           <button id="btn-check-cloud" onclick="adminCheckCloudSave()"
             title="Kiểm tra thực tế việc lưu/xóa dữ liệu lên cloud có hoạt động không"
             class="adm-btn adm-btn-icon" style="background:linear-gradient(135deg,#3d566e,#2c3e50);box-shadow:0 3px 10px rgba(44,62,80,.3)"
@@ -6409,6 +6416,135 @@ async function _syncBVPHDc2ToCloud(periodKey){
     // Luôn render lại để hiển thị dc2 đúng (kể cả khi Supabase chưa cần patch)
     try{ renderBVPH(); }catch(e){}
   }catch(e){ console.warn('[_syncBVPHDc2ToCloud]', e); }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ĐỒNG BỘ THỦ CÔNG (Admin): Tính Xuất Tổ CL kho chính = tổng Nhập tỉnh 22 đơn vị
+// rồi GHI LÊN CLOUD bằng UPSERT (tạo dòng nếu chưa có). Báo cáo kết quả chi tiết.
+// ════════════════════════════════════════════════════════════════════
+async function adminSyncXuatTCL(){
+  if(typeof isAdmin==='function' && !isAdmin()){
+    toast('Chỉ Admin mới chạy đồng bộ này.','var(--danger)'); return;
+  }
+  if(!_supaOnline){ toast('Cần kết nối Cloud để đồng bộ.','var(--danger)'); return; }
+  var periodKey = _currentPeriodKey();
+  if(!periodKey){ toast('Chưa chọn kỳ báo cáo.','var(--danger)'); return; }
+
+  var btn = document.getElementById('btn-sync-tcl');
+  var oldHtml = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span style="font-size:15px">⏳</span> Đang đồng bộ...'; }
+
+  try{
+    // 1. Lấy TẤT CẢ dòng kỳ này từ cloud (admin đọc được mọi đơn vị)
+    var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)
+      +'&select=id,unit,drug,lot,exp,tinh,dc2,open,ntk,dc,sd,dc3,hh,locked&order=unit,drug,lot';
+    var r = await fetch(url, {headers:_supaHdr, cache:'no-store'});
+    if(!r.ok){ toast('Lỗi đọc cloud: HTTP '+r.status,'var(--danger)'); throw new Error('fetch '+r.status); }
+    var rows = await r.json();
+
+    // 2. Gom tổng tinh (Nhập tỉnh) của các đơn vị tuyến theo thuốc|lô|hạn
+    var sumByKey = {};
+    rows.forEach(function(row){
+      var u = row.unit||'';
+      if(u===BVPH||u==='bvph') return;
+      var k = _normStr(row.drug)+'||'+_normStr(row.lot)+'||'+_normExp(row.exp||'');
+      sumByKey[k] = (sumByKey[k]||0) + (row.tinh||0);
+    });
+
+    // 3. Lập danh sách dòng kho chính cần ghi dc2
+    var bvRows = rows.filter(function(row){ var u=row.unit||''; return u===BVPH||u==='bvph'; });
+    var bvIndex = {};
+    bvRows.forEach(function(row){
+      bvIndex[_normStr(row.drug)+'||'+_normStr(row.lot)+'||'+_normExp(row.exp||'')] = row;
+    });
+
+    var hd = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'});
+    var upserts = [];
+    var report = []; // để hiển thị kết quả
+    var nChange = 0;
+
+    Object.keys(sumByKey).forEach(function(k){
+      var correctDc2 = sumByKey[k];
+      var bvRow = bvIndex[k];
+      if(bvRow){
+        if((bvRow.dc2||0) !== correctDc2){
+          upserts.push({
+            period:periodKey, unit:'bvph', drug:bvRow.drug, lot:bvRow.lot, exp:bvRow.exp||'',
+            open:bvRow.open||0, tinh:bvRow.tinh||0, ntk:bvRow.ntk||0, dc:bvRow.dc||0,
+            sd:bvRow.sd||0, dc2:correctDc2, dc3:bvRow.dc3||0, hh:bvRow.hh||0,
+            locked:!!bvRow.locked, bc_month:periodKey
+          });
+          report.push({drug:bvRow.drug, lot:bvRow.lot, old:bvRow.dc2||0, neu:correctDc2});
+          nChange++;
+        }
+      } else if(correctDc2 > 0){
+        // Đơn vị có nhập tỉnh nhưng kho chính chưa có dòng thuốc/lô này → tạo mới
+        var parts = k.split('||');
+        // Tìm thông tin gốc (drug/lot/exp chưa chuẩn hóa) từ dòng đơn vị bất kỳ
+        var src = rows.find(function(row){
+          var u=row.unit||''; if(u===BVPH||u==='bvph') return false;
+          return _normStr(row.drug)+'||'+_normStr(row.lot)+'||'+_normExp(row.exp||'')===k;
+        });
+        if(src){
+          upserts.push({
+            period:periodKey, unit:'bvph', drug:src.drug, lot:src.lot, exp:src.exp||'',
+            open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:correctDc2, dc3:0, hh:0,
+            locked:false, bc_month:periodKey
+          });
+          report.push({drug:src.drug, lot:src.lot, old:0, neu:correctDc2, moi:true});
+          nChange++;
+        }
+      }
+    });
+
+    // 4. Ghi lên cloud bằng UPSERT
+    if(upserts.length){
+      var upUrl = SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp';
+      var upRes = await fetch(upUrl, {method:'POST', headers:hd, body:JSON.stringify(upserts)});
+      if(!upRes.ok){
+        var errT = await upRes.text();
+        toast('❌ Ghi cloud thất bại: HTTP '+upRes.status+' '+errT.slice(0,80),'var(--danger)');
+        throw new Error('upsert '+upRes.status);
+      }
+      // Cập nhật RAM
+      upserts.forEach(function(u){
+        var found=false;
+        bvphData.forEach(function(x){
+          var xuk=(x.unit===BVPH||x.unit==='bvph')?'bvph':(x.unit||'');
+          if(x.bcMonth===periodKey && xuk==='bvph' && x.drug===u.drug && x.lot===u.lot && (x.exp||'')===(u.exp||'')){
+            x.dc2=u.dc2; found=true;
+          }
+        });
+        if(!found){
+          bvphData.push({unit:BVPH, drug:u.drug, lot:u.lot, exp:u.exp, open:u.open||0,
+            tinh:0, ntk:0, dc:0, sd:0, dc2:u.dc2, dc3:0, hh:0, locked:!!u.locked,
+            editing:false, bcMonth:periodKey, openLocked:!!u.locked});
+        }
+      });
+      try{ renderBVPH(); renderBC(); }catch(e){}
+      // Cascade tồn đầu kỳ sau
+      try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
+    }
+
+    // 5. Báo cáo kết quả
+    if(nChange===0){
+      toast('✓ Xuất Tổ CL đã khớp với Nhập tỉnh các đơn vị. Không có gì cần cập nhật.','#16a34a');
+    } else {
+      var lines = report.slice(0,10).map(function(x){
+        return '• '+x.drug+' (lô '+x.lot+'): '+x.old.toLocaleString()+' → '+x.neu.toLocaleString()+(x.moi?' [tạo mới]':'');
+      }).join('<br>');
+      var more = report.length>10 ? '<br>...và '+(report.length-10)+' dòng khác' : '';
+      _confirmModal('✓ Đã đồng bộ '+nChange+' dòng lên Cloud',
+        'Đã ghi Xuất Tổ CL cho '+nChange+' dòng kho chính:<br><br>'+lines+more,
+        function(){}, null, 'Đóng');
+      toast('✓ Đã ghi '+nChange+' dòng Xuất Tổ CL lên Cloud','#16a34a');
+    }
+  }catch(e){
+    console.warn('[adminSyncXuatTCL]', e);
+    toast('Lỗi đồng bộ: '+(e&&e.message||e),'var(--danger)');
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML=oldHtml; }
+  }
 }
 
 // Cập nhật trạng thái ô NHẬP TỒN ĐẦU trong form thêm dòng:
