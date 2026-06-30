@@ -13227,7 +13227,11 @@ var WHO_DOSE = {
   'Streptomycin 1g': function(w){ return { monthTotal:0, note:'Trẻ em: không dùng. Người lớn ≥18 tuổi: theo độ pha loãng sử dụng — chỉ định ngoại lệ, cần giám sát thính lực' }; },
   'Capreomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'1 lọ/ngày' }; },
   // Pretomanid 200mg — chỉ dùng trong BPaLM/BPaL, người đủ điều kiện (thường ≥14 tuổi)
-  'Pretomanid 200mg': function(w){ return _md(1); },
+  // Pretomanid 200mg — chỉ dùng từ 30kg trở lên (1 viên/ngày); dưới 30kg: không dùng
+  'Pretomanid 200mg': function(w){
+    if(w<30) return _notUsed();
+    return _md(1);                   // 30–<36, 36–<46, 46–<56, 56–<70, ≥70
+  },
   // Amoxicillin/Clavulanate — luôn kèm Imipenem hoặc Meropenem
   'Amoxicillin/Clavulanate 250mg': function(w){
     if(w<5)  return { monthTotal:+(1.5*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1,5 ml × 3 lần/ngày (gói pha 5ml)' };
