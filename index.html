@@ -2409,6 +2409,26 @@ async function _saveSupaCatalog(){
 }
 
 // ── TẢI TỪ SUPABASE ───────────────────────────────────────
+// ── Hash nhanh để so sánh data trước/sau merge, tránh render thừa ──
+// Không dùng crypto (không cần bảo mật), chỉ cần đủ nhanh và ít va chạm cho dữ liệu dược.
+// Thuật toán: lấy tổng length + một số field đại diện (drug, lot, open, tin, tout, dc2, bcMonth, unit)
+// thay vì JSON.stringify toàn bộ (chậm với 1000+ dòng).
+function _quickDataHash(bvph, bc){
+  var h = 0;
+  function _addStr(s){ if(!s) return; for(var i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) & 0x7fffffff; }
+  function _addNum(n){ h = (h*31 + (n|0)) & 0x7fffffff; }
+  function _hashRows(rows){
+    _addNum(rows.length);
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      _addStr(r.drug); _addStr(r.lot); _addStr(r.exp); _addStr(r.unit); _addStr(r.bcMonth);
+      _addNum(r.open); _addNum(r.tin); _addNum(r.tout); _addNum(r.dc2||0); _addNum(r.final||0);
+    }
+  }
+  _hashRows(bvph||[]); _hashRows(bc||[]);
+  return h;
+}
+
 async function loadFromSupabase(periodKey, silent){
   if(!periodKey){ toast('Chưa chọn kỳ!','var(--danger)'); return; }
   try{
@@ -2503,6 +2523,9 @@ async function loadFromSupabase(periodKey, silent){
       }catch(e){ console.warn('[loadFromSupabase] dc2 prefetch lỗi', e); }
     }
 
+    // Hash data TRƯỚC KHI merge (để so sánh sau)
+    var _hashBefore = _quickDataHash(bvphData, bcData);
+
     // Merge vào data hiện tại theo role
     if(role === 'donvi'){
       bcData = bcData.filter(function(x){ return !(x.bcMonth&&(p.type==='year'?x.bcMonth.startsWith(p.year+'-'):x.bcMonth===periodKey)&&x.unit===unit); })
@@ -2549,7 +2572,14 @@ async function loadFromSupabase(periodKey, silent){
       fillDrugSelects();
     }
     _cacheTransfers(periodKey); // load lại ghi chú điều chuyển
-    fullRender();
+
+    // ── Chỉ render lại nếu data thực sự thay đổi so với lần load trước ──
+    // Tránh nháy giao diện khi auto-refresh 12 giây mà Supabase trả về data y hệt.
+    var _hashAfter = _quickDataHash(bvphData, bcData);
+    var _dataChanged = (_hashAfter !== _hashBefore);
+    if(_dataChanged || !silent){
+      fullRender();
+    }
     updateSaveBtnUI();
     if(!silent) toast('✓ Đã tải '+rows.length+' dòng từ cloud (kỳ '+periodKey+')','#27ae60');
     // Tự động tính lại dc2 kho chính từ Supabase sau mỗi lần load
@@ -2653,6 +2683,7 @@ var threshold={low:200,expMonths:6};
 
 var bvphData=[];  // Dữ liệu kho chính BVPH — tải từ cloud (Supabase)
 var bcData=[];    // Dữ liệu 22 đơn vị — tải từ cloud (Supabase)
+var catalogData=[];  // Danh mục thuốc — tải từ cloud (Supabase)
 
 var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
 // Đánh dấu "không có báo cáo / không phát sinh" theo cặp kỳ|đơn vị, vd {"2026-06_Cơ sở cai nghiện số 1": true}
