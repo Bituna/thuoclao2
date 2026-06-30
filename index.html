@@ -87,11 +87,12 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .card-title svg{width:16px;height:16px;flex-shrink:0}
 /* Thu gọn tab Tổng quan để vừa màn hình, không tràn xuống dưới */
 #page-tq .stat-row{gap:9px;margin-bottom:10px}
-#page-tq .stat-card{padding:9px 12px;border-top-width:2px}
-#page-tq .stat-card .lbl{font-size:10px;margin-bottom:2px}
-#page-tq .stat-card .val{font-size:19px}
-#page-tq .stat-card .val[style]{font-size:18px!important}
-#page-tq .stat-card .sub{font-size:10px;margin-top:1px}
+#page-tq .stat-card{padding:10px 16px;border-top-width:2px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+#page-tq .stat-card .stat-left{display:flex;flex-direction:column;justify-content:center}
+#page-tq .stat-card .lbl{font-size:10px;margin-bottom:4px}
+#page-tq .stat-card .val{font-size:52px;line-height:1;text-align:right;font-weight:800;margin:0;flex-shrink:0}
+#page-tq .stat-card .val[style]{font-size:52px!important;text-align:right;margin:0}
+#page-tq .stat-card .sub{font-size:10px;margin-top:4px}
 #page-tq .card{padding:10px 12px;margin-bottom:10px!important}
 #page-tq .card-title{font-size:12px;margin-bottom:7px}
 #page-tq .cards-row{gap:10px;margin-bottom:10px}
@@ -111,11 +112,11 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .fg{display:flex;flex-direction:column;gap:4px}
 .fg label{font-size:11px;color:var(--muted);font-weight:600}
-.fg select,.fg input[type=text],.fg input[type=number],.fg input[type=month],.fg input[type=date]{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);font-family:'Be Vietnam Pro',sans-serif;outline:none}
+.fg select,.fg input[type=text],.fg input[type=number],.fg input[type=month],.fg input[type=date]{padding:7px 10px;border:1px solid var(--border);border-radius:18px;font-size:12px;background:var(--surface);color:var(--text);font-family:'Be Vietnam Pro',sans-serif;outline:none}
 .fg select:focus,.fg input:focus{border-color:var(--accent)}
 
 /* BUTTONS */
-.btn{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;font-family:'Be Vietnam Pro',sans-serif;transition:0.15s}
+.btn{padding:8px 16px;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;font-family:'Be Vietnam Pro',sans-serif;transition:0.15s}
 .btn:hover{opacity:0.9;transform:translateY(-1px)}
 .btn-primary{background:var(--accent);color:white}.btn-success{background:var(--success);color:white}
 .btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}
@@ -132,7 +133,7 @@ td.left{text-align:center;font-weight:600;padding-left:7px}
 .tbl-wrap td{white-space:nowrap;font-size:12px;padding:9px 8px;vertical-align:middle;line-height:1}
 td.open-stock{background:#fff8e1 !important;font-weight:700;color:#7c5200;border-left:3px solid #f59e0b;border-right:2px solid #f59e0b}
 /* Nút quản lý admin — đồng kích thước, cùng hàng */
-.adm-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:32px;padding:0 12px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;transition:transform .12s,filter .12s,box-shadow .12s}
+.adm-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:32px;padding:0 12px;border:none;border-radius:18px;cursor:pointer;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;transition:transform .12s,filter .12s,box-shadow .12s}
 .adm-btn-main{flex:1 1 0;min-width:100px;max-width:180px}
 .adm-btn-icon{flex:0 0 auto;width:34px;padding:0}
 td.calc-in{background:#dcfce7 !important;font-weight:700;color:#166534;border-right:2px solid #86efac}
@@ -229,13 +230,13 @@ th.hdr-act{
 .cpm-addblock{width:100%;padding:12px;border:1.5px dashed var(--success);background:rgba(39,174,96,.06);color:#1d7a46;border-radius:11px;cursor:pointer;font-weight:700;font-size:13px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px}
 .cpm-addblock:hover{background:rgba(39,174,96,.13)}
 /* ===== ĐÁNH BÓNG GIAO DIỆN TOÀN CỤC (bo góc đều + nút nổi bật) ===== */
-input[type=text],input[type=number],input[type=date],input[type=month],select,textarea{border-radius:9px}
-.fg select,.fg input[type=text],.fg input[type=number],.fg input[type=month],.fg input[type=date]{border-radius:9px;padding:8px 11px}
+input[type=text],input[type=number],input[type=date],input[type=month],select,textarea{border-radius:18px}
+.fg select,.fg input[type=text],.fg input[type=number],.fg input[type=month],.fg input[type=date]{border-radius:18px;padding:8px 14px}
 input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,input[type=month]:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(41,128,185,.13)}
 /* Select: mũi tên tùy biến + bo góc đồng bộ (danh sách mở vẫn do trình duyệt vẽ) */
 select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23718096' stroke-width='1.3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
 /* Nút: bo góc + nổi bật + hover nâng nhẹ */
-.btn{border-radius:9px;box-shadow:0 1px 2px rgba(26,35,50,.08)}
+.btn{border-radius:18px;box-shadow:0 1px 2px rgba(26,35,50,.08)}
 .btn-primary,.btn-success,.btn-danger,.btn-warning{box-shadow:0 2px 7px rgba(26,35,50,.20);font-weight:700}
 .btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(26,35,50,.20);opacity:1}
 .btn-primary:hover{background:var(--accent2)}
@@ -245,7 +246,7 @@ select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-i
 /* Thẻ / bảng / thanh lọc bo góc mượt hơn */
 .tbl-wrap,.filter-bar,.card,.stat-card{border-radius:12px}
 .tbl-wrap{box-shadow:0 1px 3px rgba(26,35,50,.05)}
-.adm-btn{border-radius:8px}
+.adm-btn{border-radius:18px}
 .badge{border-radius:20px}
 .sb-item{border-radius:9px}
 /* Ô nhập số trong bảng cũng bo tròn nhẹ */
@@ -516,6 +517,10 @@ em{font-style:normal!important}i{font-style:normal!important}
 .tbl-wrap tbody tr:last-child td:last-child{ border-radius:0 0 10px 0; }
 .tbl-wrap thead tr:nth-child(2) th{ height:32px; box-sizing:border-box; padding-top:7px; padding-bottom:7px; font-size:11px; }
 
+/* 2b. Dòng TỔNG (tfoot) — sticky dưới đáy khung cuộn, luôn hiển thị không cần kéo xuống */
+.tbl-wrap tfoot{ position:sticky; bottom:0; z-index:48; }
+.tbl-wrap tfoot tr td{ position:relative; background-color:#eef7ff!important; border-top:2px solid #1a5276; box-shadow:0 -2px 4px rgba(0,0,0,0.06); }
+
 /* 3. Sub-header hàng 2 — chồng 1px lên hàng 1 để KHÔNG hở đường trắng khi cuộn dính */
 .tbl-wrap thead tr:nth-child(2) th{
   top:41px;  /* = height row 1 */
@@ -752,7 +757,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
       <label style="font-size:12px;font-weight:600;color:var(--muted)">Kỳ thống kê:</label>
       <input id="tq-year" list="tq-year-list" value="2026"
-        style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);width:80px;cursor:pointer" placeholder="Năm..."
+        style="padding:6px 10px;border:1px solid var(--border);border-radius:18px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface);width:80px;cursor:pointer" placeholder="Năm..."
         oninput="_yearInput(this,'tq-year-list',onTQPeriodChange)"
         onchange="onTQPeriodChange()">
       <datalist id="tq-year-list">
@@ -777,32 +782,54 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   </div>
   <div class="page-body">
     <div class="stat-row" style="grid-template-columns:repeat(5,1fr)">
-      <div class="stat-card c-blue"><div class="lbl">Tổng đơn vị</div><div class="val">23</div><div class="sub">Đơn vị tham gia</div></div>
-      <div class="stat-card c-green" style="cursor:pointer" onclick="_showTQUnitList('submitted')" title="Bấm xem danh sách"><div class="lbl">Đã nộp BC</div><div class="val" id="tq-da">—</div><div class="sub" id="tq-pct">—</div></div>
-      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQUnitList('notsub')" title="Bấm xem danh sách"><div class="lbl">Chưa nộp</div><div class="val" id="tq-chua">—</div><div class="sub">Bấm xem danh sách</div></div>
-      <div class="stat-card c-amber" style="cursor:pointer" onclick="_showTQAlert('low')" title="Bấm xem chi tiết"><div class="lbl">Cảnh báo tồn kho</div><div class="val" id="tq-low">—</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div>
-      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQAlert('exp')" title="Bấm xem chi tiết"><div class="lbl">Thuốc sắp hết hạn</div><div class="val" id="tq-exp-count" style="color:var(--danger)">—</div><div class="sub">&lt; 6 tháng — bấm xem</div></div>
+      <div class="stat-card c-blue"><div class="stat-left"><div class="lbl">Tổng đơn vị</div><div class="sub">Đơn vị tham gia</div></div><div class="val">23</div></div>
+      <div class="stat-card c-green" style="cursor:pointer" onclick="_showTQUnitList('submitted')" title="Bấm xem danh sách"><div class="stat-left"><div class="lbl">Đã nộp BC</div><div class="sub" id="tq-pct">—</div></div><div class="val" id="tq-da">—</div></div>
+      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQUnitList('notsub')" title="Bấm xem danh sách"><div class="stat-left"><div class="lbl">Chưa nộp</div><div class="sub">Bấm xem danh sách</div></div><div class="val" id="tq-chua">—</div></div>
+      <div class="stat-card c-amber" style="cursor:pointer" onclick="_showTQAlert('low')" title="Bấm xem chi tiết"><div class="stat-left"><div class="lbl">Cảnh báo tồn kho</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div><div class="val" id="tq-low">—</div></div>
+      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQAlert('exp')" title="Bấm xem chi tiết"><div class="stat-left"><div class="lbl">Thuốc sắp hết hạn</div><div class="sub">&lt; 6 tháng — bấm xem</div></div><div class="val" id="tq-exp-count" style="color:var(--danger)">—</div></div>
     </div>
 
-    <!-- BẢNG TỔNG HỢP THEO THUỐC (gộp toàn TP) -->
-    <div style="margin-bottom:14px;background:white;border-radius:10px;border:1px solid var(--border);overflow:hidden">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:#1a2332">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Tổng hợp theo thuốc (toàn thành phố) — bấm số để xem chi tiết lô
+    <!-- BẢNG TỔNG HỢP + BIỂU ĐỒ PHÁC ĐỒ -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+      <!-- Bảng tổng hợp theo thuốc -->
+      <div style="background:#f8fafc;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-direction:column;padding:12px;height:300px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <span style="font-size:13px;font-weight:700;color:#1a2332">Tổng hợp theo thuốc (toàn thành phố)</span>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;flex:1;border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="position:sticky;top:0;z-index:5">
+              <tr style="background:#1a5276;color:white">
+                <th style="padding:7px 10px;text-align:center;width:36px">TT</th>
+                <th style="padding:7px 10px;text-align:center">Tên thuốc</th>
+                <th style="padding:7px 10px;text-align:center">Tồn cuối</th>
+                <th style="padding:7px 10px;text-align:center;color:#a9e5c5">Tổng nhập</th>
+                <th style="padding:7px 10px;text-align:center;color:#f5b7b1">Tổng xuất</th>
+              </tr>
+            </thead>
+            <tbody id="tq-drug-body"></tbody>
+          </table>
+        </div>
       </div>
-      <div style="overflow-x:auto;max-height:230px;overflow-y:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead style="position:sticky;top:0;z-index:5">
-            <tr style="background:#1a5276;color:white">
-              <th style="padding:7px 10px;text-align:left">Tên thuốc</th>
-              <th style="padding:7px 10px;text-align:center">Tồn cuối</th>
-              <th style="padding:7px 10px;text-align:center;color:#a9e5c5">Tổng nhập</th>
-              <th style="padding:7px 10px;text-align:center;color:#f5b7b1">Tổng xuất</th>
-            </tr>
-          </thead>
-          <tbody id="tq-drug-body"></tbody>
-        </table>
+
+      <!-- Biểu đồ phác đồ điều trị -->
+      <div id="tq-regimen-chart-wrap" style="background:#f8fafc;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-direction:column;padding:12px;height:300px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#1a2332">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            Phác đồ đang được dùng
+          </div>
+          <span id="tq-regimen-total" style="font-size:11px;color:#64748b;font-weight:500"></span>
+        </div>
+        <div style="flex:1;overflow-y:auto;border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.05);background:white;padding:12px 14px">
+          <div id="tq-regimen-chart" style="display:flex;flex-direction:column;justify-content:flex-start">
+            <div style="color:#aaa;font-size:12px;text-align:center;padding:20px">Đang tải dữ liệu...</div>
+          </div>
+        </div>
       </div>
+
     </div>
 
     <!-- Các danh sách chi tiết đã chuyển thành popup khi bấm vào thẻ ở hàng trên -->
@@ -814,13 +841,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     </div>
 
     <!-- BẢNG ĐIỀU CHUYỂN TRONG KỲ -->
-    <div style="margin-top:16px;background:white;border-radius:10px;border:1px solid var(--border);padding:16px">
+    <div style="margin-top:16px;background:white;border-radius:12px;border:1px solid var(--border);padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:14px;font-weight:700;color:#1a2332;display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a5276" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
           Điều chuyển thuốc trong kỳ
         </div>
-        <button onclick="renderTQTransfers()" style="font-size:11px;padding:4px 12px;border:1px solid #cbd5e0;border-radius:6px;background:white;cursor:pointer;color:#555">↻ Cập nhật</button>
+        <button onclick="renderTQTransfers()" style="font-size:11px;padding:4px 12px;border:1px solid #cbd5e0;border-radius:18px;background:white;cursor:pointer;color:#555">↻ Cập nhật</button>
       </div>
       <div id="tq-transfer-table">
         <div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:12px">Đang tải...</div>
@@ -876,7 +903,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
           </div>
         </div>
       </div>
-      <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative">
+      <div class="tbl-wrap" style="margin-bottom:0;max-height:480px;position:relative;border-radius:12px;overflow:hidden;border:1px solid #dee2e6">
         <table>
           <thead>
             <tr style="background:#155724">
@@ -885,7 +912,6 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
               <th style="min-width:100px;background:#155724;color:#fff">Số lô SX</th>
               <th style="min-width:90px;background:#155724;color:#fff">Hạn dùng</th>
               <th style="background:#155724;color:#fff">Tình trạng</th>
-              <th style="background:#155724;color:#fff">Tồn kho (toàn TP)</th>
               <th style="background:#155724;color:#fff">Ghi chú</th>
               <th class="no-print cat-act-hdr" style="background:#155724;color:#fff">Thao tác</th>
             </tr>
@@ -914,20 +940,20 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </div>
       </div>
     </div>
-    <div class="tbl-wrap">
-      <table>
+    <div class="tbl-wrap" style="border-radius:12px;overflow-x:auto;overflow-y:auto;max-height:min(520px,60vh);border:1px solid #dee2e6;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+      <table style="width:100%">
         <thead>
           <tr style="background:#1a5276">
-            <th style="min-width:34px;width:34px;background:#1a5276;color:#fff">TT</th>
-            <th class="left" style="min-width:220px;background:#1a5276;color:#fff">Tên thuốc / Hàm lượng</th>
-            <th style="min-width:160px;background:#1a5276;color:#fff">Đơn vị</th>
-            <th style="min-width:100px;background:#1a5276;color:#fff">Số lô</th>
-            <th style="min-width:90px;background:#1a5276;color:#fff">Hạn dùng</th>
-            <th style="background:#1a5276;color:#fff">Tồn đầu kỳ</th>
-            <th style="background:#2ecc71;color:#fff">Tổng nhập</th>
-            <th style="background:#e74c3c;color:#fff">Tổng xuất</th>
-            <th style="background:#2980b9;color:#fff">Tồn cuối kỳ</th>
-            <th style="background:#1a5276;color:#fff">Trạng thái</th>
+            <th style="min-width:34px;width:34px;background:#1a5276;color:#fff;text-align:center">TT</th>
+            <th style="min-width:220px;background:#1a5276;color:#fff;text-align:center">Tên thuốc / Hàm lượng</th>
+            <th style="min-width:160px;background:#1a5276;color:#fff;text-align:center">Đơn vị</th>
+            <th style="min-width:100px;background:#1a5276;color:#fff;text-align:center">Số lô</th>
+            <th style="min-width:90px;background:#1a5276;color:#fff;text-align:center">Hạn dùng</th>
+            <th style="background:#1a5276;color:#fff;text-align:center">Tồn đầu kỳ</th>
+            <th style="background:#27ae60;color:#fff;text-align:center">Tổng nhập</th>
+            <th style="background:#e74c3c;color:#fff;text-align:center">Tổng xuất</th>
+            <th style="background:#2980b9;color:#fff;text-align:center">Tồn cuối kỳ</th>
+            <th style="background:#1a5276;color:#fff;text-align:center">Trạng thái</th>
           </tr>
         </thead>
         <tbody id="thuoc-body"></tbody>
@@ -981,7 +1007,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div style="position:relative" id="notif-bell-wrap2">
         <button id="notif-bell-btn"
           onclick="toggleNotifPanel()"
-          style="width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s"
+          style="width:40px;height:40px;border:1px solid var(--border);border-radius:18px;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s"
           title="Thông báo"
           onmouseenter="this.style.background='var(--hover)'"
           onmouseleave="this.style.background='var(--surface)'">
@@ -1033,7 +1059,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <!-- Dòng 1: dropdown + nút -->
       <div style="display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;flex-wrap:nowrap">
         <label for="filter-unit-bc" style="color:#1a5276;white-space:nowrap;font-weight:600;margin:0;font-size:12px">Báo cáo đơn vị:</label>
-        <select id="filter-unit-bc" title="Lọc theo đơn vị" style="flex:1 1 0;min-width:140px;max-width:260px;font-weight:600;color:#1a5276;padding:6px 10px;border:1.5px solid #b3d4f0;border-radius:8px;background:#fff;font-size:12px;cursor:pointer" onchange="onAdminUnitFilterChange()">
+        <select id="filter-unit-bc" title="Lọc theo đơn vị" style="flex:1 1 0;min-width:140px;max-width:260px;font-weight:600;color:#1a5276;padding:10px 10px;border:1.5px solid #b3d4f0;border-radius:18px;background:#fff;font-size:12px;cursor:pointer" onchange="onAdminUnitFilterChange()">
           <option value="__all__">-- Tổng hợp tất cả đơn vị --</option>
         </select>
         <div id="filter-unit-bc-fixed" style="display:none;padding:5px 10px;background:#eef7ff;border:1px solid #b3d4f0;border-radius:6px;font-size:12px;font-weight:600;color:#1a5276"></div>
@@ -1359,34 +1385,34 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <!-- Bên phải: action buttons -->
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <button id="btn-footer-cloud" onclick="loadFromSupabase(_currentPeriodKey())" title="Tải từ cloud"
-          style="padding:6px 14px;border:1px solid #1a5276;border-radius:6px;background:white;color:#1a5276;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
+          style="padding:6px 14px;border:1px solid #1a5276;border-radius:18px;background:white;color:#1a5276;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px">
           ☁ Tải từ cloud
         </button>
 
         <div style="width:1px;height:24px;background:#dee2e6;margin:0 2px"></div>
 
         <button onclick="exportExcel()" title="Xuất Excel"
-          style="padding:6px 14px;border:none;border-radius:6px;background:#1d6f42;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          style="padding:6px 14px;border:none;border-radius:18px;background:#1d6f42;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
           📊 Xuất Excel
         </button>
         <button onclick="document.getElementById('reports-import-file').click()" title="Nhập báo cáo từ Excel (chỉ thêm dòng còn thiếu)"
-          style="padding:6px 14px;border:none;border-radius:6px;background:#7c3aed;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          style="padding:6px 14px;border:none;border-radius:18px;background:#7c3aed;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
           ⬆ Nhập Excel
         </button>
         <input type="file" id="reports-import-file" accept=".xlsx,.xls" style="display:none" onchange="importReportsExcel(this)">
         <button id="btn-in-bc" onclick="printBaoCaoDonVi()" title="In báo cáo BYT"
-          style="padding:6px 14px;border:none;border-radius:6px;background:#c0392b;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
+          style="padding:6px 14px;border:none;border-radius:18px;background:#c0392b;color:white;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px">
           🖨 In báo cáo
         </button>
 
         <div style="width:1px;height:24px;background:#dee2e6;margin:0 2px"></div>
 
         <button id="btn-open-bc" onclick="openReport()"
-          style="display:none;padding:6px 16px;border:none;border-radius:6px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600">
+          style="display:none;padding:6px 16px;border:none;border-radius:18px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600">
           🔓 Mở lại để sửa
         </button>
         <button id="btn-save-bc" onclick="saveBC()"
-          style="padding:6px 18px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(26,82,118,.3)">
+          style="padding:6px 18px;border:none;border-radius:18px;background:var(--primary);color:white;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(26,82,118,.3)">
           💾 Lưu báo cáo
         </button>
       </div>
@@ -1574,10 +1600,10 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
       <!-- Nhóm hành động chính -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button id="bn-btn-add" class="btn btn-primary" onclick="openAddPatient()" style="border-radius:8px;font-size:12px;padding:7px 14px;gap:6px">
+        <button id="bn-btn-add" class="btn btn-primary" onclick="openAddPatient()" style="border-radius:18px;font-size:12px;padding:7px 14px;gap:6px">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Thêm bệnh nhân
         </button>
-        <button id="bn-btn-export" class="btn btn-outline" onclick="exportPatientExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#475569;border-color:#cbd5e1">
+        <button id="bn-btn-export" class="btn btn-outline" onclick="exportPatientExcel()" style="border-radius:18px;font-size:12px;padding:7px 13px;gap:5px;color:#475569;border-color:#cbd5e1">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel
         </button>
       </div>
@@ -1587,13 +1613,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
       <!-- Nhóm import -->
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button id="bn-btn-template" class="btn btn-outline" onclick="downloadTemplateExcel()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#2980b9;border-color:#93c5fd;background:#eff6ff">
+        <button id="bn-btn-template" class="btn btn-outline" onclick="downloadTemplateExcel()" style="border-radius:18px;font-size:12px;padding:7px 13px;gap:5px;color:#2980b9;border-color:#93c5fd;background:#eff6ff">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>File mẫu
         </button>
-        <button id="bn-btn-import" class="btn btn-outline" onclick="triggerImportPatient()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#16a34a;border-color:#86efac;background:#f0fdf4">
+        <button id="bn-btn-import" class="btn btn-outline" onclick="triggerImportPatient()" style="border-radius:18px;font-size:12px;padding:7px 13px;gap:5px;color:#16a34a;border-color:#86efac;background:#f0fdf4">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Tải lên danh sách
         </button>
-        <button id="bn-delete-all-btn" class="btn btn-outline" onclick="deleteAllPatients()" style="border-radius:8px;font-size:12px;padding:7px 13px;gap:5px;color:#dc2626;border-color:#fca5a5;background:#fff5f5">
+        <button id="bn-delete-all-btn" class="btn btn-outline" onclick="deleteAllPatients()" style="border-radius:18px;font-size:12px;padding:7px 13px;gap:5px;color:#dc2626;border-color:#fca5a5;background:#fff5f5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Xóa toàn bộ
         </button>
       </div>
@@ -1607,13 +1633,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <div style="position:relative">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
-          <select id="bn-filter-unit" title="Lọc theo đơn vị bệnh nhân" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:160px;appearance:none;-webkit-appearance:none;cursor:pointer">
+          <select id="bn-filter-unit" title="Lọc theo đơn vị bệnh nhân" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:18px;font-size:12px;background:white;color:#374151;min-width:160px;appearance:none;-webkit-appearance:none;cursor:pointer">
             <option value="">Tất cả đơn vị</option>
           </select>
         </div>
         <div style="position:relative">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <select id="bn-filter-pd" title="Lọc theo phác đồ" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;background:white;color:#374151;min-width:140px;appearance:none;-webkit-appearance:none;cursor:pointer">
+          <select id="bn-filter-pd" title="Lọc theo phác đồ" onchange="renderPatientTable()" style="padding:7px 10px 7px 28px;border:1px solid #e2e8f0;border-radius:18px;font-size:12px;background:white;color:#374151;min-width:140px;appearance:none;-webkit-appearance:none;cursor:pointer">
             <option value="">Tất cả phác đồ</option>
           </select>
         </div>
@@ -1717,21 +1743,21 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
   <div class="modal" style="width:400px">
     <h3 style="font-size:15px;margin-bottom:14px">🖨 Chọn nội dung in</h3>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
-      <label id="print-opt-unit" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+      <label id="print-opt-unit" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:18px;cursor:pointer;transition:.15s">
         <input type="radio" name="print-choice" value="unit" style="margin-top:2px;flex-shrink:0" checked>
         <div>
           <div style="font-weight:600;font-size:13px">Đơn vị đang xem</div>
           <div id="print-unit-label" style="font-size:11px;color:var(--muted);margin-top:2px">Báo cáo của đơn vị đang được lọc</div>
         </div>
       </label>
-      <label id="print-opt-bvph" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+      <label id="print-opt-bvph" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:18px;cursor:pointer;transition:.15s">
         <input type="radio" name="print-choice" value="bvph" style="margin-top:2px;flex-shrink:0">
         <div>
           <div style="font-weight:600;font-size:13px">Kho chính</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Bảng báo cáo riêng của Kho chính</div>
         </div>
       </label>
-      <label id="print-opt-all" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:.15s">
+      <label id="print-opt-all" style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border:2px solid var(--border);border-radius:18px;cursor:pointer;transition:.15s">
         <input type="radio" name="print-choice" value="all" style="margin-top:2px;flex-shrink:0">
         <div>
           <div style="font-weight:600;font-size:13px">Toàn tỉnh</div>
@@ -1810,7 +1836,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       </div>
     </div>
     <div class="modal-actions" style="margin-top:0">
-      <button class="btn btn-primary" onclick="confirmStartupPeriod()" style="width:100%;justify-content:center;padding:12px;font-size:14px;border-radius:8px">🚀 Bắt đầu làm việc</button>
+      <button class="btn btn-primary" onclick="confirmStartupPeriod()" style="width:100%;justify-content:center;padding:12px;font-size:14px;border-radius:18px">🚀 Bắt đầu làm việc</button>
     </div>
   </div>
 </div>
@@ -2035,6 +2061,8 @@ async function _autoLoadOnLogin(){
           if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value || [];
         }
       }catch(e3){}
+      // Cập nhật biểu đồ phác đồ ngay sau khi có BN_DATA
+      try{ _renderRegimenChart(); }catch(e){}
       var bnPageE = document.getElementById('page-bn');
       if(bnPageE && bnPageE.classList.contains('active')){
         _fillBnFilters();
@@ -2145,6 +2173,8 @@ async function _autoLoadOnLogin(){
         BN_DATA = best;
       }
     }catch(e2){}
+    // Cập nhật biểu đồ phác đồ ngay sau khi có BN_DATA
+    try{ _renderRegimenChart(); }catch(e){}
     // Nếu trang BN đang active thì refresh
     var bnPage = document.getElementById('page-bn');
     if(bnPage && bnPage.classList.contains('active')){
@@ -2545,12 +2575,13 @@ function _mapRow(r){
 // DATA
 // ============================================================
 var DRUGS=[
-  "Rifampicin 150mg","Isoniazid 100mg","Isoniazid 300mg","Ethambutol 400mg","Pyrazinamid 500mg",
-  "Levofloxacin 250mg","Levofloxacin 500mg","Moxifloxacin 400mg",
-  "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g",
-  "Cycloserine 250mg","Prothionamide 250mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
-  "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg",
-  "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg"
+  "Rifampicin 150mg","Isoniazid 100mg","Isoniazid 300mg","Ethambutol 400mg","Pyrazinamid 500mg","Pyrazinamid 400mg",
+  "Levofloxacin 250mg","Levofloxacin 500mg","Levofloxacin 750mg","Moxifloxacin 400mg",
+  "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g","Streptomycin 1g","Capreomycin 1g",
+  "Cycloserine 250mg","Cycloserine 125mg","Prothionamide 250mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
+  "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg","Clofazimine 50mg",
+  "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg",
+  "Meropenem 1g","Imipenem-cilastatin 500mg","Amoxicillin/Clavulanate 250mg","Amoxicillin/Clavulanate 500mg"
 ];
 
 var BVPH="Bệnh viện Phổi Hải Phòng";
@@ -2751,7 +2782,7 @@ async function adminCheckCloudSave(){
   } else {
     html+='<div style="margin-top:14px;padding:10px;background:#eafaf0;border:1px solid #27ae60;border-radius:8px;font-size:12px;color:#1e7e44">Tất cả thao tác lưu/xóa đều thành công. Dữ liệu sẽ được giữ bền vững trên cloud.</div>';
   }
-  html+='<div style="text-align:right;margin-top:16px"><button onclick="this.closest(\'.hc-ov\').remove()" style="padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-weight:700">Đóng</button></div>';
+  html+='<div style="text-align:right;margin-top:16px"><button onclick="this.closest(\'.hc-ov\').remove()" style="padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:18px;cursor:pointer;font-weight:700">Đóng</button></div>';
   box.innerHTML=html;
   ov.className='hc-ov';
   ov.appendChild(box); document.body.appendChild(ov);
@@ -2783,7 +2814,7 @@ function showLockManager(){
 
   // Hàng "Chọn toàn bộ"
   var allRow=document.createElement('label');
-  allRow.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fff3f3;border:1.5px solid #c0392b;border-radius:8px;margin-bottom:10px;cursor:pointer;font-weight:700;color:#c0392b';
+  allRow.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fff3f3;border:1.5px solid #c0392b;border-radius:18px;margin-bottom:10px;cursor:pointer;font-weight:700;color:#c0392b';
   var allChk=document.createElement('input'); allChk.type='checkbox';
   allRow.appendChild(allChk);
   var allTxt=document.createElement('span'); allTxt.textContent='✔ CHỌN TOÀN BỘ (khóa tất cả đơn vị)';
@@ -2796,7 +2827,7 @@ function showLockManager(){
   var checks=[];
   UNITS.forEach(function(u){
     var row=document.createElement('label');
-    row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:7px;cursor:pointer;font-size:13px';
+    row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:18px;cursor:pointer;font-size:13px';
     var chk=document.createElement('input'); chk.type='checkbox'; chk.checked=_isLocked(u); chk.dataset.unit=u;
     var lockedNow=_isLocked(u);
     var nameSpan=document.createElement('span'); nameSpan.style.cssText='flex:1'; nameSpan.textContent=(u===BVPH?'🏥 ':'')+_displayUnit(u);
@@ -2831,14 +2862,14 @@ function showLockManager(){
   var btnRow=document.createElement('div');
   btnRow.style.cssText='display:flex;justify-content:flex-end;gap:10px;margin-top:6px;flex-wrap:wrap';
   var btnC=document.createElement('button'); btnC.textContent='Đóng';
-  btnC.style.cssText='padding:9px 18px;border:1px solid #cbd5e0;background:#fff;border-radius:8px;cursor:pointer;font-size:13px';
+  btnC.style.cssText='padding:9px 18px;border:1px solid #cbd5e0;background:#fff;border-radius:18px;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
 
   // Nút Đồng bộ & Khóa toàn bộ
   var btnSyncLock=document.createElement('button');
   btnSyncLock.innerHTML='🔄🔒 Đồng bộ & Khóa toàn bộ';
   btnSyncLock.title='Đẩy toàn bộ dữ liệu kỳ này lên Supabase (tính lại dc2, cascade tồn đầu) rồi khóa tất cả đơn vị';
-  btnSyncLock.style.cssText='padding:9px 16px;border:none;background:linear-gradient(135deg,#6c3483,#9b59b6);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnSyncLock.style.cssText='padding:9px 16px;border:none;background:linear-gradient(135deg,#6c3483,#9b59b6);color:#fff;border-radius:18px;cursor:pointer;font-size:13px;font-weight:700';
   btnSyncLock.onclick=async function(){
     if(!_mustOnline()) return;
     btnSyncLock.disabled=true; btnSyncLock.textContent='⏳ Đang đồng bộ...';
@@ -2917,7 +2948,7 @@ function showLockManager(){
   };
 
   var btnO=document.createElement('button'); btnO.textContent='✔ Áp dụng';
-  btnO.style.cssText='padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700';
+  btnO.style.cssText='padding:9px 22px;border:none;background:#1a5276;color:#fff;border-radius:18px;cursor:pointer;font-size:13px;font-weight:700';
   btnO.onclick=async function(){
     if(!_mustOnline()) return;
     var lockedCount=0, unlockedCount=0;
@@ -3105,7 +3136,7 @@ function renderCatalog(){
   if(!tbody) return;
   tbody.innerHTML='';
   if(!catalogData.length){
-    tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="color:var(--muted);font-style:normal;padding:12px;text-align:center">Chưa có danh mục thuốc. Admin thêm tại đây.</td></tr>';
     return;
   }
 
@@ -3163,7 +3194,6 @@ function renderCatalog(){
       row += '<td>'+r.lot+'</td>'
            + '<td>'+expDisp+'</td>'
            + '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'
-           + '<td style="'+qtyStyle+'">'+qtyDisp+'</td>'
            + '<td style="color:var(--muted);font-size:11px">'+r.note+'</td>'
            + '<td class="cat-act">'+(canDel?'<button class="btn btn-danger btn-xs" onclick="delCatalog('+i+')">Xóa</button>':'—')+'</td>'
            + '</tr>';
@@ -4216,7 +4246,7 @@ function nav(page,el){
   if(el)el.classList.add('active');
   if(page==='tq'){renderTQ();}
   if(page==='bc'){renderBVPH();renderBC();}
-  if(page==='thuoc'){renderCatalog();renderDrugTable();loadCatalogFromCloud();}
+  if(page==='thuoc'){renderCatalog();renderDrugTable();}
   if(page==='tk')renderAccounts();
   if(page==='bn'){ renderPatientPage(); }
 }
@@ -4953,8 +4983,69 @@ function renderTQ(){
   updateAlerts();
   // Bảng tổng hợp theo thuốc (gộp toàn TP)
   _renderTQDrugTable(allRows);
+  // Biểu đồ phác đồ
+  _renderRegimenChart();
   // Tải bảng điều chuyển
   setTimeout(renderTQTransfers, 100);
+}
+
+// ── BIỂU ĐỒ PHÁC ĐỒ ĐIỀU TRỊ ──────────────────────────────────────────────────
+function _renderRegimenChart(){
+  var el = document.getElementById('tq-regimen-chart');
+  var totalEl = document.getElementById('tq-regimen-total');
+  if(!el) return;
+
+  // Đếm bệnh nhân đang điều trị theo phác đồ
+  var activeBN = (typeof BN_DATA !== 'undefined' ? BN_DATA : []).filter(function(bn){
+    if(bn.status === 'done' || bn.status === 'end') return false;
+    // Nếu có ngày kết thúc và đã qua → không tính
+    if(bn.endDate){
+      var ed = new Date(bn.endDate.split('/').reverse().join('-'));
+      if(!isNaN(ed) && ed < new Date()) return false;
+    }
+    return true;
+  });
+
+  var counts = {};
+  activeBN.forEach(function(bn){
+    var pd = (bn.pd || bn.phacDo || 'Khác').trim() || 'Khác';
+    counts[pd] = (counts[pd]||0) + 1;
+  });
+
+  var total = activeBN.length;
+  if(totalEl) totalEl.innerHTML = total ? '<span style="font-size:16px;font-weight:800;color:#7c3aed">' + total + '</span> <span style="font-size:11px;color:#64748b;font-weight:500">bệnh nhân đang điều trị</span>' : '';
+
+  if(!total){
+    el.innerHTML = '<div style="color:#aaa;font-size:12px;text-align:center;padding:24px">Chưa có bệnh nhân đang điều trị</div>';
+    return;
+  }
+
+  // Sắp xếp giảm dần
+  var items = Object.keys(counts).map(function(k){ return {pd:k, n:counts[k]}; });
+  items.sort(function(a,b){ return b.n - a.n; });
+
+  var maxN = items[0].n;
+  // Màu sắc cho từng phác đồ
+  var COLORS = ['#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#9333ea','#0284c7'];
+
+  var bars = items.map(function(item, i){
+    var pct = Math.round(item.n / total * 100);
+    var barW = Math.round(item.n / maxN * 100);
+    var color = COLORS[i % COLORS.length];
+    // Rút gọn tên phác đồ dài
+    var label = item.pd.length > 22 ? item.pd.slice(0,20)+'…' : item.pd;
+    return '<div style="margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
+      +   '<span style="font-size:11.5px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%" title="'+item.pd+'">'+label+'</span>'
+      +   '<span style="font-size:11px;color:#64748b;white-space:nowrap;margin-left:8px">'+item.n+' BN &nbsp;<span style="color:'+color+';font-weight:700">'+pct+'%</span></span>'
+      + '</div>'
+      + '<div style="background:#f1f5f9;border-radius:6px;height:10px;overflow:hidden">'
+      +   '<div style="width:'+barW+'%;height:100%;background:'+color+';border-radius:6px;transition:width .4s ease"></div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  el.innerHTML = bars;
 }
 
 // Bảng tổng hợp theo thuốc trong Tổng quan — gộp các lô của cùng 1 thuốc toàn TP
@@ -4987,22 +5078,24 @@ function _renderTQDrugTable(allRows){
 
   var names = Object.keys(byDrug).sort();
   if(!names.length){
-    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:#888;font-style:italic">Chưa có số liệu trong kỳ này.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:18px;color:#888;font-style:italic">Chưa có số liệu trong kỳ này.</td></tr>';
     return;
   }
 
   function cell(drug, field, val, color){
     var safe = drug.replace(/'/g,"\\'");
-    return '<td style="padding:6px 10px;text-align:center">'
+    return '<td style="padding:9px 10px;text-align:center">'
       + '<span onclick="_showTQDrugDetail(\''+safe+'\',\''+field+'\')" '
       + 'style="cursor:pointer;font-weight:700;color:'+color+';text-decoration:underline;text-decoration-style:dotted" '
       + 'title="Bấm xem chi tiết từng lô">'+val.toLocaleString()+'</span></td>';
   }
 
-  body.innerHTML = names.map(function(d){
+  body.innerHTML = names.map(function(d, _didx){
     var s = byDrug[d];
-    return '<tr style="border-bottom:1px solid #eef2f7">'
-      + '<td style="padding:6px 10px;text-align:left;font-weight:600;color:#1a5276">'+d+'</td>'
+    var rowBg = _didx % 2 === 0 ? '#f8f9fa' : 'white';
+    return '<tr style="background:'+rowBg+';border-bottom:1px solid #eee">'
+      + '<td style="padding:9px 6px;text-align:center;color:#94a3b8;font-size:11px;width:32px">'+(_didx+1)+'</td>'
+      + '<td style="padding:9px 12px;text-align:center;font-weight:600;color:#1a5276">'+d+'</td>'
       + cell(d,'ton',  s.final, '#1a5276')
       + cell(d,'nhap', s.tin,   '#1a9e75')
       + cell(d,'xuat', s.tout,  '#d85a30')
@@ -5055,7 +5148,7 @@ function _showTQDrugDetail(drug, field){
     + '<td colspan="2" style="padding:8px 10px">Tổng cộng</td>'
     + '<td style="padding:8px 10px;text-align:right;color:'+fieldColor+'">'+total.toLocaleString()+' viên</td>'
     + '</tr></tfoot></table>'
-    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
+    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
 
   ov.appendChild(box);
   document.body.appendChild(ov);
@@ -5152,12 +5245,12 @@ async function renderTQTransfers(){
 
     function makeTable(list, headerColor, typeLabel){
       var canCancel=isAdmin();
-      var t='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">';
+      var t='<div style="overflow-x:auto;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.05);margin-bottom:14px"><table style="width:100%;border-collapse:collapse;font-size:12px">';
       t+='<thead><tr style="background:'+headerColor+';color:white">'
         +'<th style="padding:7px 10px;text-align:center;width:36px">TT</th>'
-        +'<th style="padding:7px 10px;text-align:left">Chuyển đi</th>'
-        +'<th style="padding:7px 10px;text-align:left">Chuyển đến</th>'
-        +'<th style="padding:7px 10px;text-align:left">Thuốc</th>'
+        +'<th style="padding:7px 10px;text-align:center">Chuyển đi</th>'
+        +'<th style="padding:7px 10px;text-align:center">Chuyển đến</th>'
+        +'<th style="padding:7px 10px;text-align:center">Thuốc</th>'
         +'<th style="padding:7px 10px;text-align:center">Số lượng</th>'
         +'<th style="padding:7px 10px;text-align:center">Lô</th>'
         +'<th style="padding:7px 10px;text-align:center">Hạn</th>'
@@ -5188,7 +5281,7 @@ async function renderTQTransfers(){
           +'<td style="padding:6px 10px;text-align:center;color:#666">'+expD+'</td>'
           +'<td style="padding:6px 10px;text-align:center;color:#888">'+dt+'</td>'
           +'<td style="padding:6px 10px;text-align:center">'+matchCell+'</td>'
-          +(canCancel?'<td style="padding:6px 10px;text-align:center"><button onclick="cancelTransferById(\''+tx.id+'\',\''+tx.to_unit+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #e74c3c;border-radius:5px;color:#e74c3c;background:white;cursor:pointer">✕ Hủy</button></td>':'')
+          +(canCancel?'<td style="padding:6px 10px;text-align:center"><button onclick="cancelTransferById(\''+tx.id+'\',\''+tx.to_unit+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #e74c3c;border-radius:18px;color:#e74c3c;background:white;cursor:pointer">✕ Hủy</button></td>':'')
           +'</tr>';
       });
       t+='</tbody></table></div>';
@@ -5347,7 +5440,7 @@ function _tqPopup(titleHtml, bodyHtml){
   var box = document.createElement('div');
   box.style.cssText = 'background:white;border-radius:12px;padding:18px 20px;min-width:340px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)';
   box.innerHTML = titleHtml + bodyHtml
-    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
+    + '<div style="text-align:right;margin-top:14px"><button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:7px 20px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px">Đóng</button></div>';
   ov.appendChild(box);
   document.body.appendChild(ov);
 }
@@ -5439,6 +5532,8 @@ function matchDrugMonth(r){
   return r.bcMonth === mon;        // so khớp "YYYY-MM"
 }
 
+var _drugTableAllRows = []; // cache dữ liệu gốc (đã lọc theo tháng, đã sort) để filter không phá rowspan
+
 function renderDrugTable(){
   var tbody=document.getElementById('thuoc-body');
   tbody.innerHTML='';
@@ -5458,6 +5553,7 @@ function renderDrugTable(){
   }
 
   if(!all.length){
+    _drugTableAllRows = [];
     tbody.innerHTML='<tr><td colspan="10" style="color:var(--muted);font-style:italic;padding:14px">'
       +(mon ? 'Không có dữ liệu trong tháng '+mon+'. Hãy thử chọn tháng khác.' : 'Chưa có dữ liệu')+'</td></tr>';
     setDrugTotals(0,0,0,0);
@@ -5473,12 +5569,33 @@ function renderDrugTable(){
     return String(a.lot||'').localeCompare(String(b.lot||''),'vi');
   });
 
+  // Cache lại để filterDrugTable() build lại từ đầu, không đụng DOM rowspan đang hiển thị
+  _drugTableAllRows = all;
+
+  _buildDrugTableRows(all, '');
+}
+
+// Dựng HTML bảng tổng hợp thuốc — dùng chung cho cả lúc render đầy đủ và lúc lọc theo tên thuốc.
+// q: chuỗi tìm kiếm (rỗng = hiển thị tất cả). Luôn build lại từ đầu nên rowspan luôn đúng → không vỡ cuộn.
+function _buildDrugTableRows(all, q){
+  var tbody=document.getElementById('thuoc-body');
+  var qNorm = (q||'').toLowerCase().trim();
+
+  // Lọc theo tên thuốc (nếu có) — KHÔNG đụng DOM, lọc trên data gốc rồi build lại toàn bộ
+  var filtered = qNorm ? all.filter(function(r){ return String(r.drug||'').toLowerCase().indexOf(qNorm) >= 0; }) : all;
+
+  if(!filtered.length){
+    tbody.innerHTML = '<tr><td colspan="10" style="color:var(--muted);font-style:italic;padding:14px">Không tìm thấy thuốc phù hợp.</td></tr>';
+    setDrugTotals(0,0,0,0);
+    return;
+  }
+
   // Gộp cấp 1 — theo THUỐC: số dòng mỗi thuốc + số TT
   var _invCount={}, _invTTmap={}, _invFirst={}, _ttc=0, _ii=0;
-  while(_ii < all.length){
-    var _dn = all[_ii].drug;
+  while(_ii < filtered.length){
+    var _dn = filtered[_ii].drug;
     var _j = _ii;
-    while(_j < all.length && all[_j].drug === _dn) _j++;
+    while(_j < filtered.length && filtered[_j].drug === _dn) _j++;
     _ttc++;
     _invCount[_ii] = _j - _ii;
     _invTTmap[_ii] = _ttc;
@@ -5488,19 +5605,22 @@ function renderDrugTable(){
 
   // Gộp cấp 2 — theo ĐƠN VỊ (trong cùng thuốc): số dòng cùng (thuốc+đơn vị)
   var _uCount={}, _uFirst={}, _ui=0;
-  while(_ui < all.length){
-    var _k = all[_ui].drug + '||' + (all[_ui].unit||'');
+  while(_ui < filtered.length){
+    var _k = filtered[_ui].drug + '||' + (filtered[_ui].unit||'');
     var _jj = _ui;
-    while(_jj < all.length && (all[_jj].drug + '||' + (all[_jj].unit||'')) === _k) _jj++;
+    while(_jj < filtered.length && (filtered[_jj].drug + '||' + (filtered[_jj].unit||'')) === _k) _jj++;
     _uCount[_ui] = _jj - _ui;
     _uFirst[_ui] = true;
     _ui = _jj;
   }
 
   var totOpen=0,totIn=0,totOut=0,totFinal=0;
-  all.forEach(function(r, _idx){
+  var uniqueLots = {};
+  var htmlString = '';
+  filtered.forEach(function(r, _idx){
     var c=calcRow(r);
     totOpen+=r.open; totIn+=c.tin; totOut+=c.tout; totFinal+=c.final;
+    uniqueLots[r.drug+'||'+r.lot+'||'+(r.exp||'')] = true;
     var expired=isExpiredStr(r.exp);
     var fcls=c.final<threshold.low?'final-low':'final-ok';
     var st=expired
@@ -5519,7 +5639,7 @@ function renderDrugTable(){
     if(_uFirst[_idx]){
       _unitCellHtml = '<td style="font-size:11px;color:var(--muted);white-space:nowrap;vertical-align:middle" rowspan="'+_uCount[_idx]+'" title="'+unitCell+'">'+unitCell+'</td>';
     }
-    tbody.innerHTML+='<tr data-drug="'+r.drug.toLowerCase()+'"'
+    htmlString += '<tr data-drug="'+r.drug.toLowerCase()+'"'
       +' data-open="'+r.open+'" data-in="'+c.tin+'" data-out="'+c.tout+'" data-final="'+c.final+'">'
       +_ttCells
       +_unitCellHtml
@@ -5532,12 +5652,34 @@ function renderDrugTable(){
       +'<td>'+st+'</td>'
       +'</tr>';
   });
+
+  tbody.innerHTML = htmlString;
   setDrugTotals(totOpen,totIn,totOut,totFinal);
 
-  // Áp dụng lại filter đang gõ (nếu có)
-  var q = document.getElementById('search-drug');
-  if(q && q.value.trim()) filterDrugTable();
+  // ── Dòng TỔNG — chỉ hiện khi đang lọc theo tên thuốc. Đặt trong <tfoot> riêng,
+  // sticky ở ĐÁY khung cuộn để luôn nhìn thấy, không cần cuộn xuống cuối bảng. ──
+  var tfoot = document.getElementById('thuoc-tfoot');
+  if(qNorm){
+    var nLot = Object.keys(uniqueLots).length;
+    if(!tfoot){
+      tfoot = document.createElement('tfoot');
+      tfoot.id = 'thuoc-tfoot';
+      tbody.parentNode.appendChild(tfoot);
+    }
+    tfoot.innerHTML = '<tr style="background:#eef7ff;font-weight:700">'
+      + '<td colspan="2" style="text-align:center;color:#1a5276;padding:9px 8px">Tổng '+filtered.length+' dòng, '+nLot+' lô</td>'
+      + '<td></td><td></td><td></td>'
+      + '<td class="open-stock">'+fmtNum(totOpen)+'</td>'
+      + '<td class="calc-in"><strong>'+fmtNum(totIn)+'</strong></td>'
+      + '<td class="calc-out"><strong>'+fmtNum(totOut)+'</strong></td>'
+      + '<td style="color:#1a5276">'+fmtNum(totFinal)+'</td>'
+      + '<td></td>'
+      + '</tr>';
+  } else if(tfoot){
+    tfoot.innerHTML = '';
+  }
 }
+
 function setDrugTotals(o,i,x,f){
   // Dòng tổng đã bỏ — chỉ cập nhật nếu element còn tồn tại
   var e1=document.getElementById('dt-fo'); if(e1) e1.textContent=fmtNum(o);
@@ -5545,23 +5687,12 @@ function setDrugTotals(o,i,x,f){
   var e3=document.getElementById('dt-txuat'); if(e3) e3.textContent=fmtNum(x);
   var e4=document.getElementById('dt-ff'); if(e4) e4.textContent=fmtNum(f);
 }
+
+// Lọc theo tên thuốc — build lại TOÀN BỘ bảng từ data gốc (không đụng DOM rowspan hiện có)
+// để tránh phá vỡ cấu trúc bảng (mất cuộn) khi ẩn dòng đầu nhóm rowspan.
 function filterDrugTable(){
-  var q = (document.getElementById('search-drug').value||'').toLowerCase().trim();
-  var totOpen=0, totIn=0, totOut=0, totFinal=0, count=0;
-
-  document.querySelectorAll('#thuoc-body tr[data-drug]').forEach(function(tr){
-    var show = !q || tr.dataset.drug.indexOf(q) >= 0;
-    tr.style.display = show ? '' : 'none';
-    if(show){
-      totOpen  += parseInt(tr.dataset.open)||0;
-      totIn    += parseInt(tr.dataset.in)||0;
-      totOut   += parseInt(tr.dataset.out)||0;
-      totFinal += parseInt(tr.dataset.final)||0;
-      count++;
-    }
-  });
-
-  setDrugTotals(totOpen, totIn, totOut, totFinal);
+  var q = (document.getElementById('search-drug').value||'');
+  _buildDrugTableRows(_drugTableAllRows, q);
 }
 
 // Đồng bộ tháng bảng Danh sách thuốc với kỳ báo cáo đang chọn
@@ -5699,7 +5830,7 @@ function buildTbl(data, bodyId, prefix){
           var onch3 = 'updField(\'' + prefix + '\',' + rowIdx + ',\'' + field + '\',this.value)';
           return '<input type="number" min="0" value="' + val + '"'
             + ' data-prefix="' + prefix + '" data-rowidx="' + rowIdx + '" data-fld="' + field + '"'
-            + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #8e44ad;border-radius:5px;text-align:center;font-size:13px;background:#f9f0ff;cursor:pointer"'
+            + ' style="width:62px;max-width:72px;box-sizing:border-box;padding:5px 4px;border:1px solid #8e44ad;border-radius:18px;text-align:center;font-size:13px;background:#f9f0ff;cursor:pointer"'
             + ' onchange="' + onch3 + '"' + ' oninput="' + onch3 + '"'
             + ' onfocus="onDc3Change(\'' + prefix + '\',' + rowIdx + ',this)"'
             + ' title="Xuất tỉnh khác — chỉ tính vào Tổng xuất" readonly'
@@ -5970,7 +6101,7 @@ function showXuatTCLDetail(prefix, rowIdx){
         +'<td style="padding:6px 8px;text-align:right">'+fmtNum(totR)+'</td>'
         +'<td style="padding:6px 8px;text-align:right;color:'+(totD===totR?'#1d7a46':'#c0392b')+'">'+(totD===totR?'✓ khớp':'✗ lệch '+fmtNum(totR-totD))+'</td></tr></tfoot>'
       +'</table>'
-      +'<div style="text-align:right;margin-top:14px"><button onclick="_cpCloseOverlay()" style="padding:8px 16px;border:none;border-radius:8px;background:#34495e;color:#fff;cursor:pointer">Đóng</button></div>'
+      +'<div style="text-align:right;margin-top:14px"><button onclick="_cpCloseOverlay()" style="padding:8px 16px;border:none;border-radius:18px;background:#34495e;color:#fff;cursor:pointer">Đóng</button></div>'
     +'</div>';
     ov.addEventListener('click',function(e){ if(e.target===ov) _cpCloseOverlay(); });
     document.body.appendChild(ov);
@@ -6011,7 +6142,7 @@ function renderCapPhat(){
       else if(d===0&&p>0) { stColor='#ea580c'; stText='⚠ Kho chưa khai'; }
       else { stColor='#dc2626'; stText='✗ Lệch '+(diff>0?'+':'')+fmtNum(diff); }
     }
-    var del=canDel?'<button onclick="cpDelByKey(\''+_jsEsc(r.unit)+'\',\''+_jsEsc(r.drug)+'\',\''+_jsEsc(r.lot)+'\',\''+_jsEsc(r.exp)+'\')" title="Xóa dòng cấp phát" style="border:none;background:rgba(239,68,68,0.1);color:#dc2626;border-radius:6px;cursor:pointer;padding:5px 12px;font-size:11px;font-weight:700;transition:.15s" onmouseover="this.style.background=\'rgba(239,68,68,0.2)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.1)\'">✕ Xóa</button>':'<span style="color:#cbd5e1">—</span>';
+    var del=canDel?'<button onclick="cpDelByKey(\''+_jsEsc(r.unit)+'\',\''+_jsEsc(r.drug)+'\',\''+_jsEsc(r.lot)+'\',\''+_jsEsc(r.exp)+'\')" title="Xóa dòng cấp phát" style="border:none;background:rgba(239,68,68,0.1);color:#dc2626;border-radius:18px;cursor:pointer;padding:5px 12px;font-size:11px;font-weight:700;transition:.15s" onmouseover="this.style.background=\'rgba(239,68,68,0.2)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.1)\'">✕ Xóa</button>':'<span style="color:#cbd5e1">—</span>';
     return '<tr style="border-bottom:1px solid #e2e8f0;transition:background .15s" data-cp-unit="'+_jsEsc(r.unit).toLowerCase()+'" data-cp-drug="'+_jsEsc(r.drug).toLowerCase()+'" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'">'
       +'<td class="cp-tt" style="text-align:center;vertical-align:middle;line-height:1;padding:10px 8px;border-right:1px solid rgba(0,0,0,0.05);color:#64748b;font-weight:600;font-size:12px">'+(i+1)+'</td>'
       +'<td class="left" style="vertical-align:middle;line-height:1;padding:10px 8px;border-right:1px solid rgba(0,0,0,0.05);font-weight:500;font-size:12px">'+_displayUnit(r.unit)+'</td>'
@@ -7447,6 +7578,7 @@ function _startNotifPolling(){
             if(!b.unit  && b.donVi) b.unit  = b.donVi;
             if(!b.donVi && b.unit)  b.donVi = b.unit;
           });
+          try{ _renderRegimenChart(); }catch(e){}
           var bnPage = document.getElementById('page-bn');
           if(bnPage && bnPage.classList.contains('active')){
             _fillBnFilters();
@@ -7568,11 +7700,11 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
 
     var btnOK = document.createElement('button');
     btnOK.textContent = '✓ Xác nhận — Đúng, nhận vào báo cáo';
-    btnOK.style.cssText = 'flex:1;padding:7px 10px;border:none;border-radius:6px;background:#27ae60;color:white;cursor:pointer;font-size:12px;font-weight:600';
+    btnOK.style.cssText = 'flex:1;padding:7px 10px;border:none;border-radius:18px;background:#27ae60;color:white;cursor:pointer;font-size:12px;font-weight:600';
 
     var btnNo = document.createElement('button');
     btnNo.textContent = '✕ Từ chối';
-    btnNo.style.cssText = 'padding:7px 14px;border:1px solid #e74c3c;border-radius:6px;background:white;color:#e74c3c;cursor:pointer;font-size:12px';
+    btnNo.style.cssText = 'padding:7px 14px;border:1px solid #e74c3c;border-radius:18px;background:white;color:#e74c3c;cursor:pointer;font-size:12px';
 
     (function(transfer, infoEl, bRow){
       btnOK.onclick = async function(){
@@ -7644,7 +7776,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
 
   var btnClose = document.createElement('button');
   btnClose.textContent = 'Đóng';
-  btnClose.style.cssText = 'width:100%;padding:9px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px;margin-top:4px';
+  btnClose.style.cssText = 'width:100%;padding:9px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px;margin-top:4px';
   btnClose.onclick = function(){ ov.remove(); };
   box.appendChild(btnClose);
 
@@ -8617,7 +8749,7 @@ function _showAuditResult(innerHtml, onFix){
   var ov=document.createElement('div');
   ov.id='_audit_modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
-  var fixBtn = onFix ? '<button id="_audit_fix_btn" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer">🔧 Đồng bộ lại các dòng an toàn</button>' : '';
+  var fixBtn = onFix ? '<button id="_audit_fix_btn" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:18px;font-weight:600;cursor:pointer">🔧 Đồng bộ lại các dòng an toàn</button>' : '';
   ov.innerHTML =
     '<div style="background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,.3)">'
     + '<div style="background:linear-gradient(135deg,#1a5276,#2874a6);color:#fff;padding:14px 18px;border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:space-between">'
@@ -8627,7 +8759,7 @@ function _showAuditResult(innerHtml, onFix){
     + '<div style="padding:16px 18px;overflow-y:auto">'+innerHtml+'</div>'
     + '<div style="padding:12px 18px;border-top:1px solid #eef2f7;display:flex;gap:10px;justify-content:flex-end">'
     +   fixBtn
-    +   '<button onclick="var m=document.getElementById(\'_audit_modal\');if(m)m.remove()" style="background:#e2e8f0;color:#334155;border:none;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer">Đóng</button>'
+    +   '<button onclick="var m=document.getElementById(\'_audit_modal\');if(m)m.remove()" style="background:#e2e8f0;color:#334155;border:none;padding:9px 16px;border-radius:18px;font-weight:600;cursor:pointer">Đóng</button>'
     + '</div></div>';
   document.body.appendChild(ov);
   if(onFix){
@@ -8999,7 +9131,7 @@ function _showFormTransferPopup(opts){
       var s=document.createElement('select'); s.className='ftp-unit'; s.style.cssText='flex:1;padding:8px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px'; s.innerHTML=_optH(); if(uVal) s.value=uVal;
       var q=document.createElement('input'); q.type='number'; q.min='0'; q.className='ftp-qty'; q.placeholder='SL'; q.value=qVal||''; q.style.cssText='width:90px;padding:8px;border:2px solid '+opts.color+';border-radius:6px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box';
       q.oninput=recalc;
-      var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:6px;width:30px;height:32px;cursor:pointer';
+      var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:18px;width:30px;height:32px;cursor:pointer';
       del.onclick=function(){ r.remove(); recalc(); };
       r.appendChild(s); r.appendChild(q); r.appendChild(del);
       rowsWrap.appendChild(r); recalc();
@@ -9037,7 +9169,7 @@ function _showFormTransferPopup(opts){
     box.appendChild(dLbl); box.appendChild(dInp); box.appendChild(mNote);
 
     var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
-    var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+    var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
     var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 22px;border:none;border-radius:7px;background:'+opts.color+';color:white;cursor:pointer;font-size:13px;font-weight:700';
     btnO.onclick=function(){
       var rs=rowsWrap.querySelectorAll('.ftp-row'); var allocs=[],seen={},total=0;
@@ -9105,7 +9237,7 @@ function _showFormTransferPopup(opts){
   box.appendChild(dLbl); box.appendChild(dInp); box.appendChild(mNote);
 
   var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
-  var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+  var btnC=document.createElement('button'); btnC.textContent='Hủy'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
   var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:'+opts.color+';color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
     var qty=parseInt(qtyInp.value);
@@ -9227,7 +9359,7 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
     var s=document.createElement('select'); s.className='xtcl-unit'; s.style.cssText='flex:1;padding:8px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px'; s.innerHTML=_optHtml(); if(unitVal) s.value=unitVal;
     var q=document.createElement('input'); q.type='number'; q.min='0'; q.className='xtcl-qty'; q.placeholder='SL'; q.value=qtyVal||''; q.style.cssText='width:90px;padding:8px;border:2px solid #27ae60;border-radius:6px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box';
     q.oninput=recalcSum;
-    var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:6px;width:30px;height:32px;cursor:pointer;font-size:13px';
+    var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:18px;width:30px;height:32px;cursor:pointer;font-size:13px';
     del.onclick=function(){ r.remove(); recalcSum(); };
     r.appendChild(s); r.appendChild(q); r.appendChild(del);
     rowsWrap.appendChild(r);
@@ -9236,7 +9368,7 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   addUnitRow('', currentDc2>0?currentDc2:'');  // dòng đầu
 
   var addBtn=document.createElement('button'); addBtn.textContent='+ Thêm đơn vị nhận';
-  addBtn.style.cssText='border:1px dashed #27ae60;background:#f6fff9;color:#1e7e44;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
+  addBtn.style.cssText='border:1px dashed #27ae60;background:#f6fff9;color:#1e7e44;border-radius:18px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
   addBtn.onclick=function(){ addUnitRow('',''); };
   box.appendChild(addBtn);
   box.appendChild(sumNote);
@@ -9253,8 +9385,8 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
   updMN();
 
   var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
-  var btnC=document.createElement('button'); btnC.textContent='Đóng'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
-  var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  var btnC=document.createElement('button'); btnC.textContent='Đóng'; btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px'; btnC.onclick=function(){ ov.remove(); };
+  var btnO=document.createElement('button'); btnO.textContent='✓ Xác nhận'; btnO.style.cssText='padding:8px 18px;border:none;border-radius:18px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
     // Gom các dòng đơn vị + số lượng
     var rowsEl=rowsWrap.querySelectorAll('.xtcl-row');
@@ -9399,7 +9531,7 @@ function onDc2Change(prefix, rowIdx, inp){
     var s=document.createElement('select'); s.className='xdc-unit'; s.style.cssText='flex:1;padding:8px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px'; s.innerHTML=_optHtmlT(); if(unitVal) s.value=unitVal;
     var q=document.createElement('input'); q.type='number'; q.min='0'; q.className='xdc-qty'; q.placeholder='SL'; q.value=qtyVal||''; q.style.cssText='width:90px;padding:8px;border:2px solid #f59e0b;border-radius:6px;font-size:14px;font-weight:700;text-align:center;box-sizing:border-box';
     q.oninput=recalcSumT;
-    var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:6px;width:30px;height:32px;cursor:pointer;font-size:13px';
+    var del=document.createElement('button'); del.textContent='✕'; del.title='Bỏ dòng'; del.style.cssText='border:none;background:#fdecec;color:#c0392b;border-radius:18px;width:30px;height:32px;cursor:pointer;font-size:13px';
     del.onclick=function(){ r.remove(); recalcSumT(); };
     r.appendChild(s); r.appendChild(q); r.appendChild(del);
     rowsWrap.appendChild(r);
@@ -9408,7 +9540,7 @@ function onDc2Change(prefix, rowIdx, inp){
   addUnitRowT('', currentDc2>0?currentDc2:'');
 
   var addBtnT=document.createElement('button'); addBtnT.textContent='+ Thêm đơn vị nhận';
-  addBtnT.style.cssText='border:1px dashed #1a5276;background:#f5f9ff;color:#1a5276;border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
+  addBtnT.style.cssText='border:1px dashed #1a5276;background:#f5f9ff;color:#1a5276;border-radius:18px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px;width:100%';
   addBtnT.onclick=function(){ addUnitRowT('',''); };
   box.appendChild(addBtnT);
   box.appendChild(sumNote);
@@ -9437,11 +9569,11 @@ function onDc2Change(prefix, rowIdx, inp){
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button');
   btnC.textContent='Đóng';
-  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
   var btnO = document.createElement('button');
   btnO.textContent='✓ Xác nhận';
-  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:18px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
     var rowsEl=rowsWrap.querySelectorAll('.xdc-row');
     var allocs=[]; var seen={}; var total=0;
@@ -9573,7 +9705,7 @@ async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx
       var tdAct  = document.createElement('td'); tdAct.style.cssText='padding:5px 7px;text-align:center';
       var btnHuy = document.createElement('button');
       btnHuy.textContent='✕ Hủy';
-      btnHuy.style.cssText='font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer';
+      btnHuy.style.cssText='font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:18px;color:#e74c3c;background:white;cursor:pointer';
       (function(tid, tunit){ btnHuy.onclick=function(){ ov.remove(); _cancelAndRefresh(tid, tunit, field); }; })(t.id, t.to_unit);
       tdAct.appendChild(btnHuy);
       tr.appendChild(tdUnit); tr.appendChild(tdQty); tr.appendChild(tdDate); tr.appendChild(tdAct);
@@ -9687,10 +9819,10 @@ function onDc3Change(prefix, rowIdx, inp){
 
   var btnRow = document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC = document.createElement('button'); btnC.textContent='Đóng';
-  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
   var btnO = document.createElement('button'); btnO.textContent='✓ Xác nhận';
-  btnO.style.cssText='padding:8px 18px;border:none;border-radius:7px;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnO.style.cssText='padding:8px 18px;border:none;border-radius:18px;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnO.onclick=function(){
     var qty=parseInt(qtyInp.value);
     if(isNaN(qty)||qty<0){ toast('Số lượng không hợp lệ!','var(--warning)'); qtyInp.focus(); return; }
@@ -9928,7 +10060,7 @@ async function showDcDetail(prefix, rowIdx){
       var tdA=document.createElement('td'); tdA.style.cssText='padding:6px 8px;text-align:center';
       if(isAdmin()){
         var btnH=document.createElement('button'); btnH.textContent='✕ Hủy';
-        btnH.style.cssText='font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer';
+        btnH.style.cssText='font-size:10px;padding:2px 8px;border:1px solid #e74c3c;border-radius:18px;color:#e74c3c;background:white;cursor:pointer';
         (function(tid,tunit){ btnH.onclick=function(){ ov.remove(); cancelTransferById(tid,tunit); }; })(t.id, toUnit);
         tdA.appendChild(btnH);
       } else { tdA.textContent='—'; }
@@ -9956,7 +10088,7 @@ async function showDcDetail(prefix, rowIdx){
   var btnRow2=document.createElement('div'); btnRow2.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:4px';
   if(realTotal !== rowDc){
     var btnSync=document.createElement('button'); btnSync.textContent='🔄 Đồng bộ ('+realTotal.toLocaleString()+' viên)';
-    btnSync.style.cssText='padding:8px 14px;border:none;border-radius:7px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600';
+    btnSync.style.cssText='padding:8px 14px;border:none;border-radius:18px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600';
     btnSync.onclick=function(){
       row.dc = realTotal;
       renderBVPH(); renderBC();
@@ -9967,7 +10099,7 @@ async function showDcDetail(prefix, rowIdx){
     btnRow2.appendChild(btnSync);
   }
   var btnClose=document.createElement('button'); btnClose.textContent='Đóng';
-  btnClose.style.cssText='padding:8px 22px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnClose.style.cssText='padding:8px 22px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   btnClose.onclick=function(){ ov.remove(); };
   btnRow2.appendChild(btnClose);
   box.appendChild(h); box.appendChild(sub); box.appendChild(totalEl); box.appendChild(listEl);
@@ -10229,7 +10361,7 @@ function _showPrintUnitPicker(periodKey){
 
   // Checkbox in TCL
   var chkWrap=document.createElement('div');
-  chkWrap.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:16px;cursor:pointer';
+  chkWrap.style.cssText='display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:18px;margin-bottom:16px;cursor:pointer';
   var chk=document.createElement('input'); chk.type='checkbox'; chk.id='_picker_tcl';
   chk.style.cssText='width:15px;height:15px;cursor:pointer;flex-shrink:0';
   var chkLbl=document.createElement('label'); chkLbl.htmlFor='_picker_tcl';
@@ -10241,10 +10373,10 @@ function _showPrintUnitPicker(periodKey){
   // Nút
   var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end';
   var btnC=document.createElement('button'); btnC.textContent='Hủy';
-  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnC.style.cssText='padding:8px 18px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   btnC.onclick=function(){ ov.remove(); };
   var btnO=document.createElement('button'); btnO.textContent='🖨 In ngay';
-  btnO.style.cssText='padding:8px 20px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:700';
+  btnO.style.cssText='padding:8px 20px;border:none;border-radius:18px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:700';
   btnO.onclick=async function(){
     var hideTCL=!chk.checked;
     var printPeriod = pYearInp.value + '-' + pMonthSel.value;
@@ -10427,14 +10559,14 @@ function _confirmPrintDate(unitName, rows, periodKey, month, year, today, onConf
   var btnRow=document.createElement('div'); btnRow.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:16px';
 
   var btnNo=document.createElement('button'); btnNo.textContent='Không';
-  btnNo.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  btnNo.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   btnNo.onclick=function(){
     btnRow.style.display='none';
     dateSection.style.display='';
   };
 
   var btnYes=document.createElement('button'); btnYes.textContent='Có — In ngày hôm nay';
-  btnYes.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  btnYes.style.cssText='padding:8px 16px;border:none;border-radius:18px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:600';
   btnYes.onclick=function(){ ov.remove(); onConfirm(today); };
 
   var dateSection=document.createElement('div'); dateSection.style.display='none';
@@ -10447,7 +10579,7 @@ function _confirmPrintDate(unitName, rows, periodKey, month, year, today, onConf
   dateSection.appendChild(dateLbl); dateSection.appendChild(dateInp);
 
   var btnConfirm=document.createElement('button'); btnConfirm.textContent='🖨 In với ngày này';
-  btnConfirm.style.cssText='padding:9px 18px;border:none;border-radius:7px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:600;width:100%';
+  btnConfirm.style.cssText='padding:9px 18px;border:none;border-radius:18px;background:#c0392b;color:white;cursor:pointer;font-size:13px;font-weight:600;width:100%';
   btnConfirm.onclick=function(){
     var chosen=new Date(dateInp.value);
     if(isNaN(chosen)){ toast('Chọn ngày hợp lệ!','var(--warning)'); return; }
@@ -11549,19 +11681,19 @@ function _confirmModal(title, body, onOk, onCancel, okLabel, onOk2, ok2Label){
   var r=document.createElement('div'); r.style.cssText='display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
   // Hủy
   var bc=document.createElement('button'); bc.textContent='Hủy';
-  bc.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:7px;background:white;cursor:pointer;font-size:13px';
+  bc.style.cssText='padding:8px 16px;border:1px solid #dee2e6;border-radius:18px;background:white;cursor:pointer;font-size:13px';
   bc.onclick=function(){ ov.remove(); if(onCancel) onCancel(); document.removeEventListener('keydown',esc); };
   r.appendChild(bc);
   // Nút 2 (nếu có)
   if(onOk2 && ok2Label){
     var bo2=document.createElement('button'); bo2.textContent=ok2Label;
-    bo2.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
+    bo2.style.cssText='padding:8px 16px;border:none;border-radius:18px;background:#1a5276;color:white;cursor:pointer;font-size:13px;font-weight:600';
     bo2.onclick=function(){ ov.remove(); onOk2(); document.removeEventListener('keydown',esc); };
     r.appendChild(bo2);
   }
   // Nút chính
   var bo=document.createElement('button'); bo.textContent=okLabel||'Xác nhận';
-  bo.style.cssText='padding:8px 16px;border:none;border-radius:7px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
+  bo.style.cssText='padding:8px 16px;border:none;border-radius:18px;background:#27ae60;color:white;cursor:pointer;font-size:13px;font-weight:600';
   bo.onclick=function(){ ov.remove(); onOk(); document.removeEventListener('keydown',esc); };
   r.appendChild(bo);
   box.appendChild(h); box.appendChild(b); box.appendChild(r);
@@ -11598,7 +11730,18 @@ document.addEventListener('change',function(e){
 
 // Render toàn bộ sau khi load cloud xong
 function fullRender(){
+  // Nếu đây là auto-refresh ngầm mà người dùng đang gõ vào ô input → BỎ QUA toàn bộ render
+  // (activeElement kiểm tra tại đây, SAU khi fetch xong, để tránh mất dữ liệu đang nhập)
+  if(_silentRefreshInProgress){
+    var _ae2 = document.activeElement;
+    if(_ae2 && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae2.tagName)) return;
+    // Có modal đang mở → không render đè
+    if(document.querySelector('.modal-overlay.active, .modal-overlay[style*="flex"]')) return;
+  }
   renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI();
+  if(document.getElementById('page-thuoc') && document.getElementById('page-thuoc').classList.contains('active')){
+    renderCatalog();
+  }
 }
 
 function renderTP(){
@@ -11861,6 +12004,7 @@ function _patientToRow(pt){
     name: pt.name || pt.hoTen || pt.tenBN || '',
     gender: pt.gender || pt.gioiTinh || '',
     age: (pt.age || pt.tuoi || '') + '',
+    age_months: (pt.ageMonths != null && pt.ageMonths !== '') ? pt.ageMonths : null,
     weight: (pt.weight || pt.canNang || '') + '',
     address: pt.address || pt.diaChi || '',
     pd: pt.pd || pt.phacDo || '',
@@ -11876,7 +12020,8 @@ function _rowToPatient(r){
     id: r.id, unit: r.unit, donVi: r.unit,
     name: r.name, hoTen: r.name, tenBN: r.name,
     gender: r.gender, gioiTinh: r.gender,
-    age: r.age, tuoi: r.age, weight: r.weight, canNang: r.weight,
+    age: r.age, tuoi: r.age, ageMonths: r.age_months,
+    weight: r.weight, canNang: r.weight,
     address: r.address, diaChi: r.address,
     pd: r.pd, phacDo: r.pd,
     startDate: r.start_date, ngayBD: r.start_date, ngayBatDau: r.start_date,
@@ -12286,8 +12431,8 @@ function renderPatientTable(){
       + '<td style="padding:6px 8px;font-size:12px;color:#555">'+escH(_displayUnit(unit))+'</td>'
       + '<td style="padding:6px 8px;text-align:center"><span class="'+st.cls+'" style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">'+st.label+'</span></td>'
       + '<td style="padding:6px 8px;text-align:center;white-space:nowrap">'
-        + '<button onclick="editPatient('+idx+')" style="font-size:11px;padding:2px 8px;border:1px solid #3498db;border-radius:4px;color:#3498db;background:white;cursor:pointer;margin-right:4px">✎</button>'
-        + '<button onclick="deletePatient('+idx+')" style="font-size:11px;padding:2px 8px;border:1px solid #e74c3c;border-radius:4px;color:#e74c3c;background:white;cursor:pointer">✕</button>'
+        + '<button onclick="editPatient('+idx+')" style="font-size:11px;padding:2px 8px;border:1px solid #3498db;border-radius:18px;color:#3498db;background:white;cursor:pointer;margin-right:4px">✎</button>'
+        + '<button onclick="deletePatient('+idx+')" style="font-size:11px;padding:2px 8px;border:1px solid #e74c3c;border-radius:18px;color:#e74c3c;background:white;cursor:pointer">✕</button>'
       + '</td>'
       + '</tr>';
   }).join('');
@@ -12436,7 +12581,7 @@ function renderDuTru(){
         var startD = new Date(bn.startDate || bn.ngayBD || bn.ngayBatDau);
         if (isNaN(startD) || !endD || isNaN(endD)) return;
 
-        var drugs = bn.customDrugs && bn.customDrugs.length > 0 ? bn.customDrugs : (typeof getDrugsByWeight === 'function' ? getDrugsByWeight(bn.pd || bn.phacDo, bn.weight, bn.age) : []);
+        var drugs = bn.customDrugs && bn.customDrugs.length > 0 ? bn.customDrugs : (typeof getDrugsByWeight === 'function' ? getDrugsByWeight(bn.pd || bn.phacDo, bn.weight, bn.age, bn.ageMonths) : []);
         if(!drugs) return;
         // Vá dữ liệu cũ: nếu Bedaquiline trong customDrugs chưa có ranges → ép 6 tháng
         drugs.forEach(function(d){
@@ -12813,72 +12958,410 @@ function calculateEndDate() {
     }
 }
 
-// ── Tính chi tiết Bedaquiline theo NGÀY BẮT ĐẦU và CÂN NẶNG (6 tháng = 24 tuần thực) ──
-// Trả {monthTotal, note, total}. total = tổng viên cả liệu trình (188 nếu ≥16kg, 94 nếu 10-<16kg).
-function calculateBedaquilineDetails(startDateStr, weight) {
-    var w = parseFloat(weight);
-    var loadPerDay, maintPerDose, P2Total, total;
-    if(isNaN(w) || w >= 16){
-        loadPerDay = 4; maintPerDose = 2; P2Total = 132; total = 188;
-    } else if(w >= 10){
-        loadPerDay = 2; maintPerDose = 1; P2Total = 66; total = 94;
-    } else {
-        loadPerDay = 2; maintPerDose = 1; P2Total = 66; total = 94; // <10kg dùng dạng phân tán
+// Quy ước tính dự trù/tháng:
+//   • Liều ngày thường : viên/ngày × 26
+//   • Liều theo nhịp tuần: viên/lần × số ngày/tuần × 4
+//   • Liều ml (nghiền/hòa viên người lớn trong 10 ml) : hiển thị CẢ ml/ngày và viên quy đổi,
+//       monthTotal tính theo viên quy đổi = (ml/10) × 26 để vẫn có số dự trù thống nhất.
+// 11 dải cân nặng (kg) — CHUẨN WHO 2022: 3,5,7,10,16,24,30,36,46,56,70 (cận dưới mỗi dải)
+//   dải 1: 3–<5 · dải 2: 5–<7 · dải 3: 7–<10 · dải 4: 10–<16 · dải 5: 16–<24 · dải 6: 24–<30
+//   dải 7: 30–<36 · dải 8: 36–<46 · dải 9: 46–<56 · dải 10: 56–<70 · dải 11: ≥70
+// Mỗi entry: hàm nhận w(kg) trả {monthTotal, note}. perDay = số viên/ngày (để hiển thị).
+// ════════════════════════════════════════════════════════════════════
+var DOSE_DAYS_PER_MONTH = 26;       // số ngày dùng/tháng (liều hằng ngày)
+var DOSE_WEEKS_PER_MONTH = 4;       // số tuần/tháng (liều theo nhịp tuần)
+
+// Helper dựng kết quả
+function _md(perDay){ // liều hằng ngày theo viên (đơn vị viên nguyên, không cần nghiền)
+  return { monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2), note: _fmtNum(perDay)+' viên/ngày' };
+}
+function _mw(perDose, daysPerWeek, label){ // liều theo nhịp tuần
+  var mt = perDose*daysPerWeek*DOSE_WEEKS_PER_MONTH;
+  return { monthTotal: +mt.toFixed(2), note: label || (_fmtNum(perDose)+' viên × '+daysPerWeek+' ngày/tuần') };
+}
+function _mml(ml, note){ // liều ml (nghiền/hòa viên người lớn trong 10 ml) — hiển thị CẢ ml và viên quy đổi
+  // 10 ml = 1 viên người lớn → ml/10 = số viên/ngày tương đương
+  var perDay = ml/10;
+  var perDayTxt = _fmtNum(perDay);
+  return {
+    monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2),
+    note: (note||(_fmtNum(ml)+' ml/ngày')) + ' (≈ '+perDayTxt+' viên người lớn/ngày, nghiền/hòa trong 10 ml) ⚠'
+  };
+}
+function _mmlWeek(ml, daysPerWeek, note){ // liều ml theo nhịp tuần (nghiền/hòa trong 10ml)
+  var perDose = ml/10;
+  var mt = perDose*daysPerWeek*DOSE_WEEKS_PER_MONTH;
+  var perDoseTxt = _fmtNum(perDose);
+  return {
+    monthTotal: +mt.toFixed(2),
+    note: (note||(_fmtNum(ml)+' ml × '+daysPerWeek+' ngày/tuần')) + ' (≈ '+perDoseTxt+' viên/lần, nghiền/hòa trong 10 ml) ⚠'
+  };
+}
+function _fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
+function _notUsed(){ return { monthTotal: 0, note: '– (không dùng ở dải cân nặng này)' }; }
+function _blank(){ return { monthTotal: 0, note: '(tài liệu gốc không ghi giá trị cho dải này)' }; }
+
+// Bảng liều: drugName → function(w) → {monthTotal, note}
+// VIẾT LẠI HOÀN TOÀN theo bản chuẩn hóa WHO 2022 — 11 dải cân nặng, người dùng cung cấp 2026.
+// Chỉ áp dụng dạng VIÊN NGƯỜI LỚN mà hệ thống đang quản lý kho (không tạo thêm SKU viên phân tán/trẻ em).
+var WHO_DOSE = {
+  // ════════ NHÓM A ════════
+  // Levofloxacin viên 250 mg (25 mg/ml khi nghiền/hòa)
+  'Levofloxacin 250mg': function(w){
+    if(w<5)  return _mml(2,   '2 ml/ngày');
+    if(w<10) return _mml(5,   '5 ml (0,5 viên)/ngày');   // 5–<7 và 7–<10
+    if(w<16) return _md(1);
+    if(w<24) return _md(1.5);
+    if(w<30) return _md(2);
+    if(w<46) return _md(3);          // 30–<36 và 36–<46
+    return _md(4);                   // 46–<56, 56–<70, ≥70
+  },
+  // Levofloxacin viên 500 mg
+  'Levofloxacin 500mg': function(w){
+    if(w<24) return _notUsed();      // 3–<24kg: không dùng dạng này
+    if(w<30) return _md(1);
+    if(w<46) return _md(1.5);        // 30–<36 và 36–<46
+    return _md(2);                   // 46–<56, 56–<70, ≥70
+  },
+  // Levofloxacin viên 750 mg
+  'Levofloxacin 750mg': function(w){
+    if(w<30) return _notUsed();
+    if(w<46) return _md(1);
+    return _md(1.5);                 // 46–<56, 56–<70, ≥70
+  },
+  // Moxifloxacin viên 400 mg (40 mg/ml) — liều chuẩn
+  'Moxifloxacin 400mg': function(w){
+    if(w<5)  return _mml(1,   '1 ml/ngày');
+    if(w<7)  return _mml(2,   '2 ml/ngày');
+    if(w<10) return _mml(3,   '3 ml/ngày');
+    if(w<16) return _mml(5,   '5 ml (0,5 viên)/ngày');
+    if(w<24) return _mml(7.5, '7,5 ml (0,75 viên)/ngày');
+    return _md(1);                   // 24–<30 đến ≥70: 1 viên/ngày
+  },
+  // Linezolid viên 600 mg (60 mg/ml)
+  'Linezolid 600mg': function(w){
+    if(w<5)  return _notUsed();      // dùng hỗn dịch/viên phân tán, không có dạng 600mg
+    if(w<7)  return _mml(1.25,'1,25 ml/ngày');
+    if(w<16) return _mml(2.5, '2,5 ml/ngày');        // 7–<10 và 10–<16
+    if(w<30) return _mml(5,   '5 ml (0,5 viên)/ngày'); // 16–<24 và 24–<30
+    if(w<36) return _mml(7.5, '7,5 ml (0,75 viên)/ngày');
+    if(w<56) return _md(1);          // 36–<46 và 46–<56
+    return _blank();                 // 56–<70 và ≥70: tài liệu gốc để trống
+  },
+  // Linezolid viên 300 mg (suy ra: 1 viên 300mg = ½ viên 600mg)
+  'Linezolid 300mg': function(w){
+    if(w<5)  return _notUsed();
+    if(w<7)  return _mml(2.5, '2,5 ml/ngày (≈ 0,25 viên 300mg)');
+    if(w<16) return _mml(5,   '5 ml/ngày (≈ 0,5 viên 300mg)');
+    if(w<30) return _md(1);          // ≈ ½ viên 600 = 1 viên 300
+    if(w<36) return _md(1.5);
+    return _md(2);                   // ≈ 1 viên 600 = 2 viên 300
+  },
+
+  // ════════ NHÓM B ════════
+  // Clofazimine viên 50 mg (khuyến cáo cho trẻ <24kg)
+  'Clofazimine 50mg': function(w){
+    if(w<5)  return _mw(1, 2, '1 viên × 2 ngày/tuần (Thứ 2, 6)');
+    if(w<10) return _mw(1, 3, '1 viên × 3 ngày/tuần (Thứ 2-4-6)');  // 5–<7 và 7–<10
+    if(w<24) return _md(1);          // 10–<16 và 16–<24
+    if(w<30) return _md(2);
+    return _md(2);                   // 30–<36 đến ≥70
+  },
+  // Clofazimine viên 100 mg
+  'Clofazimine 100mg': function(w){
+    if(w<5)  return _notUsed();
+    if(w<10) return _mw(1, 2, '1 viên × 2 ngày/tuần (Thứ 2, 6)');   // 5–<7 và 7–<10
+    if(w<24) return _mw(1, 3, '1 viên × 3 ngày/tuần (Thứ 2-4-6)');  // 10–<16 và 16–<24
+    return _md(1);                   // 24–<30 đến ≥70: 1 viên/ngày
+  },
+  // Cycloserine/Terizidone nang 125 mg (12,5 mg/ml)
+  'Cycloserine 125mg': function(w){
+    if(w<5)  return _mml(2, '2 ml/ngày ⚠ trẻ 3–<7kg: nguy cơ biến cố tâm thần kinh, đặc biệt khi dùng kèm Delamanid');
+    if(w<7)  return _mml(4, '4 ml/ngày ⚠ trẻ 3–<7kg: nguy cơ biến cố tâm thần kinh, đặc biệt khi dùng kèm Delamanid');
+    if(w<10) return _md(1);
+    if(w<16) return _md(2);
+    if(w<24) return _md(3);
+    if(w<36) return _md(4);          // 24–<30 và 30–<36
+    return _notUsed();                // 36–≥70: không dùng dạng nang 125mg
+  },
+  // Cycloserine/Terizidone nang 250 mg (25 mg/ml)
+  'Cycloserine 250mg': function(w){
+    if(w<5)  return _mml(1, '1 ml/ngày ⚠ trẻ 3–<7kg: nguy cơ biến cố tâm thần kinh, đặc biệt khi dùng kèm Delamanid');
+    if(w<7)  return _mml(2, '2 ml/ngày ⚠ trẻ 3–<7kg: nguy cơ biến cố tâm thần kinh, đặc biệt khi dùng kèm Delamanid');
+    if(w<10) return _mml(5, '5 ml/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(2);
+    if(w<36) return _md(2);          // 24–<30 và 30–<36
+    if(w<46) return _md(2);
+    return _md(3);                   // 46–<56, 56–<70, ≥70
+  },
+
+  // ════════ NHÓM C ════════
+  // Ethambutol viên 400 mg (40 mg/ml)
+  'Ethambutol 400mg': function(w){
+    if(w<5)  return _mml(1.5,'1,5 ml/ngày');
+    if(w<7)  return _mml(3,  '3 ml/ngày');
+    if(w<10) return _mml(4,  '4 ml/ngày');
+    if(w<16) return _mml(6,  '6 ml/ngày');
+    if(w<24) return _md(1);
+    if(w<30) return _md(1.5);
+    if(w<46) return _md(2);          // 30–<36 và 36–<46
+    if(w<70) return _md(3);          // 46–<56 và 56–<70
+    return _md(4);                   // ≥70
+  },
+  // Delamanid viên 50 mg (5 mg/ml)
+  'Delamanid 50mg': function(w, age, ageMonths){
+    if(w<5)  return _mml(5, '5 ml (0,5 viên)/ngày');
+    if(w<10){
+      // 5–<7 và 7–<10 kg: liều phụ thuộc tháng tuổi (WHO 2022)
+      var hasM = (ageMonths != null && !isNaN(ageMonths) && ageMonths > 0);
+      if(hasM && ageMonths < 3){
+        return _mml(5, '5 ml (0,5 viên)/ngày — [<3 tháng tuổi]');
+      }
+      return _mml(10,'5 ml (0,5 viên) × 2 lần/ngày — tổng 10 ml/ngày — [≥3 tháng tuổi]'+(hasM?'':' (chưa nhập tháng tuổi — mặc định ≥3 tháng)'));
     }
+    if(w<16) return _md(2);          // 5 ml (1 viên) × 2 lần/ngày
+    if(w<24) return _md(1.5);        // 10ml(1 viên) sáng + 5ml(0,5 viên) chiều
+    if(w<30) return _md(2);          // 1 viên × 2 lần/ngày
+    return _md(4);                   // 30–≥70: 2 viên × 2 lần/ngày
+  },
+  // Pyrazinamid viên 400 mg (40 mg/ml)
+  'Pyrazinamid 400mg': function(w){
+    if(w<5)  return _mml(2.5,'2,5 ml/ngày');
+    if(w<7)  return _mml(5,  '5 ml (0,5 viên)/ngày');
+    if(w<10) return _mml(7.5,'7,5 ml (0,75 viên)/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(2);
+    if(w<30) return _md(2.5);
+    if(w<36) return _md(3);
+    if(w<70) return _md(4);          // 36–<46, 46–<56, 56–<70
+    return _md(5);                   // ≥70
+  },
+  // Pyrazinamid viên 500 mg (50 mg/ml)
+  'Pyrazinamid 500mg': function(w){
+    if(w<5)  return _mml(2, '2 ml/ngày');
+    if(w<10) return _mml(5, '5 ml/ngày');     // 5–<7 và 7–<10
+    if(w<16) return _md(1);
+    if(w<24) return _md(1.5);
+    if(w<30) return _md(2);
+    if(w<36) return _md(2.5);
+    if(w<70) return _md(3);          // 36–<46, 46–<56, 56–<70
+    return _md(4);                   // ≥70
+  },
+  // Ethionamide viên 250 mg (25 mg/ml)
+  'Ethionamide 250mg': function(w){
+    if(w<5)  return _notUsed();
+    if(w<7)  return _mml(3,  '3 ml/ngày');
+    if(w<10) return _mml(5,  '5 ml (0,5 viên)/ngày');
+    if(w<16) return _md(1);
+    if(w<24) return _md(2);
+    if(w<30) return _md(2);
+    if(w<36) return _md(2);
+    if(w<46) return _md(3);
+    return _md(4);                   // 46–≥70
+  },
+  'Prothionamide 250mg': function(w){ return WHO_DOSE['Ethionamide 250mg'](w); },
+  // Para-aminosalicylic acid (gói 4g PAS) — 2 lần/ngày, quy về số gói/ngày
+  'Para-aminosalicylic acid 4g': function(w){
+    if(w<5)  return { monthTotal:+(0.3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,3 g × 2 lần/ngày' };
+    if(w<7)  return { monthTotal:+(0.75*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,75 g × 2 lần/ngày' };
+    if(w<10) return { monthTotal:+(1*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'1 g × 2 lần/ngày' };
+    if(w<16) return { monthTotal:+(2*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'2 g × 2 lần/ngày' };
+    if(w<24) return { monthTotal:+(3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3 g × 2 lần/ngày' };
+    if(w<30) return { monthTotal:+(3.5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3,5 g × 2 lần/ngày' };
+    if(w<70) return { monthTotal:+(4*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4 g × 2 lần/ngày' };
+    return { monthTotal:+(5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4–6 g × 2 lần/ngày' };
+  },
+  // Meropenem lọ 1g (pha 20ml) — luôn kèm acid clavulanic
+  'Meropenem 1g': function(w){
+    if(w<5)  return { monthTotal:+(1*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1 ml × 3 lần/ngày (lọ pha 20ml)' };
+    if(w<7)  return { monthTotal:+(2*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'2 ml × 3 lần/ngày (lọ pha 20ml)' };
+    if(w<10) return { monthTotal:+(4*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'4 ml × 3 lần/ngày (lọ pha 20ml)' };
+    if(w<16) return { monthTotal:+(6*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'6 ml × 3 lần/ngày (lọ pha 20ml)' };
+    if(w<24) return { monthTotal:+(9*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'9 ml × 3 lần/ngày (lọ pha 20ml)' };
+    if(w<30) return { monthTotal:+(11*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'11 ml × 3 lần/ngày (lọ pha 20ml)' };
+    return { monthTotal:+(3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1 lọ × 3 lần/ngày hoặc 2 lọ × 2 lần/ngày' }; // ≥30kg
+  },
+  // Imipenem-cilastatin — không dùng <15 tuổi (thay Meropenem); người đủ điều kiện 2 lọ×2 lần/ngày
+  'Imipenem-cilastatin 500mg': function(w, age, ageMonths){
+    var ageY = (ageMonths!=null) ? ageMonths/12 : age;
+    if(ageY!=null && !isNaN(ageY) && ageY < 15) return { monthTotal:0, note:'– Trẻ <15 tuổi: KHÔNG dùng, thay bằng Meropenem' };
+    return { monthTotal:+(2*2*DOSE_DAYS_PER_MONTH).toFixed(2), note:'2 lọ (1g+1g) × 2 lần/ngày' };
+  },
+  // ── ISONIAZID liều cao ──
+  'Isoniazid 300mg': function(w){
+    if(w<16) return _notUsed();      // dùng dạng nhỏ hơn (viên 100mg)
+    if(w<24) return _md(1);
+    if(w<46) return _md(1.5);        // 24–<30 và 30–<46
+    return _md(2);                   // 46–≥70
+  },
+  'Isoniazid 100mg': function(w){
+    if(w<5)  return _mml(5, '5 ml (0,5 viên)/ngày');
+    if(w<7)  return _md(1);
+    if(w<10) return _md(1.5);
+    if(w<16) return _md(2);
+    if(w<24) return _md(3);
+    if(w<36) return _md(4);          // 24–<30 và 30–<36
+    if(w<46) return _md(4.5);
+    return _notUsed();                // 46–≥70: dùng viên 300mg
+  },
+  // Rifampicin 150 mg — liều cố định (bảng WHO không chi tiết hàng 2, giữ logic cũ)
+  'Rifampicin 150mg': function(w){ return _md(1); },
+  // ── THUỐC TIÊM (chỉ khuyến cáo người ≥18 tuổi — xem chú thích (i)) ──
+  'Amikacin 500mg/2ml': function(w, age, ageMonths){
+    var ageY = (ageMonths!=null) ? ageMonths/12 : age;
+    if(w<46) return _notUsed();
+    return { monthTotal:+(0.5*DOSE_DAYS_PER_MONTH).toFixed(2), note:'3–4 ml/ngày (theo mg/kg) — chỉ định ngoại lệ ở trẻ em, cần chuyên gia lao kháng thuốc nhi khoa & giám sát thính lực' };
+  },
+  'Amikacin 1g/4ml': function(w, age, ageMonths){ return WHO_DOSE['Amikacin 500mg/2ml'](w, age, ageMonths); },
+  'Kanamycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'theo mg/kg (chuyên khoa)' }; },
+  'Streptomycin 1g': function(w){ return { monthTotal:0, note:'Trẻ em: không dùng. Người lớn ≥18 tuổi: theo độ pha loãng sử dụng — chỉ định ngoại lệ, cần giám sát thính lực' }; },
+  'Capreomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'1 lọ/ngày' }; },
+  // Pretomanid 200mg — chỉ dùng trong BPaLM/BPaL, người đủ điều kiện (thường ≥14 tuổi)
+  'Pretomanid 200mg': function(w){ return _md(1); },
+  // Amoxicillin/Clavulanate — luôn kèm Imipenem hoặc Meropenem
+  'Amoxicillin/Clavulanate 250mg': function(w){
+    if(w<5)  return { monthTotal:+(1.5*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1,5 ml × 3 lần/ngày (gói pha 5ml)' };
+    if(w<7)  return { monthTotal:+(2*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'2 ml × 3 lần/ngày (gói pha 5ml)' };
+    if(w<10) return { monthTotal:+(3*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'3 ml × 3 lần/ngày (gói pha 5ml)' };
+    if(w<16) return { monthTotal:+(5*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'5 ml × 3 lần/ngày (gói pha 5ml)' };
+    if(w<24) return { monthTotal:+(8*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'8 ml × 3 lần/ngày (gói pha 5ml)' };
+    if(w<46) return { monthTotal:+(10*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'10 ml × 3 lần/ngày (gói pha 5ml)' }; // 24–<30 và 30–<46
+    return _notUsed();                // 46–≥70: dùng viên 500mg
+  },
+  'Amoxicillin/Clavulanate 500mg': function(w){
+    if(w<16) return _notUsed();
+    if(w<24) return { monthTotal:+(3*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1 viên × 3 lần/ngày' };
+    return { monthTotal:+(2*3*DOSE_DAYS_PER_MONTH).toFixed(2), note:'1 viên × 2 lần hoặc 3 lần/ngày (lấy mốc 2 lần/ngày)' }; // 24–≥70
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════
+// BEDAQUILINE — VIẾT LẠI HOÀN TOÀN theo CÂN NẶNG + THÁNG TUỔI (WHO 2022).
+// Viên 100mg người lớn (nghiền/hòa trong 10ml nước — tương đương sinh học đã chứng minh).
+// Phác đồ 2 giai đoạn: Nạp 2 tuần (14 ngày) → Duy trì 3 ngày/tuần (T2-4-6) × 22 tuần.
+// Với trẻ <10kg, liều còn phụ thuộc THÁNG TUỔI (không chỉ cân nặng).
+// ════════════════════════════════════════════════════════════════════
+// ageMonths: số tháng tuổi (ưu tiên nếu có). Nếu không có, dùng age (năm) — không phân biệt được
+// các mốc <6 tháng nên sẽ mặc định lấy nhánh "≥6 tháng" (an toàn hơn, liều cao hơn 1 chút).
+function _bdqDoseByWeightAge(w, age, ageMonths){
+  var hasMonths = (ageMonths != null && !isNaN(ageMonths) && ageMonths > 0);
+  var m = hasMonths ? ageMonths : null;
+
+  // Trả {loadMl/loadTablet, maintMl/maintTablet, label}
+  // dùng ml (nghiền/hòa 10ml) cho <10kg, dùng viên nguyên cho ≥10kg.
+
+  // 3–<5kg và 5–<7kg: GỘP CHUNG, chỉ 2 mốc tháng tuổi (0–<3 / ≥3 tháng)
+  if(w < 7){
+    var wLabel1 = (w < 5) ? '3–<5 kg' : '5–<7 kg';
+    if(hasMonths && m < 3){
+      return { loadMl:3, maintMl:1, label:wLabel1+', 0–<3 tháng tuổi' };
+    }
+    return { loadMl:6, maintMl:2, label:wLabel1+', ≥3 tháng tuổi'+(hasMonths?'':' (chưa nhập tháng tuổi — mặc định ≥3 tháng)') };
+  }
+  // 7–<10kg: 3 mốc tháng tuổi (0–<3 / 3–<6 / ≥6 tháng)
+  if(w < 10){
+    if(hasMonths && m < 3){
+      return { loadMl:3, maintMl:1, label:'7–<10 kg, 0–<3 tháng tuổi' };
+    }
+    if(hasMonths && m < 6){
+      return { loadMl:6, maintMl:2, label:'7–<10 kg, 3–<6 tháng tuổi' };
+    }
+    return { loadMl:8, maintMl:4, label:'7–<10 kg, ≥6 tháng tuổi'+(hasMonths?'':' (chưa nhập tháng tuổi — mặc định ≥6 tháng)') };
+  }
+  // 10–<16kg: 2 mốc tháng tuổi (3–<6 / ≥6 tháng)
+  if(w < 16){
+    if(hasMonths && m < 6){
+      return { loadMl:6, maintMl:2, label:'10–<16 kg, 3–<6 tháng tuổi' };
+    }
+    return { loadMl:12, maintMl:6, label:'10–<16 kg, ≥6 tháng tuổi'+(hasMonths?'':' (chưa nhập tháng tuổi — mặc định ≥6 tháng)') };
+  }
+  // 16–<30kg: liều cố định theo cân nặng, không phân theo tháng tuổi
+  if(w < 30){
+    return { loadTablet:2, maintTablet:1, label:'16–<30 kg' };
+  }
+  // ≥30kg (gồm người lớn): liều người lớn chuẩn
+  return { loadTablet:4, maintTablet:2, label:'≥30 kg (liều người lớn)' };
+}
+
+// Hàm chính: trả {monthTotal, note, noteHtml, total} — tương thích với code hiện có.
+// monthTotal=24 vẫn là số đại diện hiển thị ô input (giữ tương thích UI cũ); số thực phân bổ
+// theo _bdqMonthlyDist (đã có sẵn, không đổi) dựa trên `total` và ranges 6 tháng.
+function calculateBedaquilineDetails(startDateStr, weight, age, ageMonths) {
+    var w = parseFloat(weight);
+    if(isNaN(w)) w = 50; // không rõ cân nặng → coi như người lớn
+
+    var d = _bdqDoseByWeightAge(w, age, ageMonths);
+
+    // Quy đổi ra "viên/ngày" để tính tổng (ml/10 = viên quy đổi; viên nguyên giữ nguyên)
+    var loadPerDay  = d.loadTablet  != null ? d.loadTablet  : (d.loadMl  / 10);
+    var maintPerDose= d.maintTablet != null ? d.maintTablet : (d.maintMl / 10);
+
+    var phase1 = +(loadPerDay * 14).toFixed(2);           // nạp: loadPerDay × 14 ngày
+    var phase2 = +(maintPerDose * 3 * 22).toFixed(2);      // duy trì: maintPerDose × 3 ngày/tuần × 22 tuần
+    var totalTablets = +(phase1 + phase2).toFixed(2);
+    // viên/tháng đại diện (giai đoạn duy trì) — tính ĐÚNG theo cân nặng/tháng tuổi, KHÔNG hard-code 24
+    var vBdqRepresent = +(maintPerDose * 3 * 4).toFixed(2);
+
+    // Mô tả liều dạng ml (nếu có) để hiển thị đúng đơn vị cấp phát
+    var loadDoseTxt  = d.loadTablet  != null ? (_fmtNum(d.loadTablet)+' viên/ngày')
+                                              : (_fmtNum(d.loadMl)+' ml/ngày (≈ '+_fmtNum(loadPerDay)+' viên, nghiền/hòa 10ml) ⚠');
+    var maintDoseTxt = d.maintTablet != null ? (_fmtNum(d.maintTablet)+' viên × 3 ngày/tuần (T2-4-6)')
+                                              : (_fmtNum(d.maintMl)+' ml × 3 ngày/tuần (≈ '+_fmtNum(maintPerDose)+' viên/lần, nghiền/hòa 10ml) ⚠');
 
     if(!startDateStr) {
-        var _nh1 = '<div style="color:#64748b;font-size:11px">Tổng '+total+'v/6 tháng — <span style="color:#dc2626">chưa có ngày bắt đầu</span></div>';
-        return { monthTotal: 24, total: total, note: "Tổng "+total+"v/6 tháng — chưa có ngày bắt đầu", noteHtml: _nh1 };
+        var _nh1 = '<div style="color:#64748b;font-size:11px">['+d.label+'] · Tổng '+_fmtNum(totalTablets)+'v/6 tháng — <span style="color:#dc2626">chưa có ngày bắt đầu</span></div>';
+        return { monthTotal: vBdqRepresent, total: totalTablets, note: "["+d.label+"] Tổng "+_fmtNum(totalTablets)+"v/6 tháng — chưa có ngày bắt đầu", noteHtml: _nh1 };
     }
     var startDate = new Date(startDateStr + 'T00:00:00');
     if(isNaN(startDate.getTime())) {
-        var _nh2 = '<div style="color:#64748b;font-size:11px">Tổng '+total+'v/6 tháng — <span style="color:#dc2626">ngày bắt đầu không hợp lệ</span></div>';
-        return { monthTotal: 24, total: total, note: "Tổng "+total+"v/6 tháng — ngày bắt đầu không hợp lệ", noteHtml: _nh2 };
+        var _nh2 = '<div style="color:#64748b;font-size:11px">['+d.label+'] · Tổng '+_fmtNum(totalTablets)+'v/6 tháng — <span style="color:#dc2626">ngày bắt đầu không hợp lệ</span></div>';
+        return { monthTotal: vBdqRepresent, total: totalTablets, note: "["+d.label+"] Tổng "+_fmtNum(totalTablets)+"v/6 tháng — ngày bắt đầu không hợp lệ", noteHtml: _nh2 };
     }
 
-    // Kết thúc = BĐ + 6 tháng (24 tuần thực)
+    // Kết thúc = BĐ + 6 tháng (22 tuần duy trì + 2 tuần nạp = 24 tuần thực)
     var endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + 6);
 
-    // Ngày 14 (kết thúc giai đoạn nạp)
     var day14 = new Date(startDate);
     day14.setDate(day14.getDate() + 13);
 
-    var formatDate = function(d) {
-        return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
+    var formatDate = function(dt) {
+        return ('0'+dt.getDate()).slice(-2)+'/'+('0'+(dt.getMonth()+1)).slice(-2)+'/'+dt.getFullYear();
     };
 
-    var phase1 = loadPerDay * 14;          // nạp: loadPerDay × 14 ngày
-    var phase2 = P2Total;                   // duy trì
-    var totalTablets = phase1 + phase2;     // = total
+    var note = "["+d.label+"] Nạp "+formatDate(startDate)+"→"+formatDate(day14)+": "
+             + loadDoseTxt+" ("+_fmtNum(phase1)+"v); "
+             + "Duy trì → "+formatDate(endDate)+": "+maintDoseTxt+" ("+_fmtNum(phase2)+"v); "
+             + "Tổng "+_fmtNum(totalTablets)+"v/6 tháng";
 
-    var wLabel = (isNaN(w) || w >= 16) ? '≥16kg' : (w >= 10 ? '10–<16kg' : '<10kg ⚠ dùng dạng phân tán');
-
-    // Note text thuần (1 dòng) — giữ để tương thích chỗ nào cần
-    var note = "["+wLabel+"] Nạp "+formatDate(startDate)+"→"+formatDate(day14)+": "
-             + loadPerDay+"v/ngày ("+phase1+"v); "
-             + "Duy trì → "+formatDate(endDate)+": "+maintPerDose+"v × T2-4-6 ("+phase2+"v); "
-             + "Tổng "+totalTablets+"v/6 tháng";
-
-    // Note HTML 3 dòng có màu:
-    //   Dòng 1: mốc cân nặng + tổng
-    //   Dòng 2: LIỀU NẠP (màu cam đậm/đỏ cam)
-    //   Dòng 3: LIỀU DUY TRÌ (màu xanh dương)
     var noteHtml =
         '<div style="line-height:1.55">'
-      + '<div style="color:#64748b;font-weight:600;font-size:11px">['+wLabel+'] · Tổng '+totalTablets+'v/6 tháng</div>'
+      + '<div style="color:#64748b;font-weight:600;font-size:11px">['+d.label+'] · Tổng '+_fmtNum(totalTablets)+'v/6 tháng</div>'
       + '<div style="margin-top:2px"><span style="color:#dc2626;font-weight:700">Liều nạp:</span> '
-        + '<span style="color:#334155">'+formatDate(startDate)+'→'+formatDate(day14)+': '+loadPerDay+'v/ngày ('+phase1+'v)</span></div>'
+        + '<span style="color:#334155">'+formatDate(startDate)+'→'+formatDate(day14)+': '+loadDoseTxt+' ('+_fmtNum(phase1)+'v)</span></div>'
       + '<div style="margin-top:1px"><span style="color:#1d4ed8;font-weight:700">Liều duy trì:</span> '
-        + '<span style="color:#334155">→'+formatDate(endDate)+': '+maintPerDose+'v × T2-4-6 ('+phase2+'v)</span></div>'
+        + '<span style="color:#334155">→'+formatDate(endDate)+': '+maintDoseTxt+' ('+_fmtNum(phase2)+'v)</span></div>'
       + '</div>';
 
-    return { monthTotal: 24, total: totalTablets, note: note, noteHtml: noteHtml };
+    return { monthTotal: vBdqRepresent, total: totalTablets, note: note, noteHtml: noteHtml };
 }
+
+// Tra liều WHO theo cân nặng (+tuổi nếu thuốc cần). Trả {monthTotal, note}. Nếu không có → fallbackDaily.
+function _doseWHO(drugName, w, fallbackDaily, age, ageMonths){
+  var f = WHO_DOSE[drugName];
+  if(typeof f === 'function'){
+    var r = f(w, age, ageMonths);
+    return r;
+  }
+  var fd = (fallbackDaily != null) ? fallbackDaily : 1;
+  return { monthTotal: fd*DOSE_DAYS_PER_MONTH, note: _fmtNum(fd)+' viên/ngày' };
+}
+
 
 // 2. Thuật toán gợi ý TỔNG VIÊN/THÁNG và GHI CHÚ theo Tuổi & Cân Nặng (WHO 2022)
 // Hỗ trợ phác đồ 2 giai đoạn có dấu "/": tính thuốc riêng từng giai đoạn theo số tháng của giai đoạn đó.
-function getDrugsByWeight(pd, weight, age) {
+function getDrugsByWeight(pd, weight, age, ageMonths) {
     var pdRaw = String(pd || '');
     // Nếu có dấu "/" → phác đồ nhiều giai đoạn
     if(pdRaw.indexOf('/') >= 0){
@@ -12893,7 +13376,7 @@ function getDrugsByWeight(pd, weight, age) {
             var phStart = cumMonth;              // tháng bắt đầu (offset từ 0)
             var phEnd = cumMonth + phMonths;     // tháng kết thúc (không bao gồm)
             cumMonth = phEnd;
-            var phDrugs = _getDrugsByWeightSingle(ph, weight, age);
+            var phDrugs = _getDrugsByWeightSingle(ph, weight, age, ageMonths);
             phDrugs.forEach(function(dr){
                 // Khoảng tháng thuốc này dùng TRONG giai đoạn:
                 // - Nếu thuốc có [n] (dr.ranges từ _getDrugsByWeightSingle) → dùng n tháng đầu GĐ
@@ -12943,222 +13426,31 @@ function getDrugsByWeight(pd, weight, age) {
         });
     }
     // Phác đồ 1 giai đoạn (như cũ)
-    return _getDrugsByWeightSingle(pdRaw, weight, age);
+    return _getDrugsByWeightSingle(pdRaw, weight, age, ageMonths);
 }
 
 // ════════════════════════════════════════════════════════════════════
 // BẢNG LIỀU WHO 2022 — thuốc chống lao hàng 2, theo cân nặng (dạng VIÊN NGƯỜI LỚN)
-// Quy ước tính dự trù/tháng:
-//   • Liều ngày thường : viên/ngày × 26
-//   • Liều theo nhịp tuần: viên/lần × số ngày/tuần × 4
-//   • Liều ml (nghiền/hòa viên người lớn trong 10 ml) : GIỮ NGUYÊN ml, ghi chú rõ,
-//       monthTotal tính tương đối = (ml/10 viên) × 26 để vẫn có số dự trù.
-// 11 dải cân nặng (kg): 3,5,7,10,16,24,30,36,46,56,70 (cận dưới mỗi dải)
-// Mỗi entry: hàm nhận w(kg) trả {monthTotal, note}. perDay = số viên/ngày (để hiển thị).
-// ════════════════════════════════════════════════════════════════════
-var DOSE_DAYS_PER_MONTH = 26;       // số ngày dùng/tháng (liều hằng ngày)
-var DOSE_WEEKS_PER_MONTH = 4;       // số tuần/tháng (liều theo nhịp tuần)
 
-// Helper dựng kết quả
-function _md(perDay){ // liều hằng ngày theo viên
-  return { monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2), note: _fmtNum(perDay)+' viên/ngày' };
-}
-function _mw(perDose, daysPerWeek, label){ // liều theo nhịp tuần
-  var mt = perDose*daysPerWeek*DOSE_WEEKS_PER_MONTH;
-  return { monthTotal: +mt.toFixed(2), note: label || (_fmtNum(perDose)+' viên × '+daysPerWeek+' ngày/tuần') };
-}
-function _mml(ml, note){ // liều ml (nghiền/hòa viên người lớn trong 10 ml)
-  // 10 ml = 1 viên người lớn → ml/10 = số viên/ngày tương đương
-  var perDay = ml/10;
-  return { monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2), note: (note||(ml+' ml/ngày'))+' ⚠ nghiền/hòa viên trong 10 ml' };
-}
-function _fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
-
-// Bảng liều: drugName → function(w) → {monthTotal, note}
-// Dựa trên WHO 2022 (bản chuẩn hóa người dùng cung cấp), CHỈ dạng viên người lớn hệ thống quản lý.
-var WHO_DOSE = {
-  // ── NHÓM A ──
-  // Levofloxacin viên 250 mg
-  'Levofloxacin 250mg': function(w){
-    if(w<5)  return _mml(2,  '2 ml/ngày');
-    if(w<10) return _mml(5,  '5 ml (½ viên)/ngày');
-    if(w<16) return _md(1);
-    if(w<24) return _md(1.5);
-    if(w<30) return _md(2);
-    if(w<46) return _md(3);          // 30–<36 và 36–<46
-    return _md(4);                   // 46–≥70
-  },
-  // Levofloxacin viên 500 mg
-  'Levofloxacin 500mg': function(w){
-    if(w<24) return _md(0);          // không dùng dưới 24kg dạng này
-    if(w<30) return _md(1);
-    if(w<46) return _md(1.5);        // 30–<46
-    return _md(2);                   // 46–≥70
-  },
-  // Moxifloxacin viên 400 mg (liều chuẩn)
-  'Moxifloxacin 400mg': function(w){
-    if(w<5)  return _mml(1, '1 ml/ngày');
-    if(w<7)  return _mml(2, '2 ml/ngày');
-    if(w<10) return _mml(3, '3 ml/ngày');
-    if(w<16) return _mml(5, '5 ml (½ viên)/ngày');
-    if(w<24) return _mml(7.5,'7,5 ml (¾ viên)/ngày');
-    return _md(1);                   // 24–≥70
-  },
-  // Linezolid viên 600 mg
-  'Linezolid 600mg': function(w){
-    if(w<5)  return _md(0);          // dùng hỗn dịch, không có dạng này
-    if(w<7)  return _mml(1.25,'1,25 ml/ngày');
-    if(w<16) return _mml(2.5, '2,5 ml/ngày');     // 7–<10 và 10–<16
-    if(w<30) return _mml(5,   '5 ml (½ viên)/ngày'); // 16–<24 và 24–<30
-    if(w<36) return _mml(7.5, '7,5 ml (¾ viên)/ngày');
-    if(w<56) return _md(1);          // 36–<46 và 46–<56
-    return _md(1);                   // 56–≥70 (bản gốc để trống → giữ 1 viên/ngày)
-  },
-  // Linezolid viên 300 mg (suy ra: 1 viên 300mg = ½ viên 600mg)
-  'Linezolid 300mg': function(w){
-    if(w<5)  return _md(0);
-    if(w<7)  return _mml(2.5, '2,5 ml/ngày (≈¼ viên 300)');
-    if(w<16) return _mml(5,   '5 ml/ngày (≈½ viên 300)');
-    if(w<30) return _md(1);          // ≈ ½ viên 600 = 1 viên 300
-    if(w<36) return _md(1.5);
-    return _md(2);                   // ≈ 1 viên 600 = 2 viên 300
-  },
-  // ── NHÓM B ──
-  // Clofazimine viên 100 mg (nhịp tuần ở cân nặng nhỏ)
-  'Clofazimine 100mg': function(w){
-    if(w<5)  return _md(0);
-    if(w<10) return _mw(1, 2, '1 viên × 2 ngày/tuần (T2,T6)');   // 5–<10
-    if(w<24) return _mw(1, 3, '1 viên × 3 ngày/tuần (T2-4-6)');  // 10–<24
-    return _md(1);                   // 24–≥70: 1 viên/ngày
-  },
-  // Cycloserine viên 250 mg
-  'Cycloserine 250mg': function(w){
-    if(w<5)  return _mml(1, '1 ml/ngày');
-    if(w<7)  return _mml(2, '2 ml/ngày');
-    if(w<10) return _mml(5, '5 ml/ngày');
-    if(w<16) return _md(1);
-    if(w<24) return _md(2);
-    if(w<46) return _md(2);          // 24–<30, 30–<36, 36–<46
-    return _md(3);                   // 46–≥70
-  },
-  // ── NHÓM C ──
-  // Ethambutol viên 400 mg
-  'Ethambutol 400mg': function(w){
-    if(w<5)  return _mml(1.5,'1,5 ml/ngày');
-    if(w<7)  return _mml(3,  '3 ml/ngày');
-    if(w<10) return _mml(4,  '4 ml/ngày');
-    if(w<16) return _mml(6,  '6 ml/ngày');
-    if(w<24) return _md(1);
-    if(w<30) return _md(1.5);
-    if(w<46) return _md(2);          // 30–<36 và 36–<46
-    if(w<70) return _md(3);          // 46–<56 và 56–<70
-    return _md(4);                   // ≥70
-  },
-  // Delamanid viên 50 mg (2 lần/ngày → quy về tổng viên/ngày)
-  'Delamanid 50mg': function(w){
-    if(w<5)  return _mml(5, '5 ml (½ viên)/ngày');
-    if(w<10) return _mml(10,'½ viên × 2 lần/ngày (5 ml ×2)'); // ≈1 viên/ngày
-    if(w<16) return _md(2); // 1 viên × 2 lần/ngày
-    if(w<24) return _md(1.5); // 1 viên sáng + ½ viên chiều
-    if(w<30) return _md(2);   // 1 viên × 2 lần/ngày
-    return _md(4);            // 2 viên × 2 lần/ngày
-  },
-  // Pyrazinamid viên 500 mg
-  'Pyrazinamid 500mg': function(w){
-    if(w<5)  return _mml(2, '2 ml/ngày');
-    if(w<10) return _mml(5, '5 ml/ngày');
-    if(w<16) return _md(1);
-    if(w<24) return _md(1.5);
-    if(w<30) return _md(2);
-    if(w<36) return _md(2.5);
-    if(w<70) return _md(3);          // 36–<46, 46–<56, 56–<70
-    return _md(4);                   // ≥70
-  },
-  // Ethionamide/Prothionamide viên 250 mg
-  'Ethionamide 250mg': function(w){
-    if(w<5)  return _md(0);
-    if(w<7)  return _mml(3, '3 ml/ngày');
-    if(w<10) return _mml(5, '5 ml (½ viên)/ngày');
-    if(w<16) return _md(1);
-    if(w<36) return _md(2);          // 16–<24, 24–<30, 30–<36
-    if(w<46) return _md(3);
-    return _md(4);                   // 46–≥70
-  },
-  'Prothionamide 250mg': function(w){ return WHO_DOSE['Ethionamide 250mg'](w); },
-  // Para-aminosalicylic acid (gói 4 g) — 2 lần/ngày, quy về số gói/ngày
-  'Para-aminosalicylic acid 4g': function(w){
-    if(w<5)  return { monthTotal:+(0.3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,3 g × 2 lần/ngày' };
-    if(w<7)  return { monthTotal:+(0.75*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'0,75 g × 2 lần/ngày' };
-    if(w<10) return { monthTotal:+(1*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'1 g × 2 lần/ngày' };
-    if(w<16) return { monthTotal:+(2*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'2 g × 2 lần/ngày' };
-    if(w<24) return { monthTotal:+(3*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3 g × 2 lần/ngày' };
-    if(w<30) return { monthTotal:+(3.5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'3,5 g × 2 lần/ngày' };
-    if(w<70) return { monthTotal:+(4*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4 g × 2 lần/ngày' };
-    return { monthTotal:+(5*2*DOSE_DAYS_PER_MONTH/4).toFixed(2), note:'4–6 g × 2 lần/ngày' };
-  },
-  // ── ISONIAZID ──
-  'Isoniazid 300mg': function(w){
-    if(w<16) return _md(0);          // dùng dạng nhỏ hơn
-    if(w<24) return _md(1);
-    if(w<30) return _md(1.5);
-    if(w<46) return _md(1.5);        // 30–<46
-    return _md(2);                   // 46–≥70
-  },
-  'Isoniazid 100mg': function(w){
-    if(w<5)  return _mml(5, '5 ml (½ viên)/ngày');
-    if(w<7)  return _md(1);
-    if(w<10) return _md(1.5);
-    if(w<16) return _md(2);
-    if(w<24) return _md(3);
-    if(w<30) return _md(4);
-    if(w<36) return _md(4);
-    if(w<46) return _md(4.5);
-    return _md(0);                   // 46–≥70: dùng viên 300mg
-  },
-  // Rifampicin 150 mg — liều cố định 1 viên/ngày (giữ như cũ, bảng WHO không chi tiết hàng 2)
-  'Rifampicin 150mg': function(w){ return _md(1); },
-  // ── THUỐC TIÊM / KHÁC ──
-  'Amikacin 500mg/2ml': function(w){
-    if(w<46) return { monthTotal:0, note:'– (không khuyến cáo dưới 46kg)' };
-    return { monthTotal:0.5*DOSE_DAYS_PER_MONTH, note:'3–4 ml/ngày (theo mg/kg)' };
-  },
-  'Amikacin 1g/4ml': function(w){ return WHO_DOSE['Amikacin 500mg/2ml'](w); },
-  'Kanamycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'theo mg/kg (chuyên khoa)' }; },
-  'Streptomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'theo mg/kg (người lớn)' }; },
-  'Capreomycin 1g': function(w){ return { monthTotal:DOSE_DAYS_PER_MONTH, note:'1 lọ/ngày' }; },
-  // Pretomanid 200 mg — chỉ trong BPaLM/BPaL, 1 viên/ngày người đủ điều kiện
-  'Pretomanid 200mg': function(w){ return _md(1); }
-};
-
-// Tra liều WHO theo cân nặng. Trả {monthTotal, note}. Nếu không có trong bảng → fallbackDaily.
-function _doseWHO(drugName, w, fallbackDaily){
-  var f = WHO_DOSE[drugName];
-  if(typeof f === 'function'){
-    var r = f(w);
-    if(r && r.monthTotal === 0 && (!r.note || r.note.indexOf('–')<0)){
-      // monthTotal 0 mà không phải "không dùng" → vẫn trả để hiển thị
-    }
-    return r;
-  }
-  var fd = (fallbackDaily != null) ? fallbackDaily : 1;
-  return { monthTotal: fd*DOSE_DAYS_PER_MONTH, note: _fmtNum(fd)+' viên/ngày' };
-}
-
-function _getDrugsByWeightSingle(pd, weight, age) {
+function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
     var w = parseFloat(weight) || 50;
     var drugs = [];
     var pdStr = String(pd || '').replace(/\s+/g, '');
-    
-    // Bedaquiline: liều nạp/duy trì + tổng theo cân nặng (≥16kg=188v; 10–<16kg=94v)
-    var _bdqLoad = (w >= 16 || isNaN(w)) ? 4 : 2;
-    var _bdqMaint = (w >= 16 || isNaN(w)) ? 2 : 1;
-    var _bdqTotal = (w >= 16 || isNaN(w)) ? 188 : 94;
-    var vBdq = 24; // viên/tháng đại diện (giai đoạn duy trì) — số thực phân bổ theo _bdqMonthlyDist
-    var noteBdq = "Nạp "+_bdqLoad+"v/ngày×14 ngày → duy trì "+_bdqMaint+"v×T2-4-6; Tổng "+_bdqTotal+"v/6 tháng (theo ngày BĐ)";
+
+    // Bedaquiline: dùng hàm liều mới (cân nặng + tháng tuổi). Tổng viên thực tế lấy từ
+    // calculateBedaquilineDetails (đã tách riêng theo các mốc tháng tuổi <10kg theo WHO 2022).
+    var _bdqDetail = _bdqDoseByWeightAge(isNaN(w)?50:w, age, ageMonths);
+    var _bdqLoadPerDay  = _bdqDetail.loadTablet  != null ? _bdqDetail.loadTablet  : (_bdqDetail.loadMl  / 10);
+    var _bdqMaintPerDose= _bdqDetail.maintTablet != null ? _bdqDetail.maintTablet : (_bdqDetail.maintMl / 10);
+    var _bdqPhase1 = +(_bdqLoadPerDay * 14).toFixed(2);
+    var _bdqPhase2 = +(_bdqMaintPerDose * 3 * 22).toFixed(2);
+    var _bdqTotal  = +(_bdqPhase1 + _bdqPhase2).toFixed(2);
+    var vBdq = +(_bdqMaintPerDose * 3 * 4).toFixed(2); // viên/tháng đại diện (giai đoạn duy trì) — tính ĐÚNG theo cân nặng/tháng tuổi, KHÔNG hard-code; số thực phân bổ theo tháng vẫn theo _bdqMonthlyDist
+    var noteBdq = "["+_bdqDetail.label+"] Nạp "+(_bdqDetail.loadTablet!=null?(_fmtNum(_bdqDetail.loadTablet)+'v'):(_fmtNum(_bdqDetail.loadMl)+'ml'))+"/ngày×14 ngày → duy trì "+(_bdqDetail.maintTablet!=null?(_fmtNum(_bdqDetail.maintTablet)+'v'):(_fmtNum(_bdqDetail.maintMl)+'ml'))+"×T2-4-6; Tổng "+_fmtNum(_bdqTotal)+"v/6 tháng (theo ngày BĐ)";
 
     // Liều theo cân nặng — DÙNG CHUNG cho mọi nhánh, lấy từ bảng WHO 2022.
     function _doseByWeight(drugName, fallbackDaily){
-        return _doseWHO(drugName, w, fallbackDaily);
+        return _doseWHO(drugName, w, fallbackDaily, age, ageMonths);
     }
 
     if(PHAC_DO[pdStr]) {
@@ -13283,28 +13575,36 @@ function _getDrugsByWeightSingle(pd, weight, age) {
     // Bedaquiline giữ logic riêng (6 tháng); các thuốc khác tra theo cân nặng w.
     var dosageMap = {
         "Bedaquiline 100mg": { monthTotal: vBdq, note: noteBdq },
-        "Pretomanid 200mg":  _doseWHO("Pretomanid 200mg", w),
-        "Delamanid 50mg":    _doseWHO("Delamanid 50mg", w),
-        "Linezolid 600mg":   _doseWHO("Linezolid 600mg", w),
-        "Linezolid 300mg":   _doseWHO("Linezolid 300mg", w),
-        "Moxifloxacin 400mg":_doseWHO("Moxifloxacin 400mg", w),
-        "Levofloxacin 500mg":_doseWHO("Levofloxacin 500mg", w),
-        "Levofloxacin 250mg":_doseWHO("Levofloxacin 250mg", w),
-        "Clofazimine 100mg": _doseWHO("Clofazimine 100mg", w),
-        "Cycloserine 250mg": _doseWHO("Cycloserine 250mg", w),
-        "Amikacin 500mg/2ml":_doseWHO("Amikacin 500mg/2ml", w),
-        "Amikacin 1g/4ml":   _doseWHO("Amikacin 1g/4ml", w),
-        "Kanamycin 1g":      _doseWHO("Kanamycin 1g", w),
-        "Isoniazid 300mg":   _doseWHO("Isoniazid 300mg", w),
-        "Isoniazid 100mg":   _doseWHO("Isoniazid 100mg", w),
-        "Rifampicin 150mg":  _doseWHO("Rifampicin 150mg", w),
-        "Pyrazinamid 500mg": _doseWHO("Pyrazinamid 500mg", w),
-        "Ethambutol 400mg":  _doseWHO("Ethambutol 400mg", w),
-        "Prothionamide 250mg":_doseWHO("Prothionamide 250mg", w),
-        "Ethionamide 250mg": _doseWHO("Ethionamide 250mg", w),
-        "Para-aminosalicylic acid 4g":_doseWHO("Para-aminosalicylic acid 4g", w),
-        "Streptomycin 1g":   _doseWHO("Streptomycin 1g", w),
-        "Capreomycin 1g":    _doseWHO("Capreomycin 1g", w)
+        "Pretomanid 200mg":  _doseWHO("Pretomanid 200mg", w, null, age, ageMonths),
+        "Delamanid 50mg":    _doseWHO("Delamanid 50mg", w, null, age, ageMonths),
+        "Linezolid 600mg":   _doseWHO("Linezolid 600mg", w, null, age, ageMonths),
+        "Linezolid 300mg":   _doseWHO("Linezolid 300mg", w, null, age, ageMonths),
+        "Moxifloxacin 400mg":_doseWHO("Moxifloxacin 400mg", w, null, age, ageMonths),
+        "Levofloxacin 500mg":_doseWHO("Levofloxacin 500mg", w, null, age, ageMonths),
+        "Levofloxacin 250mg":_doseWHO("Levofloxacin 250mg", w, null, age, ageMonths),
+        "Levofloxacin 750mg":_doseWHO("Levofloxacin 750mg", w, null, age, ageMonths),
+        "Clofazimine 100mg": _doseWHO("Clofazimine 100mg", w, null, age, ageMonths),
+        "Clofazimine 50mg":  _doseWHO("Clofazimine 50mg", w, null, age, ageMonths),
+        "Cycloserine 250mg": _doseWHO("Cycloserine 250mg", w, null, age, ageMonths),
+        "Cycloserine 125mg": _doseWHO("Cycloserine 125mg", w, null, age, ageMonths),
+        "Amikacin 500mg/2ml":_doseWHO("Amikacin 500mg/2ml", w, null, age, ageMonths),
+        "Amikacin 1g/4ml":   _doseWHO("Amikacin 1g/4ml", w, null, age, ageMonths),
+        "Kanamycin 1g":      _doseWHO("Kanamycin 1g", w, null, age, ageMonths),
+        "Isoniazid 300mg":   _doseWHO("Isoniazid 300mg", w, null, age, ageMonths),
+        "Isoniazid 100mg":   _doseWHO("Isoniazid 100mg", w, null, age, ageMonths),
+        "Rifampicin 150mg":  _doseWHO("Rifampicin 150mg", w, null, age, ageMonths),
+        "Pyrazinamid 500mg": _doseWHO("Pyrazinamid 500mg", w, null, age, ageMonths),
+        "Pyrazinamid 400mg": _doseWHO("Pyrazinamid 400mg", w, null, age, ageMonths),
+        "Ethambutol 400mg":  _doseWHO("Ethambutol 400mg", w, null, age, ageMonths),
+        "Prothionamide 250mg":_doseWHO("Prothionamide 250mg", w, null, age, ageMonths),
+        "Ethionamide 250mg": _doseWHO("Ethionamide 250mg", w, null, age, ageMonths),
+        "Para-aminosalicylic acid 4g":_doseWHO("Para-aminosalicylic acid 4g", w, null, age, ageMonths),
+        "Streptomycin 1g":   _doseWHO("Streptomycin 1g", w, null, age, ageMonths),
+        "Capreomycin 1g":    _doseWHO("Capreomycin 1g", w, null, age, ageMonths),
+        "Meropenem 1g":      _doseWHO("Meropenem 1g", w, null, age, ageMonths),
+        "Imipenem-cilastatin 500mg": _doseWHO("Imipenem-cilastatin 500mg", w, null, age, ageMonths),
+        "Amoxicillin/Clavulanate 250mg": _doseWHO("Amoxicillin/Clavulanate 250mg", w, null, age, ageMonths),
+        "Amoxicillin/Clavulanate 500mg": _doseWHO("Amoxicillin/Clavulanate 500mg", w, null, age, ageMonths)
     };
 
     // Tổng số tháng của phác đồ (để áp giới hạn [n] cho từng thuốc)
@@ -13392,10 +13692,12 @@ function generateDrugInputs(existingCustomDrugs) {
     var pdStr = (pdSelect === 'Khác') ? document.getElementById('pt-pd-custom').value : pdSelect;
     var weight = document.getElementById('pt-weight').value;
     var age = document.getElementById('pt-age').value;
+    var ageMonthsEl = document.getElementById('pt-age-months');
+    var ageMonths = ageMonthsEl && ageMonthsEl.value !== '' ? parseFloat(ageMonthsEl.value) : null;
     var startDate = document.getElementById('pt-start').value;
     var container = document.getElementById('pt-drugs-container');
     
-    var drugsToRender = existingCustomDrugs || getDrugsByWeight(pdStr, weight, age);
+    var drugsToRender = existingCustomDrugs || getDrugsByWeight(pdStr, weight, age, ageMonths);
     
     var html = '';
     if(!drugsToRender || drugsToRender.length === 0) {
@@ -13404,7 +13706,7 @@ function generateDrugInputs(existingCustomDrugs) {
        drugsToRender.forEach(function(item) {
           var _bdqNoteHtml = null;
           if((item.d || item.drug || '').indexOf('Bedaquiline') >= 0){
-             var bdqDetail = calculateBedaquilineDetails(startDate, weight);
+             var bdqDetail = calculateBedaquilineDetails(startDate, weight, age, ageMonths);
              // LUÔN tạo lại note 3 dòng có màu để hiển thị (cả khi THÊM lẫn SỬA)
              _bdqNoteHtml = bdqDetail.noteHtml;
              if(!existingCustomDrugs){
@@ -13423,6 +13725,30 @@ function generateDrugInputs(existingCustomDrugs) {
           var val = item.monthTotal !== undefined ? item.monthTotal : item.daily;
           var dName = item.d || item.drug;
 
+          // ── Số làm tròn để cấp phát thực tế (viên nguyên) ──
+          // Thuốc thường: Liều/ngày = monthTotal / 26. Làm tròn LIỀU/NGÀY lên số nguyên
+          // gần nhất trước, rồi nhân lại 26 ngày. Không đổi số monthTotal hiển thị chính.
+          // Bedaquiline: monthTotal đại diện = liều duy trì/lần × 3 ngày/tuần × 4 tuần (×12).
+          // Làm tròn LIỀU/LẦN (duy trì) lên số nguyên trước, rồi nhân lại ×12.
+          var roundedNoteStr = '';
+          var _isBdqDrug = dName.indexOf('Bedaquiline') >= 0;
+          var _perDayRaw = parseFloat(val);
+          if(_isBdqDrug && !isNaN(_perDayRaw) && _perDayRaw > 0){
+             var _maintPerDose = _perDayRaw / 12;             // ngược lại từ monthTotal = maint×3×4
+             var _maintRounded = Math.ceil(_maintPerDose);
+             var _roundedBdqTotal = _maintRounded * 12;
+             if(_roundedBdqTotal !== _perDayRaw){
+                roundedNoteStr = '<div style="font-size:11px;color:#1a5276;margin-top:2px" class="pt-drug-rounded-note">(làm tròn cấp phát: '+_fmtNum(_roundedBdqTotal)+' viên — liều duy trì '+_fmtNum(_maintRounded)+' viên/lần)</div>';
+             }
+          } else if(!isNaN(_perDayRaw) && _perDayRaw > 0){
+             var _perDayPerMonth = _perDayRaw / DOSE_DAYS_PER_MONTH;
+             var _perDayRounded = Math.ceil(_perDayPerMonth);
+             var _roundedTotal = _perDayRounded * DOSE_DAYS_PER_MONTH;
+             if(_roundedTotal !== _perDayRaw){
+                roundedNoteStr = '<div style="font-size:11px;color:#1a5276;margin-top:2px" class="pt-drug-rounded-note">(làm tròn cấp phát: '+_fmtNum(_roundedTotal)+' viên)</div>';
+             }
+          }
+
           html += '<div style="margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:6px;" class="pt-drug-row">'
                 + '<div style="display:flex; justify-content:space-between; align-items:center;">'
                 +   '<span style="font-weight:600; color:#1a5276; font-size:13px;">' + dName + '</span>'
@@ -13431,6 +13757,7 @@ function generateDrugInputs(existingCustomDrugs) {
                 +   '</div>'
                 + '</div>'
                 + noteStr
+                + roundedNoteStr
                 + '</div>';
        });
     }
@@ -13469,7 +13796,7 @@ window.ptAddCustomDrugRow = function(btn) {
 function openAddPatient(){
   document.getElementById('pt-index').value = '-1';
   document.getElementById('pt-modal-title').textContent = 'Thêm bệnh nhân mới';
-  ['pt-name','pt-age','pt-weight','pt-address','pt-start','pt-end','pt-pd-custom'].forEach(function(id){
+  ['pt-name','pt-age','pt-age-months','pt-weight','pt-address','pt-start','pt-end','pt-pd-custom'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.value = '';
   });
   document.getElementById('pt-pd').value = '6BPaLM';
@@ -13499,6 +13826,7 @@ function editPatient(idx) {
   document.getElementById('pt-name').value = pt.name || pt.hoTen || pt.tenBN || '';
   document.getElementById('pt-gender').value = pt.gender || pt.gioiTinh || 'Nam';
   document.getElementById('pt-age').value = pt.age || pt.tuoi || '';
+  document.getElementById('pt-age-months').value = (pt.ageMonths != null) ? pt.ageMonths : '';
   document.getElementById('pt-weight').value = pt.weight || pt.canNang || '';
   document.getElementById('pt-address').value = pt.address || pt.diaChi || '';
   document.getElementById('pt-start').value = pt.startDate || pt.ngayBD || pt.ngayBatDau || '';
@@ -13551,6 +13879,8 @@ function savePatient(){
   var nameVal = document.getElementById('pt-name').value.trim();
   var genderVal = document.getElementById('pt-gender').value;
   var ageVal = parseInt(document.getElementById('pt-age').value) || 0;
+  var ageMonthsElSave = document.getElementById('pt-age-months');
+  var ageMonthsVal = (ageMonthsElSave && ageMonthsElSave.value !== '') ? parseFloat(ageMonthsElSave.value) : null;
   var weightVal = parseFloat(document.getElementById('pt-weight').value) || 0;
   var addressVal = document.getElementById('pt-address').value.trim();
   
@@ -13574,7 +13904,7 @@ function savePatient(){
   var myDrugs = [];
   // Lấy ranges (giới hạn số tháng dùng) theo phác đồ để gắn vào customDrugs.
   // Nhờ vậy Bedaquiline (6 tháng) và thuốc có [n] được dự trù đúng số tháng.
-  var _pdDrugs = (typeof getDrugsByWeight === 'function') ? getDrugsByWeight(pdVal, weightVal, ageVal) : [];
+  var _pdDrugs = (typeof getDrugsByWeight === 'function') ? getDrugsByWeight(pdVal, weightVal, ageVal, ageMonthsVal) : [];
   var _rangesByDrug = {};
   _pdDrugs.forEach(function(d){
     var nm = d.drug || d.d;
@@ -13606,7 +13936,7 @@ function savePatient(){
   var pt = {
     id: ptId,
     name: nameVal, hoTen: nameVal, tenBN: nameVal, gender: genderVal, gioiTinh: genderVal,
-    age: ageVal, tuoi: ageVal, weight: weightVal, canNang: weightVal, address: addressVal, diaChi: addressVal,
+    age: ageVal, tuoi: ageVal, ageMonths: ageMonthsVal, weight: weightVal, canNang: weightVal, address: addressVal, diaChi: addressVal,
     pd: pdVal, phacDo: pdVal, startDate: startVal, ngayBD: startVal, ngayBatDau: startVal,
     endDate: endVal, ngayKT: endVal, ngayKetThuc: endVal, status: statusVal,
     unit: unitVal, donVi: unitVal, customDrugs: myDrugs
@@ -14014,10 +14344,13 @@ function _safeRefreshNow(){
   if(document.getElementById('_pending_transfer_modal')) return;
   var pk = _currentPeriodKey();
   if(!pk) return;
-  loadFromSupabase(pk, true).catch(function(){});
+  // Đánh dấu đây là silent auto-refresh để fullRender kiểm tra lại activeElement trước khi vẽ
+  _silentRefreshInProgress = true;
+  loadFromSupabase(pk, true).catch(function(){}).finally(function(){ _silentRefreshInProgress = false; });
   // Đồng thời làm mới chuông thông báo cho cảm giác tức thì
   try{ loadNotifications(); }catch(e){}
 }
+var _silentRefreshInProgress = false;
 
 function _startAutoRefresh(){
   if(_autoRefreshTimer) clearInterval(_autoRefreshTimer);
@@ -14068,6 +14401,10 @@ var _origStartAfterLogin = (typeof afterLogin==='function') ? afterLogin : null;
         <div class="fg">
           <label for="pt-age">Tuổi</label>
           <input type="number" id="pt-age" aria-label="Tuổi bệnh nhân" placeholder="VD: 45" oninput="generateDrugInputs(null)">
+        </div>
+        <div class="fg">
+          <label for="pt-age-months" title="Chỉ cần điền cho trẻ nhỏ — dùng để tính chính xác liều Bedaquiline ở trẻ dưới 10kg theo mốc tháng tuổi WHO 2022">Tháng tuổi <span style="color:#94a3b8;font-weight:400">(trẻ nhỏ &lt;10kg)</span></label>
+          <input type="number" id="pt-age-months" aria-label="Số tháng tuổi (chỉ cần với trẻ nhỏ)" placeholder="Để trống nếu không cần" min="0" oninput="generateDrugInputs(null)">
         </div>
       </div>
 
@@ -14139,8 +14476,8 @@ var _origStartAfterLogin = (typeof afterLogin==='function') ? afterLogin : null;
     </div>
     <!-- Footer -->
     <div style="padding:12px 22px;border-top:1px solid #edf2f7;background:#f8fafc;display:flex;justify-content:flex-end;gap:8px">
-      <button class="btn btn-outline" onclick="closeModal('modal-patient')" style="border-radius:8px">Hủy</button>
-      <button class="btn btn-primary" onclick="savePatient()" style="border-radius:8px;padding:8px 20px">💾 Lưu thông tin</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-patient')" style="border-radius:18px">Hủy</button>
+      <button class="btn btn-primary" onclick="savePatient()" style="border-radius:18px;padding:8px 20px">💾 Lưu thông tin</button>
     </div>
   </div>
 </div>
