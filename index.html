@@ -1160,13 +1160,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
         </div>
         <div class="fg">
           <label for="bvph-lot-sel">Số lô</label>
-          <select id="bvph-lot-sel" title="Chọn số lô BVPH" style="width:110px">
+          <select id="bvph-lot-sel" title="Chọn số lô BVPH" style="width:150px">
             <option value="">-- Chọn lô --</option>
           </select>
         </div>
         <div class="fg">
           <label for="bvph-exp">Hạn</label>
-          <input type="text" id="bvph-exp" aria-label="Hạn dùng" placeholder="tự điền" style="width:55px;background:#eef7ff;text-align:center" readonly>
+          <input type="text" id="bvph-exp" aria-label="Hạn dùng" placeholder="tự điền" style="width:85px;background:#eef7ff;text-align:center" readonly>
         </div>
         <div class="fg" style="margin-right:4px">
           <label for="bvph-open">Tồn đầu</label>
@@ -2445,7 +2445,21 @@ async function loadFromSupabase(periodKey, silent){
       }
     }
 
-    var r = await fetch(url, {headers:_supaHdr});
+    // ── Tải SONG SONG mọi request độc lập với nhau để giảm tổng thời gian load ──
+    // (reports luôn cần; dc2 chỉ khi role=bvph; lockedPeriods luôn cần; catalog chỉ khi !silent)
+    var _dc2Url = (role === 'bvph') ? (SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp,tinh&order=unit') : null;
+    var _lockedUrl = SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value';
+    var _catalogUrl = (!silent) ? (SUPA_URL+'/rest/v1/catalog?order=drug,lot') : null;
+
+    var _fetchPromises = [
+      fetch(url, {headers:_supaHdr}),
+      _dc2Url ? fetch(_dc2Url, {headers:_supaHdr, cache:'no-store'}) : Promise.resolve(null),
+      fetch(_lockedUrl, {headers:_supaHdr, cache:'no-store'}),
+      _catalogUrl ? fetch(_catalogUrl, {headers:_supaHdr, cache:'no-store'}) : Promise.resolve(null)
+    ];
+    var _results = await Promise.all(_fetchPromises);
+    var r = _results[0], _dc2RParallel = _results[1], srParallel = _results[2], crParallel = _results[3];
+
     if(!r.ok) throw new Error('HTTP '+r.status);
     var rows = await r.json();
 
@@ -2470,15 +2484,11 @@ async function loadFromSupabase(periodKey, silent){
     var newBvph = rows.filter(function(r){return r.unit==='bvph';}).map(_mapRow);
     var newBc   = rows.filter(function(r){return r.unit!=='bvph';}).map(_mapRow);
 
-    // Với role bvph: rows chỉ có unit=bvph nên newBc rỗng.
-    // Tính dc2 đúng từ Supabase (fetch toàn bộ kỳ không lọc role) và ghi vào newBvph
-    // TRƯỚC KHI merge vào RAM — để render đúng ngay lần đầu, không cần đợi _syncBVPHDc2ToCloud
-    if(role === 'bvph' && newBvph.length){
+    // dc2 — đã fetch song song ở trên, giờ chỉ xử lý kết quả (KHÔNG fetch lại)
+    if(role === 'bvph' && newBvph.length && _dc2RParallel){
       try{
-        var _dc2Url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&select=unit,drug,lot,exp,tinh&order=unit';
-        var _dc2R = await fetch(_dc2Url, {headers:_supaHdr, cache:'no-store'});
-        if(_dc2R.ok){
-          var _dc2Rows = await _dc2R.json();
+        if(_dc2RParallel.ok){
+          var _dc2Rows = await _dc2RParallel.json();
           var _sumDc2 = {};
           _dc2Rows.forEach(function(x){
             if(x.unit==='bvph'||x.unit===BVPH) return;
@@ -2521,16 +2531,13 @@ async function loadFromSupabase(periodKey, silent){
       }
     }
 
-    // Tải lockedPeriods (cần cho cả silent để biết đơn vị khác đã chốt)
-    var sr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr, cache:'no-store'});
-    var sv = await sr.json();
+    // lockedPeriods — đã fetch song song ở trên, giờ chỉ xử lý kết quả
+    var sv = await srParallel.json();
     if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
 
-    // Tải catalog — BỎ QUA trong chế độ silent (auto-refresh) để giảm tải, vì danh mục
-    // hiếm khi đổi. Chỉ tải lại catalog khi load chủ động (người dùng bấm Tải lại / đổi kỳ).
-    if(!silent){
-      var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr, cache:'no-store'});
-      var cd = await cr.json();
+    // catalog — đã fetch song song ở trên (chỉ khi !silent), giờ chỉ xử lý kết quả
+    if(!silent && crParallel){
+      var cd = await crParallel.json();
       if(cd.length){
         var seenC={}, cleanC=[];
         cd.forEach(function(r){
@@ -7567,7 +7574,7 @@ function _startNotifPolling(){
 
     // Đồng bộ danh sách bệnh nhân — nặng hơn, chỉ chạy mỗi 3 chu kỳ (~45s)
     // Đọc từ bảng patients (cột riêng). Các role chỉ đọc, không ghi đè nhau.
-    if(currentUser.role !== 'admin' && (_notifPollCount % 3 === 0)){
+    if(currentUser.role !== 'admin' && (_notifPollCount % 3 === 0) && !document.querySelector('.modal-overlay.open') && !document.querySelector('.app-popup')){
       try{
         var prevJSON = JSON.stringify(BN_DATA);
         var okTbl = await _loadPatientsFromTable();  // cập nhật BN_DATA từ bảng mới
@@ -11735,8 +11742,10 @@ function fullRender(){
   if(_silentRefreshInProgress){
     var _ae2 = document.activeElement;
     if(_ae2 && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae2.tagName)) return;
-    // Có modal đang mở → không render đè
-    if(document.querySelector('.modal-overlay.active, .modal-overlay[style*="flex"]')) return;
+    // Có modal đang mở → không render đè (modal thật dùng class .open, set bởi openModal())
+    if(document.querySelector('.modal-overlay.open')) return;
+    // Có popup app khác đang mở (app-popup, dùng cho các hộp thoại tạo bằng JS động)
+    if(document.querySelector('.app-popup')) return;
   }
   renderBVPH(); renderBC(); renderTP(); renderTQ(); renderDrugTable(); updateLockedUI();
   if(document.getElementById('page-thuoc') && document.getElementById('page-thuoc').classList.contains('active')){
@@ -14342,6 +14351,8 @@ function _safeRefreshNow(){
   if(_ae && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae.tagName)) return;
   if(document.getElementById('_transfer_modal')) return;
   if(document.getElementById('_pending_transfer_modal')) return;
+  if(document.querySelector('.modal-overlay.open')) return;   // có modal đang mở (vd: Thêm/Sửa bệnh nhân) → không làm mới
+  if(document.querySelector('.app-popup')) return;             // có popup JS động đang mở → không làm mới
   var pk = _currentPeriodKey();
   if(!pk) return;
   // Đánh dấu đây là silent auto-refresh để fullRender kiểm tra lại activeElement trước khi vẽ
