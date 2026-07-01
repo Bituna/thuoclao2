@@ -2615,7 +2615,7 @@ var DRUGS=[
   "Rifampicin 150mg","Isoniazid 100mg","Isoniazid 300mg","Ethambutol 400mg","Pyrazinamid 500mg","Pyrazinamid 400mg",
   "Levofloxacin 250mg","Levofloxacin 500mg","Levofloxacin 750mg","Moxifloxacin 400mg",
   "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g","Streptomycin 1g","Capreomycin 1g",
-  "Cycloserine 250mg","Cycloserine 125mg","Prothionamide 250mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
+  "Cycloserine 250mg","Cycloserine 125mg","Prothionamide 125mg","Prothionamide 250mg","Ethionamide 125mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
   "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg","Clofazimine 50mg",
   "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg",
   "Meropenem 1g","Imipenem-cilastatin 500mg","Amoxicillin/Clavulanate 250mg","Amoxicillin/Clavulanate 500mg"
@@ -13188,6 +13188,18 @@ var WHO_DOSE = {
     if(w<70) return _md(3);          // 36–<46, 46–<56, 56–<70
     return _md(4);                   // ≥70
   },
+  // Ethionamide viên phân tán 125 mg (Eto) — dùng cho trẻ <46kg
+  'Ethionamide 125mg': function(w){
+    if(w<5)  return _mml(3,  '3 ml/ngày');
+    if(w<7)  return _mml(7,  '7 ml/ngày');
+    if(w<10) return _md(1);
+    if(w<16) return _md(2);
+    if(w<24) return _md(3);
+    if(w<46) return _md(4);   // 24–<30, 30–<36, 36–<46
+    return _notUsed();         // 46–≥70
+  },
+  'Prothionamide 125mg': function(w){ return WHO_DOSE['Ethionamide 125mg'](w); },
+
   // Ethionamide viên 250 mg (25 mg/ml)
   'Ethionamide 250mg': function(w){
     if(w<5)  return _notUsed();
@@ -13195,10 +13207,10 @@ var WHO_DOSE = {
     if(w<10) return _mml(5,  '5 ml (0,5 viên)/ngày');
     if(w<16) return _md(1);
     if(w<24) return _md(2);
-    if(w<30) return _md(2);
-    if(w<36) return _md(2);
-    if(w<46) return _md(3);
-    return _md(4);                   // 46–≥70
+    if(w<36) return _md(2);   // 24–<30 và 30–<36
+    if(w<46) return _md(2);   // 36–<46
+    if(w<70) return _md(3);   // 46–<56 và 56–<70
+    return _md(4);             // ≥70
   },
   'Prothionamide 250mg': function(w){ return WHO_DOSE['Ethionamide 250mg'](w); },
   // Para-aminosalicylic acid (gói 4g PAS) — 2 lần/ngày, quy về số gói/ngày
@@ -13543,8 +13555,10 @@ function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
         "ETHAMBUTOL400MG": "Ethambutol 400mg",
         "ETHAMBUTOL": "Ethambutol 400mg",
         "PROTHIONAMIDE250MG": "Prothionamide 250mg",
+        "PROTHIONAMIDE125MG": "Prothionamide 125mg",
         "PROTHIONAMIDE": "Prothionamide 250mg",
         "ETHIONAMIDE250MG": "Ethionamide 250mg",
+        "ETHIONAMIDE125MG": "Ethionamide 125mg",
         "ETHIONAMIDE": "Ethionamide 250mg",
         "PARA-AMINOSALICYLICACID4G": "Para-aminosalicylic acid 4g",
         "PARAAMINOSALICYLICACID": "Para-aminosalicylic acid 4g",
@@ -13583,7 +13597,9 @@ function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
         PZA: "Pyrazinamid 500mg",
         EMB: "Ethambutol 400mg",
         PTO: "Prothionamide 250mg",
+        PTO125: "Prothionamide 125mg",
         ETO: "Ethionamide 250mg",
+        ETO125: "Ethionamide 125mg",
         PAS: "Para-aminosalicylic acid 4g",
         BDQ: "Bedaquiline 100mg",
         DLM: "Delamanid 50mg",
@@ -13640,7 +13656,9 @@ function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
         "Pyrazinamid 500mg": _doseWHO("Pyrazinamid 500mg", w, null, age, ageMonths),
         "Pyrazinamid 400mg": _doseWHO("Pyrazinamid 400mg", w, null, age, ageMonths),
         "Ethambutol 400mg":  _doseWHO("Ethambutol 400mg", w, null, age, ageMonths),
+        "Prothionamide 125mg":_doseWHO("Prothionamide 125mg", w, null, age, ageMonths),
         "Prothionamide 250mg":_doseWHO("Prothionamide 250mg", w, null, age, ageMonths),
+        "Ethionamide 125mg": _doseWHO("Ethionamide 125mg", w, null, age, ageMonths),
         "Ethionamide 250mg": _doseWHO("Ethionamide 250mg", w, null, age, ageMonths),
         "Para-aminosalicylic acid 4g":_doseWHO("Para-aminosalicylic acid 4g", w, null, age, ageMonths),
         "Streptomycin 1g":   _doseWHO("Streptomycin 1g", w, null, age, ageMonths),
