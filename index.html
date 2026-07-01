@@ -12345,6 +12345,9 @@ function renderPatientTable(){
   var cntEl = document.getElementById('bn-active-count');
   if(cntEl) cntEl.textContent = activeCount;
 
+  // Cập nhật biểu đồ phác đồ trên trang Tổng quan — luôn đồng bộ với BN_DATA hiện tại
+  try{ _renderRegimenChart(); }catch(e){}
+
   var thead = document.getElementById('bn-thead');
   var tbody = document.getElementById('bn-tbody');
   if(!thead||!tbody) return;
