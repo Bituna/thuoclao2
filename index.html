@@ -5033,15 +5033,9 @@ function _renderRegimenChart(){
   var totalEl = document.getElementById('tq-regimen-total');
   if(!el) return;
 
-  // Đếm bệnh nhân đang điều trị theo phác đồ
+  // Đếm bệnh nhân đang điều trị theo phác đồ — dùng getRealStatus() đồng nhất với trang Dự trù
   var activeBN = (typeof BN_DATA !== 'undefined' ? BN_DATA : []).filter(function(bn){
-    if(bn.status === 'done' || bn.status === 'end') return false;
-    // Nếu có ngày kết thúc và đã qua → không tính
-    if(bn.endDate){
-      var ed = new Date(bn.endDate.split('/').reverse().join('-'));
-      if(!isNaN(ed) && ed < new Date()) return false;
-    }
-    return true;
+    return (typeof getRealStatus === 'function' ? getRealStatus(bn) : (bn.status||'')) === 'Đang điều trị';
   });
 
   var counts = {};
