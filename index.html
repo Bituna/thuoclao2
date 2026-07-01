@@ -2616,7 +2616,7 @@ var DRUGS=[
   "Levofloxacin 250mg","Levofloxacin 500mg","Levofloxacin 750mg","Moxifloxacin 400mg",
   "Amikacin 500mg/2ml","Amikacin 1g/4ml","Kanamycin 1g","Streptomycin 1g","Capreomycin 1g",
   "Cycloserine 250mg","Cycloserine 125mg","Prothionamide 125mg","Prothionamide 250mg","Ethionamide 125mg","Ethionamide 250mg","Para-aminosalicylic acid 4g",
-  "Linezolid 300mg","Linezolid 600mg","Clofazimine 100mg","Clofazimine 50mg",
+  "Linezolid 300mg","Linezolid 600mg","Linezolid 150mg","Linezolid 20mg/ml","Clofazimine 100mg","Clofazimine 50mg",
   "Bedaquiline 100mg","Delamanid 50mg","Pretomanid 200mg",
   "Meropenem 1g","Imipenem-cilastatin 500mg","Amoxicillin/Clavulanate 250mg","Amoxicillin/Clavulanate 500mg"
 ];
@@ -13076,23 +13076,49 @@ var WHO_DOSE = {
     return _md(1);                   // 24–<30 đến ≥70: 1 viên/ngày
   },
   // Linezolid viên 600 mg (60 mg/ml)
-  'Linezolid 600mg': function(w){
-    if(w<5)  return _notUsed();      // dùng hỗn dịch/viên phân tán, không có dạng 600mg
-    if(w<7)  return _mml(1.25,'1,25 ml/ngày');
-    if(w<16) return _mml(2.5, '2,5 ml/ngày');        // 7–<10 và 10–<16
-    if(w<30) return _mml(5,   '5 ml (0,5 viên)/ngày'); // 16–<24 và 24–<30
-    if(w<36) return _mml(7.5, '7,5 ml (0,75 viên)/ngày');
-    if(w<56) return _md(1);          // 36–<46 và 46–<56
-    return _blank();                 // 56–<70 và ≥70: tài liệu gốc để trống
+  // Linezolid hỗn dịch 20mg/ml — dạng lỏng cho trẻ nhỏ <46kg
+  'Linezolid 20mg/ml': function(w){
+    if(w<5)  return { monthTotal:+(2*DOSE_DAYS_PER_MONTH).toFixed(2), note:'2 ml/ngày (hỗn dịch 20mg/ml)' };
+    if(w<7)  return { monthTotal:+(4*DOSE_DAYS_PER_MONTH).toFixed(2), note:'4 ml/ngày' };
+    if(w<10) return { monthTotal:+(6*DOSE_DAYS_PER_MONTH).toFixed(2), note:'6 ml/ngày' };
+    if(w<16) return { monthTotal:+(8*DOSE_DAYS_PER_MONTH).toFixed(2), note:'8 ml/ngày' };
+    if(w<24) return { monthTotal:+(11*DOSE_DAYS_PER_MONTH).toFixed(2), note:'11 ml/ngày' };
+    if(w<30) return { monthTotal:+(14*DOSE_DAYS_PER_MONTH).toFixed(2), note:'14 ml/ngày' };
+    if(w<36) return { monthTotal:+(15*DOSE_DAYS_PER_MONTH).toFixed(2), note:'15 ml/ngày' };
+    if(w<46) return { monthTotal:+(20*DOSE_DAYS_PER_MONTH).toFixed(2), note:'20 ml/ngày' };
+    return _notUsed();                   // 46–≥70: không dùng dạng hỗn dịch
   },
-  // Linezolid viên 300 mg (suy ra: 1 viên 300mg = ½ viên 600mg)
+  // Linezolid viên phân tán 150mg (15mg/ml)
+  'Linezolid 150mg': function(w){
+    if(w<5)  return _mml(2.5, '2,5 ml/ngày');
+    if(w<7)  return _mml(5,   '5 ml (0,5 viên)/ngày');
+    if(w<16) return _md(1);              // 7–<10 và 10–<16
+    if(w<30) return _md(2);              // 16–<24 và 24–<30
+    if(w<36) return _md(2);              // 30–<36
+    if(w<46) return _md(3);              // 36–<46
+    return _notUsed();                   // 46–≥70: không dùng dạng phân tán 150mg
+  },
+  // Linezolid viên 600mg (60mg/ml)
+  'Linezolid 600mg': function(w){
+    if(w<5)  return _notUsed();
+    if(w<7)  return _mml(1.25,'1,25 ml/ngày');
+    if(w<16) return _mml(2.5, '2,5 ml/ngày');         // 7–<10 và 10–<16
+    if(w<24) return _mml(5,   '5 ml (0,5 viên)/ngày');
+    if(w<30) return _mml(5,   '5 ml (0,5 viên)/ngày');
+    if(w<36) return _mml(7.5, '7,5 ml (0,75 viên)/ngày');
+    if(w<56) return _md(1);              // 36–<46 và 46–<56
+    if(w<70) return _md(1);              // 56–<70: 1 viên
+    return _blank();                     // ≥70: tài liệu gốc để trống
+  },
+  // Linezolid viên 300mg (suy ra: 1 viên 300mg = ½ viên 600mg)
   'Linezolid 300mg': function(w){
     if(w<5)  return _notUsed();
     if(w<7)  return _mml(2.5, '2,5 ml/ngày (≈ 0,25 viên 300mg)');
     if(w<16) return _mml(5,   '5 ml/ngày (≈ 0,5 viên 300mg)');
-    if(w<30) return _md(1);          // ≈ ½ viên 600 = 1 viên 300
+    if(w<30) return _md(1);              // ≈ ½ viên 600 = 1 viên 300
     if(w<36) return _md(1.5);
-    return _md(2);                   // ≈ 1 viên 600 = 2 viên 300
+    if(w<70) return _md(2);              // 36–<56, 56–<70
+    return _blank();                     // ≥70: tài liệu gốc để trống
   },
 
   // ════════ NHÓM B ════════
@@ -13565,6 +13591,8 @@ function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
         "DELAMANID": "Delamanid 50mg",
         "LINEZOLID600MG": "Linezolid 600mg",
         "LINEZOLID300MG": "Linezolid 300mg",
+        "LINEZOLID150MG": "Linezolid 150mg",
+        "LINEZOLID20MGML": "Linezolid 20mg/ml",
         "LINEZOLID": "Linezolid 600mg",
         "MOXIFLOXACIN400MG": "Moxifloxacin 400mg",
         "MOXIFLOXACIN": "Moxifloxacin 400mg",
@@ -13636,6 +13664,8 @@ function _getDrugsByWeightSingle(pd, weight, age, ageMonths) {
         "Delamanid 50mg":    _doseWHO("Delamanid 50mg", w, null, age, ageMonths),
         "Linezolid 600mg":   _doseWHO("Linezolid 600mg", w, null, age, ageMonths),
         "Linezolid 300mg":   _doseWHO("Linezolid 300mg", w, null, age, ageMonths),
+        "Linezolid 150mg":   _doseWHO("Linezolid 150mg", w, null, age, ageMonths),
+        "Linezolid 20mg/ml": _doseWHO("Linezolid 20mg/ml", w, null, age, ageMonths),
         "Moxifloxacin 400mg":_doseWHO("Moxifloxacin 400mg", w, null, age, ageMonths),
         "Levofloxacin 500mg":_doseWHO("Levofloxacin 500mg", w, null, age, ageMonths),
         "Levofloxacin 250mg":_doseWHO("Levofloxacin 250mg", w, null, age, ageMonths),
