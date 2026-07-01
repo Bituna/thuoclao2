@@ -13811,7 +13811,11 @@ function generateDrugInputs(existingCustomDrugs) {
           } else {
              noteStr = item.note ? '<div style="font-size:11px; color:#e67e22; font-style:italic; margin-top:2px;" class="pt-drug-note">'+item.note+'</div>' : '<div style="display:none" class="pt-drug-note"></div>';
           }
-          var val = item.monthTotal !== undefined ? item.monthTotal : item.daily;
+          var _isBdq = (item.d || item.drug || '').indexOf('Bedaquiline') >= 0;
+          var _monthTotalRaw = item.monthTotal !== undefined ? item.monthTotal : item.daily;
+          // Hiển thị theo viên/Ngày (= monthTotal/26), trừ Bedaquiline (liều theo nhịp tuần)
+          var val = _isBdq ? _monthTotalRaw : +(_monthTotalRaw / DOSE_DAYS_PER_MONTH).toFixed(2);
+          var _perDayLabel = _isBdq ? 'viên/Tháng' : 'viên/Ngày';
           var dName = item.d || item.drug;
 
           // ── Số làm tròn để cấp phát thực tế (viên nguyên) ──
@@ -13823,25 +13827,27 @@ function generateDrugInputs(existingCustomDrugs) {
           var _isBdqDrug = dName.indexOf('Bedaquiline') >= 0;
           var _perDayRaw = parseFloat(val);
           if(_isBdqDrug && !isNaN(_perDayRaw) && _perDayRaw > 0){
-             var _maintPerDose = _perDayRaw / 12;             // ngược lại từ monthTotal = maint×3×4
+             // Bedaquiline: val = monthTotal (×12 cơ sở), làm tròn liều/lần duy trì
+             var _maintPerDose = _perDayRaw / 12;
              var _maintRounded = Math.ceil(_maintPerDose);
              var _roundedBdqTotal = _maintRounded * 12;
              if(_roundedBdqTotal !== _perDayRaw){
                 roundedNoteStr = '<div style="font-size:11px;color:#1a5276;margin-top:2px" class="pt-drug-rounded-note">(làm tròn cấp phát: '+_fmtNum(_roundedBdqTotal)+' viên — liều duy trì '+_fmtNum(_maintRounded)+' viên/lần)</div>';
              }
           } else if(!isNaN(_perDayRaw) && _perDayRaw > 0){
-             var _perDayPerMonth = _perDayRaw / DOSE_DAYS_PER_MONTH;
-             var _perDayRounded = Math.ceil(_perDayPerMonth);
+             // val đã là viên/ngày → làm tròn lên số nguyên, rồi nhân 26 để ra viên/tháng
+             var _perDayRounded = Math.ceil(_perDayRaw);
              var _roundedTotal = _perDayRounded * DOSE_DAYS_PER_MONTH;
-             if(_roundedTotal !== _perDayRaw){
-                roundedNoteStr = '<div style="font-size:11px;color:#1a5276;margin-top:2px" class="pt-drug-rounded-note">(làm tròn cấp phát: '+_fmtNum(_roundedTotal)+' viên)</div>';
+             var _origTotal = +(_perDayRaw * DOSE_DAYS_PER_MONTH).toFixed(2);
+             if(_perDayRounded !== _perDayRaw){
+                roundedNoteStr = '<div style="font-size:11px;color:#1a5276;margin-top:2px" class="pt-drug-rounded-note">(làm tròn cấp phát: '+_fmtNum(_perDayRounded)+' viên/ngày → '+_fmtNum(_roundedTotal)+' viên/tháng)</div>';
              }
           }
 
           html += '<div style="margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:6px;" class="pt-drug-row">'
                 + '<div style="display:flex; justify-content:space-between; align-items:center;">'
                 +   '<span style="font-weight:600; color:#1a5276; font-size:13px;">' + dName + '</span>'
-                +   '<div style="display:flex; align-items:center; gap:6px;"><input type="number" step="0.5" class="pt-drug-val" data-drug="'+dName+'" value="'+val+'" style="width:65px; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;"> <span style="color:#888; font-size:12px;">viên/Tháng</span>'
+                +   '<div style="display:flex; align-items:center; gap:6px;"><input type="number" step="0.5" class="pt-drug-val" data-drug="'+dName+'" value="'+val+'" style="width:65px; padding:4px; text-align:center; border:1px solid #ccc; border-radius:4px;"> <span style="color:#888; font-size:12px;">'+_perDayLabel+'</span>'
                 +   (isAdmin() ? '<button class="btn btn-xs" style="background:#e74c3c;color:white;padding:2px 6px;border-radius:4px;border:none" onclick="this.closest(\'.pt-drug-row\').remove()" title="Xóa thuốc này">✕</button>' : '')
                 +   '</div>'
                 + '</div>'
@@ -14007,9 +14013,14 @@ function savePatient(){
       if(noteDiv && noteDiv.style.display !== 'none') noteText = noteDiv.innerText;
       var dName = inp.getAttribute('data-drug');
       if (dName){
-        var obj = { drug: dName, monthTotal: parseFloat(inp.value) || 0, note: noteText };
+        var rawVal = parseFloat(inp.value) || 0;
+        // Ô input hiển thị viên/Ngày (trừ Bedaquiline hiển thị viên/Tháng)
+        // → nhân lại 26 để ra monthTotal đúng khi lưu, trừ Bedaquiline giữ nguyên
+        var isBdqSave = dName.indexOf('Bedaquiline') >= 0;
+        var monthTotalSave = isBdqSave ? rawVal : +(rawVal * DOSE_DAYS_PER_MONTH).toFixed(2);
+        var obj = { drug: dName, monthTotal: monthTotalSave, note: noteText };
         // Bedaquiline LUÔN 6 tháng; thuốc khác lấy ranges từ phác đồ nếu có
-        if(dName.indexOf('Bedaquiline') >= 0){
+        if(isBdqSave){
           obj.ranges = [{ startMonth: 0, endMonth: 6 }];
         } else if(_rangesByDrug[dName]){
           obj.ranges = _rangesByDrug[dName];
