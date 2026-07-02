@@ -324,6 +324,9 @@ td input[type=number]{border-radius:7px}
   to{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
 /* TOAST */
+/* Ô bấm được trong bảng Tổng toàn TP — bấm để xem chi tiết cộng tổng */
+.tp-cc{cursor:pointer;transition:box-shadow .12s}
+.tp-cc:hover{box-shadow:inset 0 0 0 2px rgba(41,128,185,.55);border-radius:4px}
 #toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:8px;color:white;font-size:13px;font-weight:600;z-index:999999;display:none;box-shadow:0 4px 16px rgba(0,0,0,0.2);max-width:360px}
 
 /* ROLE LOCK */
@@ -4806,6 +4809,7 @@ function matchTQPeriod(r){
 }
 
 function onTQPeriodChange(){
+  _tqTransferCache = null;   // đổi kỳ → buộc fetch lại bảng điều chuyển
   // Đồng bộ sang selector của trang Báo cáo thuốc
   var tqYear  = document.getElementById('tq-year');
   var tqMonth = document.getElementById('tq-month');
@@ -5023,8 +5027,9 @@ function renderTQ(){
   _renderTQDrugTable(allRows);
   // Biểu đồ phác đồ
   _renderRegimenChart();
-  // Tải bảng điều chuyển
-  setTimeout(renderTQTransfers, 100);
+  // Tải bảng điều chuyển — chỉ khi trang Tổng quan đang hiển thị và cache chưa có/đã hết hạn
+  // (không fetch lại mỗi 12 giây cùng với auto-refresh → hết nháy bảng điều chuyển)
+  _renderTQTransfersCached();
 }
 
 // ── BIỂU ĐỒ PHÁC ĐỒ ĐIỀU TRỊ ──────────────────────────────────────────────────
@@ -5188,17 +5193,51 @@ function _showTQDrugDetail(drug, field){
 
 // Bảng điều chuyển trong kỳ — hiển thị trên Tổng quan
 async function renderTQTransfers(){
+  // Luôn fetch mới (gọi từ nút "↻ Cập nhật" hoặc sau hủy/tạo phiếu)
+  _tqTransferCache = null;   // xóa cache buộc fetch lại
+  await _renderTQTransfersCached();
+}
+
+// Cache bảng điều chuyển — chỉ fetch khi kỳ đổi hoặc cache hết hạn (60 giây)
+var _tqTransferCache = null;   // {periodKey, html, ts}
+var _tqTransferFetching = false;  // tránh fetch song song
+
+async function _renderTQTransfersCached(){
   var el = document.getElementById('tq-transfer-table');
   if(!el) return;
   var periodKey = _currentPeriodKey();
-  var p = getSelectedPeriod();
 
+  // Cache còn hiệu lực (< 60s, đúng kỳ) → vẽ ngay, không nháy, không fetch
+  if(_tqTransferCache
+      && _tqTransferCache.periodKey === periodKey
+      && (Date.now() - _tqTransferCache.ts) < 60000){
+    el.innerHTML = _tqTransferCache.html;
+    _tqMatchDetail = _tqTransferCache.matchDetail || {};
+    return;
+  }
+
+  // Đang fetch rồi → không fetch chồng, không xóa nội dung cũ (hết nháy "Đang tải...")
+  if(_tqTransferFetching) return;
+  _tqTransferFetching = true;
+
+  // Nếu chưa có gì (lần đầu hoặc đổi kỳ) → hiện loading nhẹ
+  if(!_tqTransferCache || _tqTransferCache.periodKey !== periodKey){
+    el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Đang tải...</div>';
+  }
+
+  try{
+    await _fetchAndRenderTQTransfers(el, periodKey);
+  } finally {
+    _tqTransferFetching = false;
+  }
+}
+
+async function _fetchAndRenderTQTransfers(el, periodKey){
   if(!_supaOnline){
     el.innerHTML='<div style="color:#e67e22;font-size:12px;text-align:center;padding:10px">Offline — không thể tải dữ liệu điều chuyển</div>';
     return;
   }
-
-  el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Đang tải...</div>';
+  var p = getSelectedPeriod();
 
   try{
     var r, transfers = [];
@@ -5329,6 +5368,8 @@ async function renderTQTransfers(){
       html+=makeTable(dc3List,'#8e44ad');
     }
     el.innerHTML=html;
+    // Lưu cache — lần sau renderTQ auto-refresh sẽ dùng lại, không fetch lại + không nháy
+    _tqTransferCache = {periodKey: periodKey, html: html, matchDetail: _tqMatchDetail, ts: Date.now()};
   }catch(e){
     el.innerHTML='<div style="color:red;font-size:12px;padding:10px">Lỗi: '+e.message+'</div>';
   }
@@ -5989,6 +6030,7 @@ function matchPeriod(r){
 function onYearChange(){ onGlobalMonthChange(); }
 
 function onGlobalMonthChange(){
+  _tqTransferCache = null;   // đổi kỳ toàn cục → fetch lại bảng điều chuyển
   var p = getSelectedPeriod();
   // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
   if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
@@ -6108,32 +6150,74 @@ function showXuatTCLDetail(prefix, rowIdx){
     if(!row) return;
     var st=_cpStatusForRow(row), items=st.items||[];
     var totD=0,totR=0;
-    var body=items.map(function(it){
-      totD+=it.declared; totR+=it.reported;
-      var color=it.ok?'#1d7a46':'#c0392b', bg=it.ok?'#e8f8ef':'#fdecea';
-      var note=it.ok?'✓':((it.declared>0&&it.reported===0)?'đơn vị chưa nộp':((it.declared===0&&it.reported>0)?'kho chưa khai':'lệch '+fmtNum(it.reported-it.declared)));
-      return '<tr style="background:'+bg+'"><td style="padding:5px 8px" class="left">'+_displayUnit(it.unit)+'</td>'
-        +'<td style="padding:5px 8px;text-align:right">'+fmtNum(it.declared)+'</td>'
-        +'<td style="padding:5px 8px;text-align:right">'+fmtNum(it.reported)+'</td>'
-        +'<td style="padding:5px 8px;text-align:right;color:'+color+';font-weight:700">'+note+'</td></tr>';
+    var maxV = Math.max(1, totD + totR);   // pre-calc trước map để dùng cho thanh %
+    var body = items.map(function(it, idx){
+      totD += it.declared; totR += it.reported;
+      var color  = it.ok ? '#1d7a46' : '#c0392b';
+      var note   = it.ok ? '✓' : ((it.declared>0&&it.reported===0)?'đơn vị chưa nộp':((it.declared===0&&it.reported>0)?'kho chưa khai':'lệch '+fmtNum(it.reported-it.declared)));
+      var maxVRow = Math.max(1, it.declared, it.reported);
+      var barD   = Math.round((it.declared||0)*100/maxVRow);
+      var barR   = Math.round((it.reported||0)*100/maxVRow);
+      var rowBg  = it.ok ? '' : (it.declared===0||it.reported===0 ? 'background:#fffbeb' : 'background:#fef2f2');
+      return '<tr style="border-bottom:1px solid #f1f5f9;'+rowBg+'">'
+        +'<td style="padding:7px 8px;color:#94a3b8;width:22px;font-size:12px">'+(idx+1)+'</td>'
+        +'<td style="padding:7px 8px;color:#334155;font-size:13px">'+_displayUnit(it.unit)
+          +'<div style="display:flex;gap:4px;margin-top:4px;align-items:center">'
+            +'<div title="Kho cấp" style="flex:1;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden"><div style="height:100%;width:'+barD+'%;background:#1d7a46;border-radius:2px"></div></div>'
+            +'<div title="Đơn vị báo" style="flex:1;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden"><div style="height:100%;width:'+barR+'%;background:#c0392b;border-radius:2px"></div></div>'
+          +'</div>'
+        +'</td>'
+        +'<td style="padding:7px 8px;text-align:right;font-weight:700;color:#1d7a46;font-size:13px">'+fmtNum(it.declared)+'</td>'
+        +'<td style="padding:7px 8px;text-align:right;font-weight:700;color:#c0392b;font-size:13px">'+fmtNum(it.reported)+'</td>'
+        +'<td style="padding:7px 8px;text-align:center;font-weight:700;color:'+color+';font-size:12px">'+note+'</td></tr>';
     }).join('');
-    if(!items.length) body='<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--muted)">Chưa có dữ liệu đơn vị/cấp phát cho lô này.</td></tr>';
+    if(!items.length) body='<tr><td colspan="5" style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Chưa có dữ liệu đơn vị/cấp phát cho lô này.</td></tr>';
     _cpCloseOverlay();
+    var allOk = (totD===totR);
+    var totalColor = allOk ? '#1d7a46' : '#c0392b';
     var ov=document.createElement('div'); ov.id='cp_detail_ov';
-    ov.className='app-popup';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
-    ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.25)">'
-      +'<div style="font-weight:700;font-size:15px;margin-bottom:4px">Đối chiếu Xuất Tổ CL theo đơn vị</div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-bottom:10px">'+row.drug+' · Lô '+row.lot+' · HD '+expToMMYYYY(row.exp)+'</div>'
-      +'<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--muted)">'
-        +'<th style="padding:4px 8px;text-align:left">Đơn vị</th><th style="padding:4px 8px;text-align:right">Kho cấp</th>'
-        +'<th style="padding:4px 8px;text-align:right">Đơn vị báo</th><th style="padding:4px 8px;text-align:right">Trạng thái</th></tr></thead>'
-      +'<tbody>'+body+'</tbody>'
-      +'<tfoot><tr style="font-weight:700;border-top:2px solid #ddd"><td style="padding:6px 8px">Tổng</td>'
-        +'<td style="padding:6px 8px;text-align:right">'+fmtNum(totD)+'</td>'
-        +'<td style="padding:6px 8px;text-align:right">'+fmtNum(totR)+'</td>'
-        +'<td style="padding:6px 8px;text-align:right;color:'+(totD===totR?'#1d7a46':'#c0392b')+'">'+(totD===totR?'✓ khớp':'✗ lệch '+fmtNum(totR-totD))+'</td></tr></tfoot>'
-      +'</table>'
-      +'<div style="text-align:right;margin-top:14px"><button onclick="_cpCloseOverlay()" style="padding:8px 16px;border:none;border-radius:18px;background:#34495e;color:#fff;cursor:pointer">Đóng</button></div>'
+    ov.className='app-popup'; ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML=
+      '<div style="background:#fff;border-radius:14px;width:480px;max-width:96vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden" onclick="event.stopPropagation()">'
+      /* Header */
+      +'<div style="background:#eff6ff;border-bottom:2px solid #1d4ed8;padding:14px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'
+        +'<div>'
+          +'<div style="font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.5px">Đối chiếu Xuất Tổ CL theo đơn vị</div>'
+          +'<div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:3px">'+row.drug+'</div>'
+          +'<div style="font-size:11px;color:#64748b;margin-top:2px">Lô '+row.lot+' · HD '+expToMMYYYY(row.exp)+'</div>'
+        +'</div>'
+        +'<button onclick="_cpCloseOverlay()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;padding:2px 4px">×</button>'
+      +'</div>'
+      /* Chú thích 2 màu thanh */
+      +'<div style="display:flex;gap:16px;padding:10px 18px 0;font-size:11px;color:#64748b">'
+        +'<span><span style="display:inline-block;width:10px;height:3px;background:#1d7a46;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Kho cấp</span>'
+        +'<span><span style="display:inline-block;width:10px;height:3px;background:#c0392b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Đơn vị báo</span>'
+      +'</div>'
+      /* Bảng chi tiết */
+      +'<div style="overflow-y:auto;padding:6px 18px 0">'
+        +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+          +'<thead><tr style="border-bottom:2px solid #e2e8f0">'
+            +'<th style="padding:6px 8px;color:#94a3b8;font-weight:600;font-size:11px;width:22px"></th>'
+            +'<th style="padding:6px 8px;color:#94a3b8;font-weight:600;font-size:11px;text-align:left">Đơn vị</th>'
+            +'<th style="padding:6px 8px;color:#1d7a46;font-weight:700;font-size:11px;text-align:right">Kho cấp</th>'
+            +'<th style="padding:6px 8px;color:#c0392b;font-weight:700;font-size:11px;text-align:right">Đơn vị báo</th>'
+            +'<th style="padding:6px 8px;color:#94a3b8;font-weight:600;font-size:11px;text-align:center">Trạng thái</th>'
+          +'</tr></thead>'
+          +'<tbody>'+body+'</tbody>'
+          +'<tfoot><tr style="border-top:2px solid #e2e8f0">'
+            +'<td></td>'
+            +'<td style="padding:10px 8px;font-weight:800;color:'+totalColor+'">Tổng ('+items.length+' đơn vị)</td>'
+            +'<td style="padding:10px 8px;text-align:right;font-weight:800;font-size:16px;color:#1d7a46">'+fmtNum(totD)+'</td>'
+            +'<td style="padding:10px 8px;text-align:right;font-weight:800;font-size:16px;color:#c0392b">'+fmtNum(totR)+'</td>'
+            +'<td style="padding:10px 8px;text-align:center;font-weight:800;color:'+totalColor+'">'+(allOk?'✓ khớp':'✗ lệch '+fmtNum(totR-totD))+'</td>'
+          +'</tr></tfoot>'
+        +'</table>'
+      +'</div>'
+      /* Banner kết quả */
+      +(allOk
+        ? '<div style="margin:10px 18px 14px;padding:8px 14px;background:#eafaf0;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:700;color:#1e7e44">✓ KHỚP — Kho cấp và đơn vị báo cùng số liệu ('+fmtNum(totD)+')</div>'
+        : '<div style="margin:10px 18px 14px;padding:8px 14px;background:#fdecec;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;color:#c0392b">⚠ LỆCH '+fmtNum(Math.abs(totR-totD))+' viên — kiểm tra đơn vị chưa xác nhận nhận thuốc</div>'
+      )
     +'</div>';
     ov.addEventListener('click',function(e){ if(e.target===ov) _cpCloseOverlay(); });
     document.body.appendChild(ov);
@@ -6744,6 +6828,7 @@ async function _syncBVPHDc2ToCloud(periodKey){
     // 3. So với dc2 hiện tại của dòng bvph → PATCH những dòng lệch
     var hd = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
     var patches = [];
+    var _ramChanged = false;   // chỉ render lại khi RAM thật sự đổi → hết nháy bảng
     rows.forEach(function(r){
       var u = r.unit||'';
       if(u!==BVPH && u!=='bvph') return; // chỉ xét dòng kho chính
@@ -6754,7 +6839,7 @@ async function _syncBVPHDc2ToCloud(periodKey){
         // Cập nhật RAM luôn
         bvphData.forEach(function(x){
           if(x.bcMonth===periodKey && x.drug===r.drug && x.lot===r.lot && (x.exp||'')===(r.exp||'')){
-            x.dc2 = correctDc2;
+            if(x.dc2 !== correctDc2){ x.dc2 = correctDc2; _ramChanged = true; }
           }
         });
       }
@@ -6782,7 +6867,7 @@ async function _syncBVPHDc2ToCloud(periodKey){
       var correctDc2 = sumByKey[k] || 0;
       bvphData.forEach(function(x){
         if(x.bcMonth===periodKey && x.drug===r.drug && x.lot===r.lot && (x.exp||'')===(r.exp||'')){
-          x.dc2 = correctDc2;
+          if(x.dc2 !== correctDc2){ x.dc2 = correctDc2; _ramChanged = true; }
         }
       });
     });
@@ -6791,8 +6876,16 @@ async function _syncBVPHDc2ToCloud(periodKey){
       // Cascade tồn đầu kỳ sau vì dc2 (tồn cuối) đã đổi
       try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
     }
-    // Luôn render lại để hiển thị dc2 đúng (kể cả khi Supabase chưa cần patch)
-    try{ renderBVPH(); }catch(e){}
+    // CHỈ render lại khi dc2 trong RAM thật sự thay đổi VÀ an toàn để vẽ
+    // (người dùng không đang gõ, không có modal/popup mở) → hết nháy bảng liên tục
+    if(_ramChanged){
+      var _ae = document.activeElement;
+      var _typing = _ae && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae.tagName);
+      var _modalOpen = document.querySelector('.modal-overlay.open') || document.querySelector('.app-popup');
+      if(!_typing && !_modalOpen){
+        try{ renderBVPH(); }catch(e){}
+      }
+    }
   }catch(e){ console.warn('[_syncBVPHDc2ToCloud]', e); }
 }
 
@@ -8152,8 +8245,8 @@ var _dirty = false; // true khi có dữ liệu chưa lưu lên Supabase
 
 function _syncPeriodToCloud(){
   _dirty = true;
-  _setSaveStatus('saving');
-  // Debounce 500ms — đủ gộp các phím gõ liên tiếp nhưng vẫn cảm giác tức thì
+  _setSaveStatus('saving'); // chỉ HIỆN badge nếu lưu lâu (xem _setSaveStatus) — không nháy mỗi ô
+  // Debounce 1200ms — gộp nhiều ô sửa liên tiếp thành 1 lần lưu, giảm nháy và giảm số request
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(function(){
     if(!_supaOnline){ _setSaveStatus('offline'); return; }
@@ -8173,7 +8266,7 @@ function _syncPeriodToCloud(){
       console.warn('Sync cloud error:', e);
       _setSaveStatus('error'); _scheduleRetry(periodKey);
     });
-  }, 500);
+  }, 1200);
 }
 
 // Tự thử lại khi lưu thất bại (mạng chập chờn) — tối đa vài lần
@@ -8185,20 +8278,28 @@ function _scheduleRetry(periodKey){
   _retryTimer = setTimeout(function(){
     if(!_dirty){ _retryCount=0; return; }   // đã lưu được ở lần khác
     if(!_supaOnline) return;
-    saveToSupabase(periodKey).then(function(ok){
+    // skipMeta như autosave chính — tránh ghi đè trạng thái khóa/danh mục bằng bản cũ
+    saveToSupabase(periodKey, {skipMeta:true}).then(function(ok){
       if(ok){ _dirty=false; _retryCount=0; _setSaveStatus('saved'); }
       else _scheduleRetry(periodKey);
     }).catch(function(){ _scheduleRetry(periodKey); });
   }, 4000 * _retryCount);               // giãn dần: 4s, 8s, 12s...
 }
 
-// Chỉ báo trạng thái lưu (góc màn hình)
+// Chỉ báo trạng thái lưu (góc màn hình) — phiên bản ÊM, KHÔNG nháy liên tục:
+//   • 'saving': KHÔNG hiện ngay. Chỉ hiện nếu sau 1.5s vẫn chưa lưu xong (mạng chậm).
+//     Nhờ vậy khi người dùng nhập liệu bình thường, badge im lặng hoàn toàn.
+//   • 'saved' : chỉ hiện xác nhận nếu trước đó badge "Đang lưu" ĐANG hiển thị
+//     (tức người dùng đã thấy đang lưu → cần thấy đã xong). Nếu badge đang ẩn → giữ ẩn.
+//   • 'error' / 'offline': luôn hiện ngay và giữ nguyên cho tới khi lưu được.
+var _ssRevealTimer = null;   // hẹn giờ hiện "Đang lưu" trễ
+var _ssVisible = false;      // badge có đang hiển thị không
 function _setSaveStatus(state){
   var el = document.getElementById('save-status');
   if(!el){
     el = document.createElement('div');
     el.id = 'save-status';
-    el.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:9998;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:opacity .3s;pointer-events:none';
+    el.style.cssText = 'position:fixed;bottom:14px;left:14px;z-index:9998;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:opacity .35s;pointer-events:none;opacity:0';
     document.body.appendChild(el);
   }
   var map = {
@@ -8208,14 +8309,39 @@ function _setSaveStatus(state){
     offline: {t:'⚠ Mất kết nối — dữ liệu chưa lưu', bg:'#fff3e0', c:'#b9560a'}
   };
   var m = map[state] || map.saved;
-  el.textContent = m.t;
-  el.style.background = m.bg;
-  el.style.color = m.c;
-  el.style.opacity = '1';
-  if(state==='saved'){
-    clearTimeout(el._hideTimer);
-    el._hideTimer = setTimeout(function(){ el.style.opacity='0'; }, 2500);
+  function show(){
+    el.textContent = m.t;
+    el.style.background = m.bg;
+    el.style.color = m.c;
+    el.style.opacity = '1';
+    _ssVisible = true;
   }
+  function hide(){
+    el.style.opacity = '0';
+    _ssVisible = false;
+  }
+  clearTimeout(_ssRevealTimer);
+  clearTimeout(el._hideTimer);
+
+  if(state === 'saving'){
+    // Không hiện ngay — chỉ hiện nếu 1.5s sau vẫn còn đang lưu (mạng chậm / dữ liệu lớn)
+    _ssRevealTimer = setTimeout(function(){
+      if(_dirty) show();
+    }, 1500);
+    return;
+  }
+  if(state === 'saved'){
+    if(_ssVisible){
+      // Người dùng đã thấy "Đang lưu" → hiện xác nhận ngắn rồi ẩn êm
+      show();
+      el._hideTimer = setTimeout(hide, 1800);
+    } else {
+      hide(); // lưu nhanh, badge chưa từng hiện → giữ im lặng, không nháy
+    }
+    return;
+  }
+  // error / offline: luôn hiện ngay
+  show();
 }
 
 function saveLocalCache(payload){
@@ -8606,15 +8732,25 @@ async function _cascadeOpeningStock(startPeriodKey){
     _cascadeRunning = false;
   }
 
-  // Nếu kỳ đang xem bị ảnh hưởng → làm mới giao diện ngay
+  // Nếu kỳ đang xem bị ảnh hưởng → làm mới giao diện (chỉ khi an toàn: không đang gõ, không mở modal)
   if(touchedCurrent){
-    try{ renderBVPH(); }catch(e){}
-    try{ renderBC(); }catch(e){}
-    try{ renderDrugTable(); }catch(e){}
-    try{ renderTQ(); }catch(e){}
+    var _aeC = document.activeElement;
+    var _typingC = _aeC && /^(INPUT|SELECT|TEXTAREA)$/.test(_aeC.tagName);
+    var _modalC = document.querySelector('.modal-overlay.open') || document.querySelector('.app-popup');
+    if(!_typingC && !_modalC){
+      try{ renderBVPH(); }catch(e){}
+      try{ renderBC(); }catch(e){}
+      try{ renderDrugTable(); }catch(e){}
+      try{ renderTQ(); }catch(e){}
+    }
   }
+  // CHỈ báo toast khi kỳ ĐANG XEM bị thay đổi — tránh popup lặp lại sau mỗi lần lưu tự động
   if(totalUpdated > 0){
-    try{ toast('Đã cập nhật tồn đầu '+totalUpdated+' dòng ở các kỳ sau theo tồn cuối mới.','#1a5276'); }catch(e){}
+    if(touchedCurrent){
+      try{ toast('Đã cập nhật tồn đầu '+totalUpdated+' dòng theo tồn cuối kỳ trước.','#1a5276'); }catch(e){}
+    } else {
+      try{ console.info('[cascade] Đã cập nhật tồn đầu '+totalUpdated+' dòng ở các kỳ sau.'); }catch(e){}
+    }
   }
   return totalUpdated;
 }
@@ -11781,6 +11917,7 @@ function fullRender(){
 function renderTP(){
   var tbody = document.getElementById('tp-body');
   if(!tbody) return;
+  _tpDetail = [];   // reset chi tiết popup mỗi lần vẽ lại
 
   var KEY = function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
 
@@ -11792,6 +11929,25 @@ function renderTP(){
   //   bvphDC3 = Xuất tỉnh khác — CHỈ từ BVPH
   //   bvphHH  = Hỏng/HH — CHỈ từ BVPH
   var map = {};
+  // Chi tiết đóng góp theo đơn vị cho từng dòng (phục vụ popup "bấm ô xem chi tiết")
+  var contrib = {};   // contrib[k][unitName] = {open,tw,ntk,dc,sd,dc3,hh}
+  function _addContrib(k, unitName, r, isBvph){
+    if(!contrib[k]) contrib[k] = {};
+    var c = contrib[k][unitName];
+    if(!c) c = contrib[k][unitName] = {open:0,tw:0,ntk:0,dc:0,sd:0,dc3:0,hh:0,fin:0,isBvph:!!isBvph};
+    c.open += (r.open||0);
+    c.sd   += (r.sd||0);
+    c.dc   += (r.dc||0);
+    // Tồn cuối RIÊNG của đơn vị này (tính đủ cả điều chuyển nội bộ theo calcRow)
+    // → cộng tồn cuối tất cả đơn vị sẽ khớp Tồn cuối toàn TP (ĐC nội bộ tự triệt tiêu)
+    try{ c.fin += calcRow(r).final; }catch(e){}
+    if(isBvph){
+      c.tw  += (r.tinh||0);
+      c.ntk += (r.ntk||0);
+      c.dc3 += (r.dc3||0);
+      c.hh  += (r.hh||0);
+    }
+  }
 
   bvphData.filter(matchPeriod).forEach(function(r){
     var k=KEY(r);
@@ -11804,6 +11960,7 @@ function renderTP(){
     map[k].twBvph  += (r.tinh||0); // Nhập TW: CHỈ kho chính BVPH
     map[k].ntkBvph += (r.ntk||0);  // Nhập tỉnh khác: CHỈ kho chính BVPH
     map[k].dcAll   += (r.dc||0);   // Nhập ĐC nội bộ
+    _addContrib(k, 'Kho chính (BVPH)', r, true);
   });
 
   bcData.filter(matchPeriod).forEach(function(r){
@@ -11813,6 +11970,7 @@ function renderTP(){
     map[k].sdAll += (r.sd||0);   // SD: cộng từ 22ĐV
     map[k].dcAll += (r.dc||0);   // Nhập ĐC nội bộ của đơn vị
     // Nhập TW, tỉnh khác, dc3, hh của 22ĐV KHÔNG đưa vào bảng TP (chỉ lấy từ BVPH)
+    _addContrib(k, r.unit||'(Không rõ đơn vị)', r, false);
   });
 
   var keys = Object.keys(map);
@@ -11862,27 +12020,161 @@ function renderTP(){
     sO+=m.open; sTW+=tw; sDC+=dc; sTIN+=tin;
     sSD+=sd; sDC3+=dc3; sHH+=hh; sTOUT+=tout; sFin+=fin;
 
+    // Lưu chi tiết + số đã tính của dòng này để popup dùng
+    _tpDetail[_i] = {
+      drug:m.drug, lot:m.lot, exp:m.exp,
+      contrib: contrib[k] || {},
+      vals: {open:m.open, tw:tw, ntk:ntk, dc:dc, tin:tin, sd:sd, dc3:dc3, hh:hh, tout:tout, fin:fin}
+    };
+    var CC = function(f){ return ' class="tp-cc" onclick="showTPDetail('+_i+',\''+f+'\')" title="Bấm để xem chi tiết cộng tổng"'; };
+
     tbody.innerHTML +=
       '<tr>'
       +(_isFirstOfDrug ? '<td style="text-align:center;color:#888" rowspan="'+_drugCount[_dn]+'">'+_drugTT[_dn]+'</td>' : '')
       +(_isFirstOfDrug ? '<td class="left" rowspan="'+_drugCount[_dn]+'" style="vertical-align:middle;font-weight:600">'+_dn+'</td>' : '')
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
-      +'<td class="open-stock">'+fmtNum(m.open)+'</td>'
-      +'<td>'+fmtNum(tw)+'</td>'
-      +'<td>'+fmtNum(ntk)+'</td>'
-      +'<td class="calc-in"><strong>'+fmtNum(tin)+'</strong></td>'
-      +'<td data-tp-sd="1">'+fmtNum(sd)+'</td>'
-      +'<td style="color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
-      +'<td data-tp-hh="1">'+fmtNum(hh)+'</td>'
-      +'<td class="calc-out"><strong>'+fmtNum(tout)+'</strong></td>'
-      +'<td class="'+fcls+'">'+fmtNum(fin)+'</td>'
+      +'<td'+CC('open')+' style="cursor:pointer" data-cls="open-stock">'+fmtNum(m.open)+'</td>'
+      +'<td'+CC('tw')+'>'+fmtNum(tw)+'</td>'
+      +'<td'+CC('ntk')+'>'+fmtNum(ntk)+'</td>'
+      +'<td'+CC('tin')+' data-cls="calc-in"><strong>'+fmtNum(tin)+'</strong></td>'
+      +'<td'+CC('sd')+' data-tp-sd="1">'+fmtNum(sd)+'</td>'
+      +'<td'+CC('dc3')+' style="color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
+      +'<td'+CC('hh')+' data-tp-hh="1">'+fmtNum(hh)+'</td>'
+      +'<td'+CC('tout')+' data-cls="calc-out"><strong>'+fmtNum(tout)+'</strong></td>'
+      +'<td'+CC('fin')+' data-cls="'+fcls+'">'+fmtNum(fin)+'</td>'
 
       +'</tr>';
   });
 
+  // Gắn lại class màu nền gốc (open-stock, calc-in, calc-out, final-*) song song với tp-cc
+  tbody.querySelectorAll('td[data-cls]').forEach(function(td){
+    td.classList.add(td.getAttribute('data-cls'));
+  });
+
   // (Đã bỏ dòng "Tổng (X lô)" theo yêu cầu)
 }
+
+// ════════════════════════════════════════════════════════════════════
+// POPUP CHI TIẾT CỘNG TỔNG — bấm vào ô số trong bảng Tổng toàn TP để xem
+// từng đơn vị đóng góp bao nhiêu, hoặc công thức cấu thành ô tính toán.
+// ════════════════════════════════════════════════════════════════════
+var _tpDetail = [];
+
+function showTPDetail(idx, field){
+  var d = _tpDetail[idx];
+  if(!d) return;
+  var META = {
+    open: {label:'Tồn đầu kỳ',       col:'#b7791f', bg:'#fffbeb', per:'open', note:'Cộng tồn đầu của Kho chính + các đơn vị tuyến'},
+    tw:   {label:'Nhập TW',          col:'#1e7e44', bg:'#f0fdf4', per:'tw',   note:'Chỉ ghi nhận tại Kho chính (BVPH)'},
+    ntk:  {label:'Nhập tỉnh khác',   col:'#1e7e44', bg:'#f0fdf4', per:'ntk',  note:'Chỉ ghi nhận tại Kho chính (BVPH)'},
+    sd:   {label:'Sử dụng',          col:'#c0392b', bg:'#fef2f2', per:'sd',   note:'Cộng số sử dụng của Kho chính + các đơn vị tuyến'},
+    dc3:  {label:'Xuất tỉnh khác',   col:'#c0392b', bg:'#fef2f2', per:'dc3',  note:'Chỉ ghi nhận tại Kho chính (BVPH)'},
+    hh:   {label:'Hỏng / Hết hạn',   col:'#c0392b', bg:'#fef2f2', per:'hh',   note:'Chỉ ghi nhận tại Kho chính (BVPH)'},
+    tin:  {label:'Tổng nhập',        col:'#1e7e44', bg:'#f0fdf4', formula:[['Nhập TW','tw','+'],['Nhập tỉnh khác','ntk','+']], note:'Nhập điều chuyển nội bộ không cộng vào (tự triệt tiêu trong toàn TP)'},
+    tout: {label:'Tổng xuất',        col:'#c0392b', bg:'#fef2f2', formula:[['Sử dụng','sd','+'],['Xuất tỉnh khác','dc3','+'],['Hỏng/HH','hh','+']], note:'Xuất điều chuyển nội bộ không cộng vào (tự triệt tiêu trong toàn TP)'},
+    fin:  {label:'Tồn cuối kỳ',      col:'#1d4ed8', bg:'#eff6ff', formula:[['Tồn đầu','open','+'],['Tổng nhập','tin','+'],['Tổng xuất','tout','−']], note:'Tồn cuối = Tồn đầu + Tổng nhập − Tổng xuất'}
+  };
+  var mt = META[field]; if(!mt) return;
+  var total = d.vals[field] || 0;
+  var expD = expToMMYYYY(d.exp);
+
+  // Hàm dựng bảng "chi tiết theo đơn vị" (dùng chung cho ô cộng gộp và phần đối chiếu Tồn cuối)
+  function _unitTable(perField, colr, allowNegative){
+    var rows = [];
+    Object.keys(d.contrib).forEach(function(u){
+      var v = d.contrib[u][perField] || 0;
+      if(allowNegative ? v !== 0 : v > 0) rows.push({unit:u, val:v, isBvph:d.contrib[u].isBvph});
+    });
+    rows.sort(function(a,b){ return b.val - a.val; });
+    if(!rows.length) return {html:'<div style="padding:16px 8px;text-align:center;color:#94a3b8;font-size:13px">Chưa có đơn vị nào ghi nhận số liệu cho ô này.</div>', sum:0, n:0};
+    var sum = 0; rows.forEach(function(r){ sum += r.val; });
+    var maxV = Math.max.apply(null, rows.map(function(r){ return Math.abs(r.val); })) || 1;
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    rows.forEach(function(r, i){
+      var pct = sum > 0 ? Math.round(r.val*100/sum) : 0;
+      var barW = Math.round(Math.abs(r.val)*100/maxV);
+      var uName = escH(r.unit) + (r.isBvph ? ' <span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:8px;font-weight:700">KHO CHÍNH</span>' : '');
+      h += '<tr style="border-bottom:1px solid #f1f5f9">'
+        +'<td style="padding:7px 6px;color:#94a3b8;width:24px">'+(i+1)+'</td>'
+        +'<td style="padding:7px 6px;color:#334155">'+uName
+        +'<div style="height:4px;background:#f1f5f9;border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:'+barW+'%;background:'+colr+';opacity:.55;border-radius:2px"></div></div></td>'
+        +'<td style="padding:7px 6px;text-align:right;font-weight:700;color:'+(r.val<0?'#c0392b':'#1e293b')+';white-space:nowrap">'+fmtNum(r.val)
+        +(sum>0?' <span style="font-size:11px;color:#94a3b8;font-weight:400">('+pct+'%)</span>':'')+'</td></tr>';
+    });
+    h += '<tr><td></td><td style="padding:10px 6px;font-weight:800;color:'+colr+'">Tổng ('+rows.length+' đơn vị)</td>'
+      +'<td style="padding:10px 6px;text-align:right;font-weight:800;font-size:16px;color:'+colr+'">'+fmtNum(sum)+'</td></tr>';
+    h += '</table>';
+    return {html:h, sum:sum, n:rows.length};
+  }
+
+  var body = '';
+  if(mt.formula){
+    // Ô tính toán → hiện công thức cấu thành, mỗi thành phần bấm được để xem tiếp
+    body += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    mt.formula.forEach(function(f, i){
+      var v = d.vals[f[1]] || 0;
+      body += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="showTPDetail('+idx+',\''+f[1]+'\')" title="Bấm để xem chi tiết '+f[0]+'">'
+        +'<td style="padding:8px 6px;color:#475569">'+ (i===0?'':'<span style="color:#94a3b8;font-weight:700;margin-right:6px">'+f[2]+'</span>') + f[0]
+        +' <span style="font-size:11px;color:#94a3b8">›</span></td>'
+        +'<td style="padding:8px 6px;text-align:right;font-weight:700;color:#1e293b">'+fmtNum(v)+'</td></tr>';
+    });
+    body += '<tr><td style="padding:10px 6px;font-weight:800;color:'+mt.col+'">= '+mt.label+'</td>'
+      +'<td style="padding:10px 6px;text-align:right;font-weight:800;font-size:16px;color:'+mt.col+'">'+fmtNum(total)+'</td></tr>';
+    body += '</table>';
+    if(mt.note) body += '<div style="margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.5">ℹ '+mt.note+'</div>';
+
+    // ── RIÊNG TỒN CUỐI: thêm bảng tồn cuối TỪNG ĐƠN VỊ để đối chiếu ──
+    if(field === 'fin'){
+      var ut = _unitTable('fin', mt.col, true);  // cho phép cả số âm (nhập lệch)
+      body += '<div style="margin-top:14px;padding-top:10px;border-top:2px dashed #e2e8f0">'
+        +'<div style="font-size:11px;font-weight:800;color:'+mt.col+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Đối chiếu: Tồn cuối từng đơn vị</div>'
+        + ut.html;
+      if(ut.n > 0){
+        var diff = ut.sum - total;
+        if(diff === 0){
+          body += '<div style="margin-top:8px;padding:8px 12px;background:#eafaf0;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:700;color:#1e7e44">✓ KHỚP — cộng tồn cuối các đơn vị = Tồn cuối toàn TP ('+fmtNum(total)+')</div>';
+        } else {
+          body += '<div style="margin-top:8px;padding:8px 12px;background:#fdecec;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;color:#c0392b">⚠ LỆCH '+fmtNum(Math.abs(diff))+' viên — cộng đơn vị = '+fmtNum(ut.sum)+' nhưng toàn TP = '+fmtNum(total)+'.<br><span style="font-weight:400">Thường do điều chuyển nội bộ chưa khớp (bên xuất đã ghi nhưng bên nhận chưa xác nhận, hoặc ngược lại). Kiểm tra Xuất Tổ CL / Nhập tỉnh cấp của kỳ này.</span></div>';
+        }
+      }
+      body += '</div>';
+    }
+  } else {
+    // Ô cộng gộp theo đơn vị → liệt kê từng đơn vị đóng góp (>0), sắp giảm dần
+    body += _unitTable(mt.per, mt.col, false).html;
+    if(mt.note) body += '<div style="margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.5">ℹ '+mt.note+'</div>';
+  }
+
+  // Vẽ popup — dùng class app-popup để auto-refresh 12s KHÔNG render đè khi đang mở
+  var old = document.getElementById('tp-detail-popup');
+  if(old) old.remove();
+  var ov = document.createElement('div');
+  ov.id = 'tp-detail-popup';
+  ov.className = 'app-popup';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML =
+    '<div style="background:white;border-radius:14px;width:440px;max-width:96vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden" onclick="event.stopPropagation()">'
+    +'<div style="background:'+mt.bg+';border-bottom:2px solid '+mt.col+';padding:14px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'
+      +'<div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+mt.col+';text-transform:uppercase;letter-spacing:.5px">Chi tiết: '+mt.label+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:3px">'+escH(d.drug)+'</div>'
+        +'<div style="font-size:11px;color:#64748b;margin-top:2px">Lô '+escH(d.lot)+' — HD '+expD+' — Kỳ '+(typeof _keyToLabel==='function'?_keyToLabel(_currentPeriodKey()):_currentPeriodKey())+'</div>'
+      +'</div>'
+      +'<button onclick="document.getElementById(\'tp-detail-popup\').remove()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;padding:2px 4px" title="Đóng">×</button>'
+    +'</div>'
+    +'<div style="padding:12px 18px;overflow-y:auto">'+body+'</div>'
+    +'</div>';
+  ov.onclick = function(){ ov.remove(); };
+  document.body.appendChild(ov);
+}
+// Đóng popup bằng phím Esc
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    var p = document.getElementById('tp-detail-popup');
+    if(p) p.remove();
+  }
+});
 
 function onAdminUnitFilterChange() {
   var selUnit = document.getElementById('filter-unit-bc');
