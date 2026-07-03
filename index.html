@@ -5994,15 +5994,18 @@ function buildTbl(data, bodyId, prefix){
     // ── Ô số: khi không editing → bấm được để xem chi tiết (giống bảng Tổng TP) ──
     // Hàm tạo ô "chỉ đọc có bấm": style gạch chân chấm, con trỏ tay, popup chi tiết
     var _bvphIdx = idx;  // capture cho onclick
-    function clickCell(field, val, cls){
+    function clickCell(field, val, cls, ro){
+      var isRO = (ro === true);
       var clsAttr = cls ? ' class="'+cls+'"' : '';
-      if(isEditing && canEdit) return '<td'+clsAttr+'>'+makeCell(field, val, false)+'</td>';
+      if(isEditing && canEdit) return '<td'+clsAttr+'>'+makeCell(field, val, isRO)+'</td>';
+      var roStyle = isRO ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed;' : 'cursor:pointer;';
       var onc = 'showBVPHDetail(\''+prefix+'\','+_bvphIdx+',\''+field+'\')';
       return '<td'+clsAttr+' onclick="'+onc+'" title="Bấm để xem chi tiết cộng tổng"'
-        +' style="cursor:pointer;transition:box-shadow .12s" class="bvph-cc'+(cls?' '+cls:'')+'">'+fmtNum(val)+'</td>';
+        +' style="'+roStyle+'transition:box-shadow .12s" class="bvph-cc'+(cls?' '+cls:'')+'">'+fmtNum(val)+'</td>';
     }
 
-    tr += clickCell('open', row.open, 'open-stock');
+
+    tr += clickCell('open', row.open, 'open-stock', openRO);
     tr += clickCell('tinh', row.tinh||0, '');
     if(isBVPH){
       tr += clickCell('ntk', row.ntk||0, '');
