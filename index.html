@@ -7787,9 +7787,8 @@ function _startNotifPolling(){
         // Làm mới luôn danh sách thông báo để panel hiển thị ngay khi mở
         try{ loadNotifications(); }catch(e){}
         // Đơn vị tuyến: nếu có phiếu điều chuyển mới → hiện popup xác nhận ngay (không đợi focus)
-        if(currentUser.role === 'donvi'){
-          try{ checkPendingTransfers(); }catch(e){}
-        }
+        // Tất cả role đều cần nhận phiếu điều chuyển (kể cả bvph và admin)
+        try{ checkPendingTransfers(); }catch(e){}
       }
     }catch(e){}
 
@@ -7839,7 +7838,8 @@ function initNotifBell(){
 async function checkPendingTransfers(){
   if(!_supaOnline || !currentUser) return;
   var myUnit = currentUser.unit || (currentUser.role==='bvph' ? BVPH : '');
-  if(!myUnit || myUnit===BVPH) return;
+  if(!myUnit) return;
+  // BVPH cũng nhận phiếu điều chuyển từ đơn vị tuyến (dc3_to_tinh)
   var periodKey = _currentPeriodKey();
   if(!periodKey) return;
   try{
@@ -15184,7 +15184,7 @@ function _startAutoRefresh(){
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden){
     setTimeout(_safeRefreshNow, 150);
-    try{ if(currentUser && currentUser.role==='donvi') checkPendingTransfers(); }catch(e){}
+    try{ if(currentUser) checkPendingTransfers(); }catch(e){}
   }
 });
 // Làm mới khi cửa sổ được focus (bổ sung cho visibilitychange trên một số trình duyệt)
