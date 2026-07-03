@@ -10346,21 +10346,35 @@ async function showDcOutDetail(prefix, rowIdx){
   document.body.appendChild(ov);
 
   // Fetch phiếu xuất: từ đơn vị này, thuốc+lô+hạn này, trong kỳ, đã xác nhận
-  var transfers = [];
+  var transfers = [], transfersAllPeriods = [];
   if(_supaOnline){
     try{
+      // Fetch theo from_unit + drug + lot (không lọc period ở server)
+      // vì phiếu có thể thuộc period khác nếu ngày điều chuyển khác tháng đang xem
       var r = await fetch(
         SUPA_URL + '/rest/v1/transfers'
-        + '?period=eq.' + encodeURIComponent(periodKey)
-        + '&from_unit=eq.' + encodeURIComponent(fromUnit)
-        + '&drug=eq.' + encodeURIComponent(row.drug)
-        + '&lot=eq.' + encodeURIComponent(row.lot)
-        + '&status=in.(confirmed,pending)'   // cả đang chờ lẫn đã xác nhận
+        + '?from_unit=eq.' + encodeURIComponent(fromUnit)
+        + '&status=in.(confirmed,pending)'
         + '&type=in.(dc2_to_dc,dc3_to_tinh)'
-        + '&order=transfer_date.asc,created_at.asc',
+        + '&order=transfer_date.asc,created_at.asc'
+        + '&limit=200',
         {headers: _supaHdr}
       );
-      if(r.ok) transfers = await r.json();
+      if(r.ok){
+        var all = await r.json();
+        // Lọc đúng thuốc + lô + period ở client
+        transfers = all.filter(function(t){
+          return t.drug === row.drug
+            && t.lot === row.lot
+            && t.period === periodKey;
+        });
+        // Nếu không có phiếu nào trong kỳ, thử lấy tất cả phiếu của lô này (mọi kỳ) để debug
+        if(!transfers.length){
+          transfersAllPeriods = all.filter(function(t){
+            return t.drug === row.drug && t.lot === row.lot;
+          });
+        }
+      }
     }catch(e){}
   }
 
@@ -10375,7 +10389,22 @@ async function showDcOutDetail(prefix, rowIdx){
   var matchOk = (totalQty === rowDc2);
 
   if(!transfers.length){
-    html += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có phiếu xuất điều chuyển nào trong kỳ này.</div>';
+    if(transfersAllPeriods.length){
+      // Có phiếu nhưng thuộc kỳ khác — ngày điều chuyển không khớp kỳ đang xem
+      html += '<div style="padding:14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;margin-bottom:10px">'
+        + '<div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:6px">⚠ Không tìm thấy phiếu trong kỳ <b>'+periodKey+'</b></div>'
+        + '<div style="font-size:12px;color:#64748b;line-height:1.7">Tìm thấy '+transfersAllPeriods.length+' phiếu ở kỳ khác:<br>'
+        + transfersAllPeriods.map(function(t){ return '• Kỳ <b>'+t.period+'</b> — '+fmtNum(t.qty||0)+' viên → '+escH(_displayUnit(t.to_unit||''))+' ('+_fmtDate(t.transfer_date||t.created_at||'')+')'+(t.status==='pending'?' ⏳':' ✓'); }).join('<br>')
+        + '<br><br>Kiểm tra lại ngày điều chuyển trên phiếu có đúng tháng không.</div>'
+        + '</div>';
+    } else if(rowDc2 > 0){
+      html += '<div style="padding:14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;margin-bottom:10px">'
+        + '<div style="font-size:13px;font-weight:700;color:#b45309;margin-bottom:6px">⚠ Có số liệu dc2 = '+fmtNum(rowDc2)+' viên nhưng chưa có phiếu nào</div>'
+        + '<div style="font-size:12px;color:#64748b;line-height:1.6">Số này có thể được nhập tay.<br>Cần tạo phiếu điều chuyển để hệ thống đối chiếu được.</div>'
+        + '</div>';
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px;font-style:italic">Chưa có phiếu xuất điều chuyển nào trong kỳ này.</div>';
+    }
   } else {
     // Bảng phiếu
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
