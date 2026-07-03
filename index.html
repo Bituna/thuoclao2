@@ -7953,42 +7953,46 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
             body: JSON.stringify({status:'confirmed', notif_for: transfer.from_unit, notif_read: false})
           });
           // 2. Cộng vào dc hoặc tinh của đơn vị nhận trong báo cáo
-          var targetArr = (myUnit===BVPH) ? bvphData : bcData;
-          var targetRow = targetArr.find(function(r){
-            return r.bcMonth===periodKey && r.drug===transfer.drug
-              && r.lot===transfer.lot && r.exp===transfer.exp
-              && (myUnit===BVPH?(r.unit===BVPH||r.unit==='bvph'):r.unit===myUnit);
-          });
-          // Kỳ đúng của phiếu (có thể khác kỳ đang xem nếu ngày chuyển thuộc tháng khác)
+          // Dùng kỳ của phiếu (transfer.period), không phải kỳ đang xem
           var txPeriod = transfer.period || periodKey;
           var fieldToUpdate = (transfer.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
+          var tExp = transfer.exp || '';
 
-          // Tìm dòng theo đúng kỳ của phiếu (không phải kỳ đang xem)
-          var targetArr2 = (myUnit===BVPH||myUnit==='bvph') ? bvphData : bcData;
-          var targetRow2 = targetArr2.find(function(r){
-            return r.bcMonth===txPeriod && r.drug===transfer.drug
-              && r.lot===transfer.lot && r.exp===transfer.exp
-              && (myUnit===BVPH?(r.unit===BVPH||r.unit==='bvph'):r.unit===myUnit);
+          var targetArr = (myUnit===BVPH||myUnit==='bvph') ? bvphData : bcData;
+          // So sánh exp linh hoạt (có thể '09/2027' hoặc '2027-09-30')
+          var targetRow = targetArr.find(function(r){
+            var expMatch = (r.exp||'') === tExp
+              || expToMMYYYY(r.exp||'') === expToMMYYYY(tExp)
+              || (r.exp||'').substring(0,7) === tExp.substring(0,7);
+            return r.bcMonth===txPeriod
+              && r.drug===transfer.drug
+              && r.lot===transfer.lot
+              && expMatch
+              && (myUnit===BVPH||myUnit==='bvph'
+                  ? (r.unit===BVPH||r.unit==='bvph')
+                  : r.unit===myUnit);
           });
 
-          if(targetRow2){
-            targetRow2[fieldToUpdate] = (targetRow2[fieldToUpdate]||0) + (transfer.qty||0);
-            targetRow2._dirty = true;
+          if(targetRow){
+            targetRow[fieldToUpdate] = (targetRow[fieldToUpdate]||0) + (transfer.qty||0);
+            targetRow._dirty = true;
           } else {
-            // Tạo dòng mới với đúng bcMonth = kỳ của phiếu
+            // Thuốc/lô chưa có trong kỳ → tạo dòng mới
             var _unitVal = (myUnit===BVPH||myUnit==='bvph') ? BVPH : myUnit;
-            var newRow = {unit:_unitVal, drug:transfer.drug, lot:transfer.lot, exp:transfer.exp||'',
+            var newRow = {unit:_unitVal, drug:transfer.drug, lot:transfer.lot, exp:tExp,
               open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
               locked:false, editing:false, bcMonth:txPeriod, openLocked:false};
             newRow[fieldToUpdate] = transfer.qty||0;
             newRow._dirty = true;
             if(myUnit===BVPH||myUnit==='bvph') bvphData.push(newRow); else bcData.push(newRow);
+            console.info('[transfer confirm] Tạo dòng mới:', transfer.drug, transfer.lot, txPeriod, fieldToUpdate, '=', transfer.qty);
           }
           renderBVPH(); renderBC(); renderTP();
-          // Lưu đúng kỳ của phiếu, không phải kỳ đang xem
-          if(typeof saveToSupabase === 'function'){
-            saveToSupabase(txPeriod).catch(function(e){ console.warn('save error', e); });
-          }
+          // Lưu đúng kỳ của phiếu
+          saveToSupabase(txPeriod).catch(function(e){
+            console.warn('[transfer confirm] save error:', e);
+            toast('Lỗi lưu dữ liệu: ' + e.message, 'var(--danger)');
+          });
           // Nếu bvph xác nhận nhận tinh từ đơn vị → cập nhật dc2 kho chính
           if((myUnit===BVPH||myUnit==='bvph') && transfer.type==='dc3_to_tinh'){
             try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
