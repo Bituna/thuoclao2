@@ -7120,7 +7120,40 @@ async function _syncBVPHDc2ToCloud(periodKey){
         }
       });
     });
-
+// Tạo dòng kho chính cho thuốc đơn vị báo nhưng kho chính chưa có (dù tinh=0)
+    var newRows = [];
+    Object.keys(sumByKey).forEach(function(k){
+      var found = rows.some(function(r){
+        var u=r.unit||''; if(u!==BVPH && u!=='bvph') return false;
+        return _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'')===k;
+      });
+      if(!found){
+        var src2 = rows.find(function(r){
+          var u=r.unit||''; if(u===BVPH||u==='bvph') return false;
+          return _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'')===k;
+        });
+        if(src2){
+          newRows.push({
+            period:periodKey, unit:'bvph', drug:src2.drug, lot:src2.lot, exp:src2.exp||'',
+            open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:sumByKey[k], dc3:0, hh:0,
+            locked:false, bc_month:periodKey
+          });
+        }
+      }
+    });
+    if(newRows.length){
+      var hdNew = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'});
+      var upNew = SUPA_URL+'/rest/v1/reports?on_conflict=period,unit,drug,lot,exp';
+      try{
+        await fetch(upNew, {method:'POST', headers:hdNew, body:JSON.stringify(newRows)});
+        newRows.forEach(function(u){
+          bvphData.push({unit:BVPH, drug:u.drug, lot:u.lot, exp:u.exp, open:0,
+            tinh:0, ntk:0, dc:0, sd:0, dc2:u.dc2, dc3:0, hh:0,
+            locked:false, editing:false, bcMonth:periodKey, openLocked:false});
+        });
+        _ramChanged = true;
+      }catch(e){ console.warn('[dc2sync] tạo dòng mới lỗi', e); }
+    }
     if(patches.length){
       // Cascade tồn đầu kỳ sau vì dc2 (tồn cuối) đã đổi
       try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
@@ -7197,7 +7230,7 @@ async function adminSyncXuatTCL(){
           report.push({drug:bvRow.drug, lot:bvRow.lot, old:bvRow.dc2||0, neu:correctDc2});
           nChange++;
         }
-      } else if(correctDc2 > 0){
+      } else {
         // Đơn vị có nhập tỉnh nhưng kho chính chưa có dòng thuốc/lô này → tạo mới
         var parts = k.split('||');
         // Tìm thông tin gốc (drug/lot/exp chưa chuẩn hóa) từ dòng đơn vị bất kỳ
