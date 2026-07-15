@@ -2464,7 +2464,13 @@ async function saveToSupabase(periodKey, opts){
 
     // Nếu ghi reports thất bại → báo NGAY cho người dùng (dữ liệu chưa lên cloud!)
     if(!upsertOk){
-      toast('❌ CHƯA LƯU ĐƯỢC lên hệ thống ('+(saveError||'lỗi')+'). Dữ liệu vẫn còn trên màn hình — kiểm tra mạng rồi thử lại.','var(--danger)');
+      var _errMsg = saveError || 'lỗi không xác định';
+      var _is503 = _errMsg.indexOf('503') >= 0;
+      if(_is503){
+        toast('❌ Máy chủ Supabase lỗi 503 (có thể project bị tạm dừng). Vào supabase.com kiểm tra project còn Active không.', 'var(--danger)');
+      } else {
+        toast('❌ CHƯA LƯU ĐƯỢC lên hệ thống ('+_errMsg+'). Dữ liệu vẫn còn trên màn hình — kiểm tra mạng rồi thử lại.', 'var(--danger)');
+      }
       return false;
     }
 
@@ -7954,7 +7960,7 @@ function renderNotifPanel(notifs){
       icon = '<i class="ti ti-circle-x" style="font-size:16px;color:#E24B4A;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
       if(isAdminView){
         // Admin thấy đầy đủ cả 2 đầu
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b> của <b>'+_displayUnit(t.from_unit)+'</b>';
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b>';
       } else {
         // Đơn vị xuất: biết bên nào từ chối
         msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b>';
@@ -7962,7 +7968,7 @@ function renderNotifPanel(notifs){
     } else if(t.status==='confirmed'){
       icon = '<i class="ti ti-circle-check" style="font-size:16px;color:#1D9E75;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
       if(isAdminView){
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> xác nhận nhận <b>'+qtyStr+'</b> của <b>'+_displayUnit(t.from_unit)+'</b>';
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> xác nhận nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b>';
       } else {
         msg = '<b>'+_displayUnit(t.to_unit)+'</b> đã xác nhận nhận <b>'+qtyStr+'</b>';
       }
@@ -7970,33 +7976,33 @@ function renderNotifPanel(notifs){
       // Phiếu chờ xác nhận
       icon = '<i class="ti ti-package" style="font-size:16px;color:#f39c12;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
       if(isAdminView){
-        msg = '<b>'+_displayUnit(t.from_unit)+'</b> điều chuyển <b>'+qtyStr+'</b> cho <b>'+_displayUnit(t.to_unit)+'</b> — <span style="color:#e67e22;font-weight:600">chờ xác nhận</span>';
+        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> điều chuyển <b>'+qtyStr+'</b> cho <b>'+_displayUnit(t.to_unit)+'</b> — <span style="color:#e67e22;font-weight:600">chờ xác nhận</span>';
       } else {
-        msg = '<b>'+_displayUnit(t.from_unit)+'</b> điều chuyển cho bạn <b>'+qtyStr+'</b> — <span style="color:#e67e22;font-weight:600">chờ xác nhận</span>';
+        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> điều chuyển cho bạn <b>'+qtyStr+'</b> — <span style="color:#e67e22;font-weight:600">chờ xác nhận</span>';
       }
     } else if(t.status==='report_new'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">📝</span>';
-      msg = 'Đơn vị <b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#1D9E75;font-weight:600">NỘP báo cáo</span> kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
+      msg = 'Đơn vị <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#1D9E75;font-weight:600">NỘP báo cáo</span> kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
     } else if(t.status==='report_edit'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">✏️</span>';
-      msg = 'Đơn vị <b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#e67e22;font-weight:600">SỬA</span> dữ liệu báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
+      msg = 'Đơn vị <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e67e22;font-weight:600">SỬA</span> dữ liệu báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
     } else if(t.status==='report_delete'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🗑️</span>';
-      msg = 'Đơn vị <b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">XÓA</span> dữ liệu báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
+      msg = 'Đơn vị <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">XÓA</span> dữ liệu báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
     } else if(t.status==='cancelled'){
       icon = '<i class="ti ti-ban" style="font-size:16px;color:#888;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
       if(t.type==='cancel_notif'){
         // Thông báo cho bên XUẤT: bạn đã thu hồi
         msg = 'Bạn đã thu hồi phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b>';
       } else if(isAdminView){
-        msg = '<b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#e74c3c">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b>';
+        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b>';
       } else {
         // Thông báo cho bên NHẬN: đơn vị xuất đã thu hồi
-        msg = '<b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> cho bạn';
+        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> cho bạn';
       }
     } else if(t.status==='locked'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🔒</span>';
-      msg = 'Đơn vị <b>'+_displayUnit(t.from_unit)+'</b> đã <span style="color:#27ae60;font-weight:600">IN VÀ CHỐT</span> báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '');
+      msg = 'Đơn vị <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#27ae60;font-weight:600">IN VÀ CHỐT</span> báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '');
     } else if(t.status==='unlocked'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🔓</span>';
       msg = 'Admin đã <span style="color:#e67e22;font-weight:600">MỞ KHÓA</span> báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + ' cho đơn vị bạn.';
@@ -8122,6 +8128,7 @@ function _startNotifPolling(){
   clearInterval(_notifTimer);
   _notifTimer = setInterval(async function(){
     if(!_supaOnline || !currentUser) return;
+    if(document.hidden) return;  // tab ẩn → bỏ qua, tiết kiệm request
     _notifPollCount++;
     var myUnit = currentUser.role === 'admin' ? '__admin__' : (currentUser.unit || (currentUser.role==='bvph'?BVPH:''));
     if(!myUnit) return;
@@ -8167,7 +8174,7 @@ function _startNotifPolling(){
         }
       }catch(ep){}
     }
-  }, 15000);  // mỗi 15 giây (trước 60s)
+  }, 60000);  // mỗi 60 giây
 }
 
 // Khởi tạo chuông sau khi login
@@ -8274,11 +8281,17 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
   // Header
   var hdr = document.createElement('div');
   hdr.style.cssText='background:#eff6ff;border-bottom:2px solid #1d4ed8;padding:14px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-shrink:0';
-  hdr.innerHTML='<div>'
-    +'<div style="font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.5px">Phiếu điều chuyển chờ xác nhận</div>'
+  var hdrLeft5 = document.createElement('div');
+  hdrLeft5.innerHTML = '<div style="font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.5px">Phiếu điều chuyển chờ xác nhận</div>'
     +'<div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:3px">📦 Có '+transfers.length+' phiếu mới</div>'
-    +'<div style="font-size:11px;color:#64748b;margin-top:2px">Xác nhận để cập nhật vào báo cáo nhập điều chuyển</div>'
-    +'</div>';
+    +'<div style="font-size:11px;color:#64748b;margin-top:2px">Xác nhận để cập nhật vào báo cáo nhập điều chuyển</div>';
+  var hdrClose5 = document.createElement('button');
+  hdrClose5.innerHTML = '&times;';
+  hdrClose5.title = 'Đóng (nhắc lại sau)';
+  hdrClose5.style.cssText = 'background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;padding:2px 6px;flex-shrink:0;margin-top:-2px';
+  hdrClose5.onclick = function(){ _pendingSnoozeUntil = Date.now() + 5*60*1000; ov.remove(); };
+  hdr.appendChild(hdrLeft5);
+  hdr.appendChild(hdrClose5);
   box.appendChild(hdr);
 
   var scrollWrap = document.createElement('div');
@@ -8297,7 +8310,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     info.style.cssText='font-size:13px;color:#334155;line-height:1.8;margin-bottom:10px';
     var expDisp = t.exp ? (function(){ var ep=t.exp.split('-'); return ep.length>=2?ep[1]+'/'+ep[0]:t.exp; })() : '';
     var dt = t.transfer_date ? _fmtDate(t.transfer_date) : (t.created_at ? _fmtDate(t.created_at) : '');
-    info.innerHTML = '<b>'+_displayUnit(t.from_unit)+'</b> đã điều chuyển cho bạn:<br>'
+    info.innerHTML = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã điều chuyển cho bạn:<br>'
       +'<span style="color:#1a5276;font-weight:700">'+t.qty.toLocaleString('vi-VN')+' viên</span>'
       +' <b>'+t.drug+'</b>'
       +' — Lô: '+t.lot+(expDisp?' — Hạn: '+expDisp:'')
@@ -8317,6 +8330,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     (function(transfer, infoEl, bRow){
       btnOK.onclick = async function(){
         btnOK.disabled = true; btnOK.textContent = 'Đang xử lý...';
+        _confirmTransferInProgress = true;  // block auto-refresh trong suốt quá trình
         try{
           // 1. Cập nhật status = confirmed trên Supabase — PHẢI thành công trước mới cộng báo cáo
           var _patchRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
@@ -8326,94 +8340,159 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           });
           if(!_patchRes.ok){
             var _patchErr = await _patchRes.text().catch(function(){ return ''; });
-            throw new Error('Supabase PATCH lỗi '+_patchRes.status+': '+_patchErr.slice(0,120));
+            var _is503t = _patchRes.status === 503;
+            throw new Error(_is503t
+              ? 'Máy chủ Supabase lỗi 503 — project có thể bị tạm dừng. Vào supabase.com kiểm tra.'
+              : 'PATCH transfers lỗi '+_patchRes.status+': '+_patchErr.slice(0,120));
           }
-          // 2. Cộng vào dc hoặc tinh của đơn vị nhận trong báo cáo
-          // Dùng kỳ của phiếu (transfer.period), không phải kỳ đang xem
+          // 2. Cộng dc/tinh vào báo cáo — UPSERT TRỰC TIẾP lên Supabase
+          // (không dùng saveToSupabase/_dirty để tránh race condition với auto-refresh)
           var txPeriod = transfer.period || periodKey || _currentPeriodKey();
           var fieldToUpdate = (transfer.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
           var tExp = transfer.exp || '';
+          var _dbUnit = (myUnit===BVPH||myUnit==='bvph') ? 'bvph' : myUnit;
 
-          var targetArr = (myUnit===BVPH||myUnit==='bvph') ? bvphData : bcData;
-          // So sánh exp linh hoạt (có thể '09/2027' hoặc '2027-09-30')
-          var targetRow = targetArr.find(function(r){
-            var expMatch = (r.exp||'') === tExp
-              || expToMMYYYY(r.exp||'') === expToMMYYYY(tExp)
-              || (r.exp||'').substring(0,7) === tExp.substring(0,7);
-            return r.bcMonth===txPeriod
-              && r.drug===transfer.drug
-              && r.lot===transfer.lot
-              && expMatch
-              && (myUnit===BVPH||myUnit==='bvph'
-                  ? (r.unit===BVPH||r.unit==='bvph')
-                  : r.unit===myUnit);
-          });
+          // Bước 2a: đọc dòng hiện tại từ Supabase để biết dc/tinh đang là bao nhiêu
+          var _expQuery = tExp ? ('&exp=eq.'+encodeURIComponent(tExp)) : '';
+          var _getUrl = SUPA_URL+'/rest/v1/reports'
+            + '?period=eq.'+encodeURIComponent(txPeriod)
+            + '&unit=eq.'+encodeURIComponent(_dbUnit)
+            + '&drug=eq.'+encodeURIComponent(transfer.drug)
+            + '&lot=eq.'+encodeURIComponent(transfer.lot)
+            + _expQuery
+            + '&limit=1';
 
-          var newRow = null;   // giữ ref để rollback nếu save thất bại
-          if(targetRow){
-            targetRow[fieldToUpdate] = (targetRow[fieldToUpdate]||0) + (transfer.qty||0);
-            targetRow._dirty = true;
+          var _getRes = await fetch(_getUrl, {headers:_supaHdr, cache:'no-store'});
+          if(!_getRes.ok) throw new Error('Đọc báo cáo lỗi: '+_getRes.status);
+          var _existRows = await _getRes.json();
+
+          var _finalDcVal;   // giá trị dc/tinh sau khi confirm — dùng để update local UI
+          if(_existRows && _existRows.length > 0){
+            // Dòng ĐÃ CÓ trong reports → PATCH chính xác 1 field, không đụng id/created_at
+            var _ex = _existRows[0];
+            _finalDcVal = (_ex[fieldToUpdate]||0) + (transfer.qty||0);
+            var _patchBody = {};
+            _patchBody[fieldToUpdate] = _finalDcVal;
+            var _patchRowRes = await fetch(
+              SUPA_URL+'/rest/v1/reports'
+              + '?period=eq.'+encodeURIComponent(txPeriod)
+              + '&unit=eq.'+encodeURIComponent(_dbUnit)
+              + '&drug=eq.'+encodeURIComponent(transfer.drug)
+              + '&lot=eq.'+encodeURIComponent(transfer.lot)
+              + (_expQuery||''),
+              {
+                method: 'PATCH',
+                headers: Object.assign({}, _supaHdr, {
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=minimal'
+                }),
+                body: JSON.stringify(_patchBody)
+              }
+            );
+            if(!_patchRowRes.ok){
+              var _patchRowErr = await _patchRowRes.text().catch(function(){return '';});
+              throw new Error('PATCH báo cáo lỗi '+_patchRowRes.status+': '+_patchRowErr.slice(0,120));
+            }
           } else {
-            // Thuốc/lô chưa có trong kỳ → tạo dòng mới
-            var _unitVal = (myUnit===BVPH||myUnit==='bvph') ? BVPH : myUnit;
-            newRow = {unit:_unitVal, drug:transfer.drug, lot:transfer.lot, exp:tExp,
+            // Dòng CHƯA CÓ → POST INSERT dòng mới (không có id → Supabase tự sinh)
+            _finalDcVal = transfer.qty||0;
+            var _insertPayload = {
+              period: txPeriod, unit: _dbUnit,
+              drug: transfer.drug, lot: transfer.lot, exp: tExp,
               open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
-              locked:false, editing:false, bcMonth:txPeriod, openLocked:false};
-            newRow[fieldToUpdate] = transfer.qty||0;
-            newRow._dirty = true;
-            if(myUnit===BVPH||myUnit==='bvph') bvphData.push(newRow); else bcData.push(newRow);
-            console.info('[transfer confirm] Tạo dòng mới:', transfer.drug, transfer.lot, txPeriod, fieldToUpdate, '=', transfer.qty);
+              locked: false, bc_month: txPeriod
+            };
+            _insertPayload[fieldToUpdate] = _finalDcVal;
+            var _insertRes = await fetch(
+              SUPA_URL+'/rest/v1/reports',
+              {
+                method: 'POST',
+                headers: Object.assign({}, _supaHdr, {
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=minimal'
+                }),
+                body: JSON.stringify([_insertPayload])
+              }
+            );
+            if(!_insertRes.ok){
+              var _insertErr = await _insertRes.text().catch(function(){return '';});
+              throw new Error('INSERT báo cáo lỗi '+_insertRes.status+': '+_insertErr.slice(0,120));
+            }
+          }
+
+          // Bước 2c: cập nhật local data để UI phản hồi ngay
+          var targetArr = (myUnit===BVPH||myUnit==='bvph') ? bvphData : bcData;
+          var targetRow = targetArr.find(function(r){
+            var expMatch = (r.exp||'')===tExp
+              || expToMMYYYY(r.exp||'')===expToMMYYYY(tExp)
+              || (r.exp||'').substring(0,7)===tExp.substring(0,7);
+            return r.bcMonth===txPeriod && r.drug===transfer.drug && r.lot===transfer.lot && expMatch
+              && ((myUnit===BVPH||myUnit==='bvph') ? (r.unit===BVPH||r.unit==='bvph') : r.unit===myUnit);
+          });
+          if(targetRow){
+            targetRow[fieldToUpdate] = _finalDcVal;
+          } else {
+            var _localRow = {
+              unit: (myUnit===BVPH||myUnit==='bvph') ? BVPH : myUnit,
+              drug: transfer.drug, lot: transfer.lot, exp: tExp,
+              open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
+              locked:false, editing:false, bcMonth:txPeriod, openLocked:false
+            };
+            _localRow[fieldToUpdate] = _finalDcVal;
+            if(myUnit===BVPH||myUnit==='bvph') bvphData.push(_localRow);
+            else bcData.push(_localRow);
           }
           renderBVPH(); renderBC(); renderTP();
-          // Lưu đúng kỳ của phiếu — PHẢI await để đảm bảo ghi xong trước khi tiếp
-          try{
-            var _saveOk = await saveToSupabase(txPeriod);
-            if(!_saveOk) throw new Error('saveToSupabase trả về false');
-          }catch(eSave){
-            // Rollback: trừ lại dc đã cộng vào local
-            if(targetRow){
-              targetRow[fieldToUpdate] = Math.max(0, (targetRow[fieldToUpdate]||0) - (transfer.qty||0));
-            } else {
-              // Dòng mới tạo → xóa ra
-              if(myUnit===BVPH||myUnit==='bvph'){
-                bvphData = bvphData.filter(function(r){ return r !== newRow; });
-              } else {
-                bcData = bcData.filter(function(r){ return r !== newRow; });
-              }
-            }
-            renderBVPH(); renderBC();
-            throw new Error('Lưu báo cáo thất bại: ' + (eSave&&eSave.message||eSave) + '. Phiếu đã confirmed trên cloud nhưng báo cáo chưa cập nhật — vui lòng làm mới trang.');
-          }
+
           // Nếu bvph xác nhận nhận tinh từ đơn vị → cập nhật dc2 kho chính
           if((myUnit===BVPH||myUnit==='bvph') && transfer.type==='dc3_to_tinh'){
-            try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
+            try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(txPeriod); }catch(e){}
           }
           // Ẩn card này + làm mới cache thông báo
           card.style.cssText = 'background:#f0fff4;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
           card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Đã xác nhận — '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug+' đã vào báo cáo</span>';
           toast('✓ Đã xác nhận nhận '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug,'#27ae60');
-          // Cập nhật chuông thông báo ngay
-          setTimeout(function(){ try{ loadNotifications(); }catch(e){} }, 600);
+          // Reload từ Supabase để đảm bảo local data khớp server
+          setTimeout(function(){
+            try{
+              // Chỉ reload nếu phiếu thuộc đúng kỳ đang xem — tránh load nhầm kỳ khác vào bộ nhớ
+              var _curPk = _currentPeriodKey();
+              if(_curPk && _curPk === txPeriod){
+                loadFromSupabase(txPeriod, true);
+              }
+              // Nếu phiếu thuộc kỳ khác → local data đã được cập nhật trực tiếp ở bước 2c, đủ rồi
+            }catch(e){}
+            try{ loadNotifications(); }catch(e){}
+          }, 500);
         }catch(e){
           btnOK.disabled=false; btnOK.textContent='✓ Xác nhận';
           toast('Lỗi xác nhận: '+e.message,'var(--danger)');
+        } finally {
+          _confirmTransferInProgress = false;  // luôn giải phóng dù thành công hay lỗi
         }
       };
 
       btnNo.onclick = async function(){
         if(!confirm('Từ chối phiếu này? Đơn vị xuất sẽ được thông báo.')) return;
+        btnNo.disabled = true; btnNo.textContent = '⏳';
         try{
-          await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
+          var _rejectRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
             method:'PATCH',
             headers: Object.assign({}, _supaHdr, {'Prefer':'return=minimal','Content-Type':'application/json'}),
             body: JSON.stringify({status:'rejected', notif_for: transfer.from_unit, notif_read: false})
           });
+          if(!_rejectRes.ok){
+            var _rejErr = await _rejectRes.text().catch(function(){return '';});
+            throw new Error('Lỗi '+_rejectRes.status+': '+_rejErr.slice(0,80));
+          }
           card.style.cssText = 'background:#fff5f5;border:1px solid #e74c3c;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
           card.innerHTML = '<span style="color:#e74c3c;font-size:12px">✕ Đã từ chối phiếu điều chuyển này</span>';
           toast('Đã từ chối — đơn vị xuất sẽ nhận thông báo','var(--warning)');
-          // Cập nhật chuông thông báo ngay
           setTimeout(function(){ try{ loadNotifications(); }catch(e){} }, 600);
-        }catch(e){ toast('Lỗi: '+e.message,'var(--danger)'); }
+        }catch(e){
+          btnNo.disabled = false; btnNo.textContent = '✕ Từ chối';
+          toast('Lỗi từ chối: '+e.message,'var(--danger)');
+        }
       };
     })(t, info, btnRow);
 
@@ -8771,8 +8850,7 @@ var _dirty = false; // true khi có dữ liệu chưa lưu lên Supabase
 
 function _syncPeriodToCloud(){
   _dirty = true;
-  _setSaveStatus('saving'); // chỉ HIỆN badge nếu lưu lâu (xem _setSaveStatus) — không nháy mỗi ô
-  // Debounce 1200ms — gộp nhiều ô sửa liên tiếp thành 1 lần lưu, giảm nháy và giảm số request
+  _setSaveStatus('saving');
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(function(){
     if(!_supaOnline){ _setSaveStatus('offline'); return; }
@@ -8782,15 +8860,20 @@ function _syncPeriodToCloud(){
       if(ok){
         _dirty = false;
         _setSaveStatus('saved');
-        // Sau khi lưu tinh/các cột → tính lại dc2 kho chính từ Supabase rồi PATCH
         try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
-        // Cascade tồn đầu kỳ sau
         try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e){}
+      } else {
+        // Lưu thất bại (503/lỗi) — _dirty vẫn = true → _safeRefreshNow sẽ bị block
+        // Hiện toast cảnh báo rõ ràng để user biết dữ liệu CHƯA lên server
+        _setSaveStatus('error');
+        toast('❌ Lưu thất bại (server lỗi 503) — dữ liệu CHƯA lên hệ thống. Đang thử lại...', 'var(--danger)');
+        _scheduleRetry(periodKey);
       }
-      else { _setSaveStatus('error'); _scheduleRetry(periodKey); }
     }).catch(function(e){
       console.warn('Sync cloud error:', e);
-      _setSaveStatus('error'); _scheduleRetry(periodKey);
+      _setSaveStatus('error');
+      toast('❌ Lưu thất bại: '+(e&&e.message||'lỗi mạng')+' — đang thử lại...', 'var(--danger)');
+      _scheduleRetry(periodKey);
     });
   }, 1200);
 }
@@ -8806,8 +8889,10 @@ function _scheduleRetry(periodKey){
     if(!_supaOnline) return;
     // skipMeta như autosave chính — tránh ghi đè trạng thái khóa/danh mục bằng bản cũ
     saveToSupabase(periodKey, {skipMeta:true}).then(function(ok){
-      if(ok){ _dirty=false; _retryCount=0; _setSaveStatus('saved'); }
-      else _scheduleRetry(periodKey);
+      if(ok){
+        _dirty=false; _retryCount=0; _setSaveStatus('saved');
+        toast('✓ Đã lưu thành công lên hệ thống (thử lại lần '+_retryCount+')', '#1a7a4a');
+      } else _scheduleRetry(periodKey);
     }).catch(function(){ _scheduleRetry(periodKey); });
   }, 4000 * _retryCount);               // giãn dần: 4s, 8s, 12s...
 }
@@ -10641,7 +10726,21 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
         toast('✓ Xuất Tổ CL '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu cloud','#6c3483');
       })
       .catch(function(e){
-        toast('✓ Xuất OK nhưng chưa lưu phiếu: '+e.message,'orange');
+        var errMsg3 = e && e.message ? e.message : 'không rõ nguyên nhân';
+        _confirmModal(
+          '⚠ Lỗi đồng bộ phiếu Xuất Tổ CL',
+          '<div style="line-height:1.7">Báo cáo <b>đã cộng '+qty.toLocaleString()+' viên</b> vào <b>'+toUnit+'</b>, '
+            +'nhưng <b style="color:#c0392b">phiếu CHƯA lưu được lên hệ thống</b>.<br><br>'
+            +'<span style="color:#64748b;font-size:12px">Lỗi: '+escH(errMsg3)+'</span><br><br>'
+            +'Bấm "Thử lại ngay" để lưu lại phiếu.'
+          +'</div>',
+          function(){
+            _saveTransfer(periodKey, fromUnit, toUnit, fromRow, qty, 'dc3_to_tinh', txDate)
+              .then(function(){ toast('✓ Đã lưu lại phiếu thành công','#27ae60'); })
+              .catch(function(e2){ toast('❌ Vẫn lỗi: '+(e2&&e2.message?e2.message:''),'var(--danger)'); });
+          },
+          null, 'Thử lại ngay'
+        );
       });
   } else {
     toast('✓ Xuất Tổ CL (offline)','#6c3483');
@@ -10676,12 +10775,14 @@ async function showDcOutDetail(prefix, rowIdx){
   // Header
   var hdr = document.createElement('div');
   hdr.style.cssText = 'background:#fef2f2;border-bottom:2px solid #c0392b;padding:14px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-shrink:0';
-  hdr.innerHTML = '<div>'
-    + '<div style="font-size:11px;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.5px">Chi tiết Xuất điều chuyển</div>'
+  var _hL3 = document.createElement('div');
+  _hL3.innerHTML = '<div style="font-size:11px;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:.5px">Chi tiết Xuất điều chuyển</div>'
     + '<div style="font-size:14px;font-weight:700;color:#1e293b;margin-top:3px">' + escH(row.drug) + '</div>'
-    + '<div style="font-size:11px;color:#64748b;margin-top:2px">Lô ' + escH(row.lot) + ' · HD ' + expToMMYYYY(row.exp) + ' · Từ: ' + escH(_displayUnit(fromUnit)) + '</div>'
-    + '</div>'
-    + '<button onclick="document.getElementById(\'_dc_out_modal\').remove()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;padding:2px 4px">×</button>';
+    + '<div style="font-size:11px;color:#64748b;margin-top:2px">Lô ' + escH(row.lot) + ' · HD ' + expToMMYYYY(row.exp) + ' · Từ: ' + escH(_displayUnit(fromUnit)) + '</div>';
+  var _hC3 = document.createElement('button');
+  _hC3.innerHTML = '&times;'; _hC3.style.cssText = 'background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1;padding:2px 4px';
+  (function(_o3){ _hC3.onclick = function(){ _o3.remove(); }; })(ov);
+  hdr.appendChild(_hL3); hdr.appendChild(_hC3);
   box.appendChild(hdr);
 
   var body = document.createElement('div');
@@ -10773,7 +10874,7 @@ async function showDcOutDetail(prefix, rowIdx){
         ? '<span style="font-size:11px;background:#fffbeb;border:1px solid #fcd34d;color:#b45309;padding:2px 8px;border-radius:18px;font-weight:600">⏳ Chờ</span>'
         : '<span style="font-size:11px;background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;padding:2px 8px;border-radius:18px;font-weight:600">✓ Khớp</span>';
       var cancelBtn = (isAdmin() && !isPend)
-        ? '<button onclick="(function(){document.getElementById(\'_dc_out_modal\').remove();cancelTransferById(\''+t.id+'\',\''+escH(t.to_unit||'')+'\');})()" style="font-size:10px;padding:2px 8px;border:1px solid #fca5a5;border-radius:18px;color:#c0392b;background:white;cursor:pointer">✕</button>'
+        ? '<button data-tid="'+t.id+'" data-tunit="'+escH(t.to_unit||'')+'" class="dc-cancel-btn" style="font-size:10px;padding:2px 8px;border:1px solid #fca5a5;border-radius:18px;color:#c0392b;background:white;cursor:pointer">✕</button>'
         : '';
       html += '<tr style="border-bottom:1px solid #f1f5f9'+(isPend?';background:#fffbeb;opacity:.8':'')+'">'
         + '<td style="padding:7px 6px;color:#94a3b8;font-size:12px">'+(i+1)+'</td>'
@@ -10804,6 +10905,15 @@ async function showDcOutDetail(prefix, rowIdx){
 
   // Nút đồng bộ nếu lệch — dùng DOM node + closure thay vì inline string để tránh ReferenceError
   body.innerHTML = html;
+
+  // Event delegation cho nút hủy phiếu (dùng data-tid thay vì inline onclick)
+  body.addEventListener('click', function(e){
+    var btn = e.target.closest('.dc-cancel-btn');
+    if(!btn) return;
+    var tid = btn.getAttribute('data-tid');
+    var tunit = btn.getAttribute('data-tunit');
+    if(tid){ ov.remove(); cancelTransferById(tid, tunit); }
+  });
 
   var btnRow = document.createElement('div');
   btnRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap';
@@ -16400,6 +16510,7 @@ var _autoRefreshTimer = null;
 function _safeRefreshNow(){
   if(!_supaOnline || !currentUser) return;
   if(_dirty) return;                     // đang có thay đổi chưa lưu → không tải đè
+  if(_confirmTransferInProgress) return; // đang xác nhận phiếu điều chuyển → không tải đè
   if(document.hidden) return;
   var _ae=document.activeElement;        // đang đặt con trỏ trong ô nhập → KHÔNG làm mới
   if(_ae && /^(INPUT|SELECT|TEXTAREA)$/.test(_ae.tagName)) return;
@@ -16419,10 +16530,11 @@ function _safeRefreshNow(){
   try{ loadNotifications(); }catch(e){}
 }
 var _silentRefreshInProgress = false;
+var _confirmTransferInProgress = false;  // block auto-refresh khi đang xác nhận phiếu
 
 function _startAutoRefresh(){
   if(_autoRefreshTimer) clearInterval(_autoRefreshTimer);
-  _autoRefreshTimer = setInterval(_safeRefreshNow, 12000);  // mỗi 12 giây (trước 30s)
+  _autoRefreshTimer = setInterval(_safeRefreshNow, 60000);  // mỗi 60 giây
 }
 
 // Làm mới NGAY khi người dùng quay lại tab (visibilitychange) — không phải đợi chu kỳ.
@@ -16434,7 +16546,12 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 // Làm mới khi cửa sổ được focus (bổ sung cho visibilitychange trên một số trình duyệt)
-window.addEventListener('focus', function(){ setTimeout(_safeRefreshNow, 150); });
+var _focusRefreshTimer = null;
+window.addEventListener('focus', function(){
+  // Debounce: chỉ refresh 1 lần dù focus liên tục (tránh spam khi alt-tab)
+  clearTimeout(_focusRefreshTimer);
+  _focusRefreshTimer = setTimeout(_safeRefreshNow, 1000);
+});
 // Khởi động auto-refresh sau khi đăng nhập
 var _origStartAfterLogin = (typeof afterLogin==='function') ? afterLogin : null;
 </script>
