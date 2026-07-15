@@ -2762,7 +2762,6 @@ function _displayUnit(name){
   if(!name) return '';
   // 1) Tra tên hiển thị tùy chỉnh (admin đặt) trong ACCOUNTS
   if(typeof ACCOUNTS !== 'undefined' && ACCOUNTS && ACCOUNTS.length){
-    // Chuẩn hoá: nếu name là mã role ('bvph'/'kholen') → map về unit đầy đủ trước
     for(var i=0;i<ACCOUNTS.length;i++){
       var a = ACCOUNTS[i];
       if(!a) continue;
@@ -2772,10 +2771,21 @@ function _displayUnit(name){
       if(match && a.displayUnit) return a.displayUnit;
     }
   }
-  // 2) Mặc định cho 2 tài khoản đặc biệt
+  // 2) Mặc định
   if(name === BVPH || name === 'bvph') return 'Kho chính';
   if(name === KHO_LE_FULL || name === 'kholen') return 'Kho nội trú';
   return name || '';
+}
+
+// _displayUnitForTuyen: dùng trong phiếu điều chuyển và in báo cáo đơn vị tuyến.
+// Kho chính (BVPH) → hiển thị "Bệnh viện Phổi Hải Phòng" (không phải "Kho chính")
+// Kho nội trú → hiển thị "Bệnh viện Phổi Hải Phòng" (cùng bệnh viện, cùng địa chỉ)
+// Các đơn vị khác → giữ nguyên tên
+function _displayUnitForTuyen(name){
+  if(!name) return '';
+  if(name === BVPH || name === 'bvph') return BVPH;
+  if(name === KHO_LE_FULL || name === 'kholen') return BVPH;
+  return _displayUnit(name);
 }
 
 var UNITS=["Bệnh viện Phổi Hải Phòng","Kho lẻ Bệnh viện Phổi Hải Phòng","Trung tâm Y tế Hồng Bàng","Trung tâm Y tế Lê Chân","Trung tâm Y tế Ngô Quyền","Trung tâm Y tế Kiến An","Trung tâm Y tế Đồ Sơn","Trung tâm Y tế Tiên Lãng","Trung tâm Y tế Vĩnh Bảo","Trung tâm Y tế Cát Hải","Trung tâm Y tế Hải An","Trung tâm Y tế An Lão","Trung tâm Y tế Kiến Thụy","Trung tâm Y tế Thủy Nguyên","Trung tâm Y tế An Dương","Trung tâm Y tế Dương Kinh","Cơ sở cai nghiện số 1","Cơ sở cai nghiện số 2","Trại giam Xuân Nguyên","PK 33 Lê Đại Hành","Bệnh viện Đại học Y Hải Phòng","Bệnh viện Đa khoa Đôn Lương","Trung tâm Y tế Bạch Long Vỹ"];
@@ -6937,12 +6947,20 @@ function _cpMapUnit(raw){
   // Lõi tên (bỏ tiền tố hành chính dài)
   var core = function(s){
     return strip(s)
-      .replace(/TRUNG TAM Y TE|TT Y TE|TTYT|BENH VIEN DA KHOA|BENH VIEN|PHONG KHAM|^PK |KHO LE|CO SO|HUYEN |QUAN |THANH PHO |TP /g,' ')
+      .replace(/TRUNG TAM Y TE|TT Y TE|TTYT|BENH VIEN DA KHOA|BENH VIEN|PHONG KHAM|^PK |KHO LE|KHO NOI TRU|CO SO|HUYEN |QUAN |THANH PHO |TP /g,' ')
       .replace(/\s+/g,' ').trim();
   };
 
   var rn = norm(raw), rs = strip(raw), rc = core(raw);
   var i, u, us, uc;
+
+  // Bước 0: alias đặc biệt — "Kho nội trú" / "Phòng chỉ đạo tuyến" → KHO_LE_FULL
+  var _rawNorm = strip(raw);
+  if(_rawNorm === 'KHO NOI TRU'
+     || _rawNorm === 'KHO NOI TRU BENH VIEN PHOI HAI PHONG'
+     || rn === 'KHO NỘI TRÚ'){
+    return KHO_LE_FULL;
+  }
 
   // Bước 1: khớp tuyệt đối (NFC)
   for(i=0;i<UNITS.length;i++){ if(norm(UNITS[i])===rn) return UNITS[i]; }
@@ -8187,7 +8205,8 @@ async function checkPendingTransfers(){
     );
     if(!r.ok) return;
     var all = await r.json();
-    var pending = all.filter(function(t){ return !t.status || t.status==='pending'; });
+    // Lọc strict: chỉ status=pending (server đã filter, đây là double-check)
+    var pending = all.filter(function(t){ return t.status==='pending'; });
 
     // Cập nhật nút footer
     var btnPending = document.getElementById('btn-pending-transfers');
@@ -8299,12 +8318,16 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
       btnOK.onclick = async function(){
         btnOK.disabled = true; btnOK.textContent = 'Đang xử lý...';
         try{
-          // 1. Cập nhật status = confirmed trên Supabase
-          await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
+          // 1. Cập nhật status = confirmed trên Supabase — PHẢI thành công trước mới cộng báo cáo
+          var _patchRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
             method:'PATCH',
             headers: Object.assign({}, _supaHdr, {'Prefer':'return=minimal','Content-Type':'application/json'}),
             body: JSON.stringify({status:'confirmed', notif_for: transfer.from_unit, notif_read: false})
           });
+          if(!_patchRes.ok){
+            var _patchErr = await _patchRes.text().catch(function(){ return ''; });
+            throw new Error('Supabase PATCH lỗi '+_patchRes.status+': '+_patchErr.slice(0,120));
+          }
           // 2. Cộng vào dc hoặc tinh của đơn vị nhận trong báo cáo
           // Dùng kỳ của phiếu (transfer.period), không phải kỳ đang xem
           var txPeriod = transfer.period || periodKey || _currentPeriodKey();
@@ -8326,13 +8349,14 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
                   : r.unit===myUnit);
           });
 
+          var newRow = null;   // giữ ref để rollback nếu save thất bại
           if(targetRow){
             targetRow[fieldToUpdate] = (targetRow[fieldToUpdate]||0) + (transfer.qty||0);
             targetRow._dirty = true;
           } else {
             // Thuốc/lô chưa có trong kỳ → tạo dòng mới
             var _unitVal = (myUnit===BVPH||myUnit==='bvph') ? BVPH : myUnit;
-            var newRow = {unit:_unitVal, drug:transfer.drug, lot:transfer.lot, exp:tExp,
+            newRow = {unit:_unitVal, drug:transfer.drug, lot:transfer.lot, exp:tExp,
               open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
               locked:false, editing:false, bcMonth:txPeriod, openLocked:false};
             newRow[fieldToUpdate] = transfer.qty||0;
@@ -8341,11 +8365,25 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
             console.info('[transfer confirm] Tạo dòng mới:', transfer.drug, transfer.lot, txPeriod, fieldToUpdate, '=', transfer.qty);
           }
           renderBVPH(); renderBC(); renderTP();
-          // Lưu đúng kỳ của phiếu
-          saveToSupabase(txPeriod).catch(function(e){
-            console.warn('[transfer confirm] save error:', e);
-            toast('Lỗi lưu dữ liệu: ' + e.message, 'var(--danger)');
-          });
+          // Lưu đúng kỳ của phiếu — PHẢI await để đảm bảo ghi xong trước khi tiếp
+          try{
+            var _saveOk = await saveToSupabase(txPeriod);
+            if(!_saveOk) throw new Error('saveToSupabase trả về false');
+          }catch(eSave){
+            // Rollback: trừ lại dc đã cộng vào local
+            if(targetRow){
+              targetRow[fieldToUpdate] = Math.max(0, (targetRow[fieldToUpdate]||0) - (transfer.qty||0));
+            } else {
+              // Dòng mới tạo → xóa ra
+              if(myUnit===BVPH||myUnit==='bvph'){
+                bvphData = bvphData.filter(function(r){ return r !== newRow; });
+              } else {
+                bcData = bcData.filter(function(r){ return r !== newRow; });
+              }
+            }
+            renderBVPH(); renderBC();
+            throw new Error('Lưu báo cáo thất bại: ' + (eSave&&eSave.message||eSave) + '. Phiếu đã confirmed trên cloud nhưng báo cáo chưa cập nhật — vui lòng làm mới trang.');
+          }
           // Nếu bvph xác nhận nhận tinh từ đơn vị → cập nhật dc2 kho chính
           if((myUnit===BVPH||myUnit==='bvph') && transfer.type==='dc3_to_tinh'){
             try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
@@ -9752,7 +9790,11 @@ function _renderExistingTransfers(container, transfers, onCancel){
     tr.style.cssText = 'border-bottom:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa');
     var tdU = document.createElement('td'); tdU.style.cssText='padding:7px 8px;font-weight:600;color:#1e293b'; tdU.textContent = t.to_unit||'—';
     var tdQ = document.createElement('td'); tdQ.style.cssText='padding:7px 8px;text-align:right;font-weight:700;color:#0f766e;font-size:13px'; tdQ.textContent = (t.qty||0).toLocaleString();
-    var tdD = document.createElement('td'); tdD.style.cssText='padding:7px 8px;text-align:center;color:#94a3b8;font-size:11px'; tdD.textContent = dt;
+    var statusBadge = t.status==='confirmed'
+      ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d">✓ Khớp</span>'
+      : '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e">⏳ Chờ</span>';
+    var tdD = document.createElement('td'); tdD.style.cssText='padding:7px 8px;text-align:center;color:#94a3b8;font-size:11px';
+    tdD.innerHTML = (dt?'<div>'+dt+'</div>':'')+statusBadge;
     var tdA = document.createElement('td'); tdA.style.cssText='padding:4px 6px;text-align:center';
     var btnX = document.createElement('button'); btnX.textContent='✕';
     btnX.title='Hủy phiếu này';
@@ -9817,7 +9859,7 @@ function _showTransferModal(opts){
 
   var metaEl = document.createElement('div');
   metaEl.style.cssText = 'font-size:11px;color:#64748b;display:flex;gap:10px;flex-wrap:wrap';
-  metaEl.innerHTML = '<span>Lô <b>'+opts.lot+'</b></span><span>·</span><span>HD '+opts.exp+'</span><span>·</span><span>Từ: <b>'+escH(opts.fromUnit)+'</b></span>';
+  metaEl.innerHTML = '<span>Lô <b>'+opts.lot+'</b></span><span>·</span><span>HD '+opts.exp+'</span><span>·</span><span>Từ: <b>'+escH(_displayUnitForTuyen(opts.fromUnit))+'</b></span>';
   hdrLeft.appendChild(metaEl);
   hdr.appendChild(hdrLeft);
 
@@ -11464,8 +11506,9 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
 
     function _short(u) {
       if(!u) return '';
-      if(u === BVPH || u === 'bvph') return 'Kho chính';
-      if(u === KHO_LE_FULL || u === 'kholen') return 'Kho nội trú';
+      // Cả BVPH và Kho nội trú (KHO_LE_FULL) đều hiển thị "Bệnh viện Phổi Hải Phòng" trong in báo cáo
+      if(u === BVPH || u === 'bvph') return BVPH;
+      if(u === KHO_LE_FULL || u === 'kholen') return BVPH;
       return u.replace(/Trung\s*tâm\s*Y\s*tế\s*/i, '')
               .replace(/Bệnh\s*viện\s*Đa\s*khoa\s*/i, 'BVĐK ')
               .replace(/Bệnh\s*viện\s*/i, 'BV ')
@@ -11878,7 +11921,10 @@ function importReportsExcel(input){
           var drug=String(rec[col.drug]==null?'':rec[col.drug]).trim();
           var lot=String(rec[col.lot]==null?'':rec[col.lot]).trim();
           if(!drug||!lot) continue;
-          var unit=isBvph?BVPH:String(rec[col.unit]==null?'':rec[col.unit]).trim();
+          var _rawUnit = isBvph ? BVPH : String(rec[col.unit]==null?'':rec[col.unit]).trim();
+          // Normalize: "Kho nội trú" / "Phòng chỉ đạo tuyến" / "Kho lẻ" → tên chuẩn trong UNITS
+          var _mappedUnit = _rawUnit ? (_cpMapUnit(_rawUnit) || _rawUnit) : '';
+          var unit = _mappedUnit;
           if(!unit) continue;
           cand.push({unit:unit, drug:drug, lot:lot, exp:toIso(col.exp!=null?rec[col.exp]:''),
             open:ival(rec[col.open]), tinh:ival(rec[col.tinh]), ntk:col.ntk!=null?ival(rec[col.ntk]):0,
