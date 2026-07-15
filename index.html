@@ -10934,27 +10934,73 @@ async function showDcOutDetail(prefix, rowIdx){
       btnSync.onclick = async function(){
         btnSync.disabled = true; btnSync.textContent = '⏳ Đang lưu...';
         try{
-          // PATCH trực tiếp lên Supabase — không dùng _syncPeriodToCloud (fire-and-forget)
           var _dbUnit = (fUnit===BVPH||fUnit==='bvph') ? 'bvph' : fUnit;
           var _row = a[ri];
-          var _patchBody = {dc2: qty};
-          var _pRes = await fetch(
+          var _expQ = _row.exp ? ('&exp=eq.'+encodeURIComponent(_row.exp)) : '';
+          // GET trước — kiểm tra dòng đã có chưa
+          // GET trước → PATCH chỉ field dc2, không đụng dc/tinh/open/...
+          var _chkRes = await fetch(
             SUPA_URL+'/rest/v1/reports'
             + '?period=eq.'+encodeURIComponent(pKey)
             + '&unit=eq.'+encodeURIComponent(_dbUnit)
             + '&drug=eq.'+encodeURIComponent(_row.drug)
-            + '&lot=eq.'+encodeURIComponent(_row.lot),
-            {
-              method: 'PATCH',
-              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
-              body: JSON.stringify(_patchBody)
-            }
+            + '&lot=eq.'+encodeURIComponent(_row.lot)
+            + _expQ + '&select=id&limit=1',
+            {headers:_supaHdr, cache:'no-store'}
           );
-          if(!_pRes.ok){
-            var _pErr = await _pRes.text().catch(function(){return '';});
-            throw new Error('Lưu thất bại '+_pRes.status+': '+_pErr.slice(0,100));
+          var _chkRows = _chkRes.ok ? await _chkRes.json() : [];
+          var _upsertRes;
+          if(_chkRows.length > 0){
+            // Dòng ĐÃ CÓ → PATCH đúng 1 field dc2
+            _upsertRes = await fetch(
+              SUPA_URL+'/rest/v1/reports'
+              + '?period=eq.'+encodeURIComponent(pKey)
+              + '&unit=eq.'+encodeURIComponent(_dbUnit)
+              + '&drug=eq.'+encodeURIComponent(_row.drug)
+              + '&lot=eq.'+encodeURIComponent(_row.lot)
+              + _expQ,
+              {
+                method: 'PATCH',
+                headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+                body: JSON.stringify({dc2: qty})
+              }
+            );
+          } else {
+            // Dòng CHƯA CÓ → INSERT với đầy đủ cột
+            _upsertRes = await fetch(
+              SUPA_URL+'/rest/v1/reports',
+              {
+                method: 'POST',
+                headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+                body: JSON.stringify([{
+                  period:pKey, unit:_dbUnit, drug:_row.drug, lot:_row.lot, exp:_row.exp||'',
+                  open:_row.open||0, tinh:_row.tinh||0, ntk:_row.ntk||0,
+                  dc:_row.dc||0, sd:_row.sd||0, dc2:qty,
+                  dc3:_row.dc3||0, hh:_row.hh||0,
+                  locked:!!_row.locked, bc_month:pKey
+                }])
+              }
+            );
           }
-          // Cập nhật local sau khi server xác nhận
+          if(!_upsertRes.ok){
+            var _uErr = await _upsertRes.text().catch(function(){return '';});
+            throw new Error('Lưu thất bại '+_upsertRes.status+': '+_uErr.slice(0,120));
+          }
+          // Verify từ server
+          var _verRes = await fetch(
+            SUPA_URL+'/rest/v1/reports'
+            + '?period=eq.'+encodeURIComponent(pKey)
+            + '&unit=eq.'+encodeURIComponent(_dbUnit)
+            + '&drug=eq.'+encodeURIComponent(_row.drug)
+            + '&lot=eq.'+encodeURIComponent(_row.lot)
+            + _expQ + '&select=dc2&limit=1',
+            {headers:_supaHdr, cache:'no-store'}
+          );
+          var _verRows = _verRes.ok ? await _verRes.json() : [];
+          var _verDc = (_verRows[0]||{}).dc2;
+          if(_verDc !== qty){
+            throw new Error('Verify thất bại: server có dc2='+_verDc+' nhưng cần '+qty);
+          }
           a[ri].dc2 = qty;
           renderBVPH(); renderBC();
           document.getElementById('_dc_out_modal').remove();
@@ -11083,23 +11129,71 @@ async function showDcDetail(prefix, rowIdx){
     btnSync.onclick=async function(){
       btnSync.disabled=true; btnSync.textContent='⏳ Đang lưu...';
       try{
-        // PATCH trực tiếp lên Supabase
         var _dbUnit2 = (row.unit===BVPH||row.unit==='bvph') ? 'bvph' : (row.unit||'');
-        var _pRes2 = await fetch(
+        var _pk2 = row.bcMonth||_currentPeriodKey();
+        var _expQ2 = row.exp ? ('&exp=eq.'+encodeURIComponent(row.exp)) : '';
+        // Bước 1: GET kiểm tra dòng đã có trong DB chưa
+        // GET trước để biết dòng đã có chưa → PATCH chỉ field dc, INSERT đầy đủ nếu chưa có
+        var _chkRes2 = await fetch(
           SUPA_URL+'/rest/v1/reports'
-          + '?period=eq.'+encodeURIComponent(row.bcMonth||_currentPeriodKey())
+          + '?period=eq.'+encodeURIComponent(_pk2)
           + '&unit=eq.'+encodeURIComponent(_dbUnit2)
           + '&drug=eq.'+encodeURIComponent(row.drug)
-          + '&lot=eq.'+encodeURIComponent(row.lot),
-          {
-            method:'PATCH',
-            headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
-            body: JSON.stringify({dc: realTotal})
-          }
+          + '&lot=eq.'+encodeURIComponent(row.lot)
+          + _expQ2 + '&select=id&limit=1',
+          {headers:_supaHdr, cache:'no-store'}
         );
-        if(!_pRes2.ok){
-          var _pErr2 = await _pRes2.text().catch(function(){return '';});
-          throw new Error('Lưu thất bại '+_pRes2.status+': '+_pErr2.slice(0,100));
+        var _chkRows2 = _chkRes2.ok ? await _chkRes2.json() : [];
+        var _upsertRes2;
+        if(_chkRows2.length > 0){
+          // Dòng ĐÃ CÓ → PATCH đúng 1 field dc, không đụng các cột khác
+          _upsertRes2 = await fetch(
+            SUPA_URL+'/rest/v1/reports'
+            + '?period=eq.'+encodeURIComponent(_pk2)
+            + '&unit=eq.'+encodeURIComponent(_dbUnit2)
+            + '&drug=eq.'+encodeURIComponent(row.drug)
+            + '&lot=eq.'+encodeURIComponent(row.lot)
+            + _expQ2,
+            {
+              method: 'PATCH',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify({dc: realTotal})
+            }
+          );
+        } else {
+          // Dòng CHƯA CÓ → INSERT với đầy đủ cột
+          _upsertRes2 = await fetch(
+            SUPA_URL+'/rest/v1/reports',
+            {
+              method: 'POST',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify([{
+                period:_pk2, unit:_dbUnit2, drug:row.drug, lot:row.lot, exp:row.exp||'',
+                open:row.open||0, tinh:row.tinh||0, ntk:row.ntk||0, dc:realTotal,
+                sd:row.sd||0, dc2:row.dc2||0, dc3:row.dc3||0, hh:row.hh||0,
+                locked:!!row.locked, bc_month:_pk2
+              }])
+            }
+          );
+        }
+        if(!_upsertRes2.ok){
+          var _uErr2 = await _upsertRes2.text().catch(function(){return '';});
+          throw new Error('Lưu thất bại '+_upsertRes2.status+': '+_uErr2.slice(0,120));
+        }
+        // Verify: đọc lại từ server xem dc đã đúng chưa
+        var _verRes2 = await fetch(
+          SUPA_URL+'/rest/v1/reports'
+          + '?period=eq.'+encodeURIComponent(_pk2)
+          + '&unit=eq.'+encodeURIComponent(_dbUnit2)
+          + '&drug=eq.'+encodeURIComponent(row.drug)
+          + '&lot=eq.'+encodeURIComponent(row.lot)
+          + _expQ2 + '&select=dc&limit=1',
+          {headers:_supaHdr, cache:'no-store'}
+        );
+        var _verRows2 = _verRes2.ok ? await _verRes2.json() : [];
+        var _verDc2 = (_verRows2[0]||{}).dc;
+        if(_verDc2 !== realTotal){
+          throw new Error('Verify thất bại: server có dc='+_verDc2+' nhưng cần '+realTotal);
         }
         row.dc = realTotal;
         renderBVPH(); renderBC();
