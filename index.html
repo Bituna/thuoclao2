@@ -10930,14 +10930,41 @@ async function showDcOutDetail(prefix, rowIdx){
     var btnSync = document.createElement('button');
     btnSync.textContent = '🔄 Đồng bộ';
     btnSync.style.cssText = 'padding:8px 16px;border:none;border-radius:18px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:700';
-    (function(a, ri, qty){
-      btnSync.onclick = function(){
-        a[ri].dc2 = qty;
-        renderBVPH(); renderBC(); _syncPeriodToCloud();
-        document.getElementById('_dc_out_modal').remove();
-        toast('Đã đồng bộ: dc2 = ' + fmtNum(qty) + ' viên', '#27ae60');
+    (function(a, ri, qty, fUnit, pKey){
+      btnSync.onclick = async function(){
+        btnSync.disabled = true; btnSync.textContent = '⏳ Đang lưu...';
+        try{
+          // PATCH trực tiếp lên Supabase — không dùng _syncPeriodToCloud (fire-and-forget)
+          var _dbUnit = (fUnit===BVPH||fUnit==='bvph') ? 'bvph' : fUnit;
+          var _row = a[ri];
+          var _patchBody = {dc2: qty};
+          var _pRes = await fetch(
+            SUPA_URL+'/rest/v1/reports'
+            + '?period=eq.'+encodeURIComponent(pKey)
+            + '&unit=eq.'+encodeURIComponent(_dbUnit)
+            + '&drug=eq.'+encodeURIComponent(_row.drug)
+            + '&lot=eq.'+encodeURIComponent(_row.lot),
+            {
+              method: 'PATCH',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify(_patchBody)
+            }
+          );
+          if(!_pRes.ok){
+            var _pErr = await _pRes.text().catch(function(){return '';});
+            throw new Error('Lưu thất bại '+_pRes.status+': '+_pErr.slice(0,100));
+          }
+          // Cập nhật local sau khi server xác nhận
+          a[ri].dc2 = qty;
+          renderBVPH(); renderBC();
+          document.getElementById('_dc_out_modal').remove();
+          toast('✓ Đã đồng bộ và lưu lên hệ thống: dc2 = ' + fmtNum(qty) + ' viên', '#27ae60');
+        }catch(e){
+          btnSync.disabled = false; btnSync.textContent = '🔄 Đồng bộ';
+          toast('❌ ' + e.message, 'var(--danger)');
+        }
       };
-    })(arr, realIdx, totalQty);
+    })(arr, realIdx, totalQty, fromUnit, periodKey);
     btnRow.appendChild(btnSync);
   }
 
@@ -11053,12 +11080,35 @@ async function showDcDetail(prefix, rowIdx){
   if(realTotal !== rowDc){
     var btnSync=document.createElement('button'); btnSync.textContent='🔄 Đồng bộ ('+realTotal.toLocaleString()+' viên)';
     btnSync.style.cssText='padding:8px 14px;border:none;border-radius:18px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600';
-    btnSync.onclick=function(){
-      row.dc = realTotal;
-      renderBVPH(); renderBC();
-      _syncPeriodToCloud();
-      ov.remove();
-      toast('Đã đồng bộ: '+row.drug+' cột Nhập ĐC = '+realTotal.toLocaleString()+' viên','#27ae60');
+    btnSync.onclick=async function(){
+      btnSync.disabled=true; btnSync.textContent='⏳ Đang lưu...';
+      try{
+        // PATCH trực tiếp lên Supabase
+        var _dbUnit2 = (row.unit===BVPH||row.unit==='bvph') ? 'bvph' : (row.unit||'');
+        var _pRes2 = await fetch(
+          SUPA_URL+'/rest/v1/reports'
+          + '?period=eq.'+encodeURIComponent(row.bcMonth||_currentPeriodKey())
+          + '&unit=eq.'+encodeURIComponent(_dbUnit2)
+          + '&drug=eq.'+encodeURIComponent(row.drug)
+          + '&lot=eq.'+encodeURIComponent(row.lot),
+          {
+            method:'PATCH',
+            headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+            body: JSON.stringify({dc: realTotal})
+          }
+        );
+        if(!_pRes2.ok){
+          var _pErr2 = await _pRes2.text().catch(function(){return '';});
+          throw new Error('Lưu thất bại '+_pRes2.status+': '+_pErr2.slice(0,100));
+        }
+        row.dc = realTotal;
+        renderBVPH(); renderBC();
+        ov.remove();
+        toast('✓ Đã đồng bộ và lưu lên hệ thống: '+row.drug+' cột Nhập ĐC = '+realTotal.toLocaleString()+' viên','#27ae60');
+      }catch(e){
+        btnSync.disabled=false; btnSync.textContent='🔄 Đồng bộ ('+realTotal.toLocaleString()+' viên)';
+        toast('❌ '+e.message,'var(--danger)');
+      }
     };
     btnRow2.appendChild(btnSync);
   }
