@@ -4580,7 +4580,7 @@ function nav(page,el){
   document.querySelectorAll('.sb-item').forEach(function(i){i.classList.remove('active');});
   document.getElementById('page-'+page).classList.add('active');
   if(el)el.classList.add('active');
-  if(page==='tq'){renderTQ();}
+  if(page==='tq'){ _tqTransferCache=null; renderTQ(); }
   if(page==='bc'){renderBVPH();renderBC();}
   if(page==='thuoc'){renderCatalog();renderDrugTable();}
   if(page==='tk')renderAccounts();
@@ -5513,6 +5513,8 @@ async function renderTQTransfers(){
   _tqTransferCache = null;   // xóa cache buộc fetch lại
   await _renderTQTransfersCached();
 }
+
+// Tự động gọi khi chuyển sang tab Tổng quan
 
 // Cache bảng điều chuyển — chỉ fetch khi kỳ đổi hoặc cache hết hạn (60 giây)
 var _tqTransferCache = null;   // {periodKey, html, ts}
@@ -6912,28 +6914,6 @@ function _cpBuildLotMap(){
 }
 
 // Map tên thuốc chuẩn hoá → danh sách {drug, lot, exp} — để fallback khi lô không khớp
-function _cpBuildDrugNameMap(){
-  var m={};
-  function normDrug(s){
-    if(!s) return '';
-    return s.toLowerCase()
-      .replace(/[àáâãäå]/g,'a').replace(/[èéêë]/g,'e').replace(/[ìíîï]/g,'i')
-      .replace(/[òóôõö]/g,'o').replace(/[ùúûü]/g,'u').replace(/[ýÿ]/g,'y')
-      .replace(/đ/g,'d').replace(/[^a-z0-9]/g,'');
-  }
-  function add(d,l,e){
-    if(!d) return;
-    var k=normDrug(d);
-    if(!m[k]) m[k]=[];
-    m[k].push({drug:d,lot:l||'',exp:e||''});
-  }
-  (bvphData||[]).forEach(function(r){ add(r.drug,r.lot,r.exp); });
-  (catalogData||[]).forEach(function(c){ add(c.drug,c.lot,c.exp); });
-  (bcData||[]).forEach(function(r){ add(r.drug,r.lot,r.exp); });
-  // Thêm từ DRUGS list (danh sách thuốc cứng)
-  if(typeof DRUGS!=='undefined') DRUGS.forEach(function(d){ var k=normDrug(d); if(!m[k]) m[k]=[{drug:d,lot:'',exp:''}]; });
-  return {map:m, norm:normDrug};
-}
 // Dò khớp tên đơn vị Excel -> 1 trong các đơn vị của app
 // Xử lý được cả text NFD từ Excel (dấu tiếng Việt bị tách) lẫn NFC thông thường.
 function _cpMapUnit(raw){
@@ -8527,22 +8507,6 @@ function getPrevPeriod(){
 }
 
 // Kiểm tra dòng có dữ liệu kỳ trước không (cùng unit+drug+lot+exp)
-function findPrevRow(arr, unit, drug, lot, exp, prevMon){
-  if(!prevMon) return null;
-  var isBVPH = (unit === BVPH);
-  for(var k=0;k<arr.length;k++){
-    var r=arr[k];
-    if(r.bcMonth===prevMon && r.drug===drug && r.lot===lot && r.exp===exp){
-      // bvphData: rows có thể có unit:BVPH hoặc không có unit
-      if(isBVPH){
-        if(!r.unit || r.unit===BVPH) return r;
-      } else {
-        if(r.unit===unit) return r;
-      }
-    }
-  }
-  return null;
-}
 
 // Cache fetch theo (period|unit) — TRÁNH gọi Supabase lặp khi user thêm nhiều dòng
 // liên tiếp cùng kỳ + cùng đơn vị. Cache TỰ XÓA khi đổi kỳ (xem onGlobalMonthChange).
@@ -9856,50 +9820,6 @@ function onFormDc3BVPHChange(inp){
 // ═══════════════════════════════════════════════════════════════════════
 
 // Hàm trợ giúp: render danh sách phiếu đã có bên trong popup
-function _renderExistingTransfers(container, transfers, onCancel){
-  container.innerHTML = '';
-  if(!transfers || !transfers.length){
-    container.innerHTML = '<div style="font-size:12px;color:#94a3b8;font-style:italic;padding:10px 0">Chưa có phiếu nào trong kỳ này.</div>';
-    return 0;
-  }
-  var tbl = document.createElement('table');
-  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px;margin-bottom:2px';
-  var thead = document.createElement('thead');
-  thead.innerHTML = '<tr style="background:#f1f5f9"><th style="padding:6px 8px;text-align:left;font-weight:600;color:#64748b;font-size:11px">Đến đơn vị</th><th style="padding:6px 8px;text-align:right;font-weight:600;color:#64748b;font-size:11px">SL (viên)</th><th style="padding:6px 8px;text-align:center;font-weight:600;color:#64748b;font-size:11px">Ngày</th><th style="padding:6px 8px;width:46px"></th></tr>';
-  tbl.appendChild(thead);
-  var tbody = document.createElement('tbody');
-  var sumTotal = 0;
-  transfers.forEach(function(t, i){
-    var dt = t.transfer_date ? _fmtDate(t.transfer_date) : (t.created_at ? _fmtDate(t.created_at) : '—');
-    var tr = document.createElement('tr');
-    tr.style.cssText = 'border-bottom:1px solid #f1f5f9' + (i%2===0?';background:#fff':';background:#fafafa');
-    var tdU = document.createElement('td'); tdU.style.cssText='padding:7px 8px;font-weight:600;color:#1e293b'; tdU.textContent = t.to_unit||'—';
-    var tdQ = document.createElement('td'); tdQ.style.cssText='padding:7px 8px;text-align:right;font-weight:700;color:#0f766e;font-size:13px'; tdQ.textContent = (t.qty||0).toLocaleString();
-    var statusBadge = t.status==='confirmed'
-      ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d">✓ Khớp</span>'
-      : '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#fef9c3;color:#854d0e">⏳ Chờ</span>';
-    var tdD = document.createElement('td'); tdD.style.cssText='padding:7px 8px;text-align:center;color:#94a3b8;font-size:11px';
-    tdD.innerHTML = (dt?'<div>'+dt+'</div>':'')+statusBadge;
-    var tdA = document.createElement('td'); tdA.style.cssText='padding:4px 6px;text-align:center';
-    var btnX = document.createElement('button'); btnX.textContent='✕';
-    btnX.title='Hủy phiếu này';
-    btnX.style.cssText='font-size:11px;padding:3px 8px;border:1px solid #fca5a5;border-radius:12px;color:#dc2626;background:white;cursor:pointer;font-weight:600;transition:background .15s';
-    btnX.onmouseenter=function(){this.style.background='#fef2f2';}; btnX.onmouseleave=function(){this.style.background='white';};
-    (function(tid,tunit){ btnX.onclick=function(){ if(typeof onCancel==='function') onCancel(tid, tunit); }; })(t.id, t.to_unit);
-    tdA.appendChild(btnX);
-    tr.appendChild(tdU); tr.appendChild(tdQ); tr.appendChild(tdD); tr.appendChild(tdA);
-    tbody.appendChild(tr);
-    sumTotal += (t.qty||0);
-  });
-  tbl.appendChild(tbody);
-  container.appendChild(tbl);
-  // Dòng tổng
-  var sumRow = document.createElement('div');
-  sumRow.style.cssText='text-align:right;font-size:12px;font-weight:700;color:#0f766e;padding:4px 8px 0';
-  sumRow.textContent = 'Tổng đã xuất: ' + sumTotal.toLocaleString() + ' viên';
-  container.appendChild(sumRow);
-  return sumTotal;
-}
 
 // Hàm popup chính — thống nhất cho mọi loại điều chuyển
 function _showTransferModal(opts){
@@ -11247,7 +11167,7 @@ async function cancelTransferById(transferId, toUnit){
         var hdPost = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
 
         // 2a. Đánh dấu phiếu gốc cancelled + thông báo cho đơn vị NHẬN
-        await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {
+        var _cancelRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transferId, {
           method:'PATCH', headers: hdPatch,
           body: JSON.stringify({
             status: 'cancelled',
@@ -11255,6 +11175,10 @@ async function cancelTransferById(transferId, toUnit){
             notif_read: false
           })
         });
+        if(!_cancelRes.ok){
+          var _cErr = await _cancelRes.text().catch(function(){return '';});
+          throw new Error('Hủy phiếu thất bại '+_cancelRes.status+': '+_cErr.slice(0,100));
+        }
 
         // 2b. Tạo bản ghi thông báo cho đơn vị XUẤT
         await fetch(SUPA_URL+'/rest/v1/transfers', {
@@ -14129,50 +14053,6 @@ function onAdminUnitFilterChange() {
   updateLockedUI();
 }
 
-function onTPInp(inp){
-  var rawKey = inp.getAttribute('data-tpkey');
-  var key    = rawKey ? decodeURIComponent(rawKey) : '';
-  var field  = inp.getAttribute('data-tpfield');
-  if(!key || !field) return;
-  if(!extraTP[key]) extraTP[key]={tw:0,dc:0,hh:0};
-  extraTP[key][field] = Math.max(0, parseInt(inp.value)||0);
-  saveLocalCache(buildPayload());
-  // Cập nhật tồn cuối của dòng này (không re-render toàn bảng)
-  var tr = inp.closest('tr');
-  if(!tr) return;
-  // Lấy tồn đầu từ ô open-stock
-  var openCell = tr.querySelector('.open-stock');
-  var openVal  = openCell ? parseInt(openCell.textContent)||0 : 0;
-  // Lấy giá trị TW, dc từ input trong dòng
-  var twV=0, dcV=0;
-  tr.querySelectorAll('input[data-tpfield]').forEach(function(i){
-    var f=i.getAttribute('data-tpfield'), v=Math.max(0,parseInt(i.value)||0);
-    if(f==='tw') twV=v; else if(f==='dc') dcV=v;
-  });
-  // Lấy sd, dc3, hh từ data attributes (tất cả tự động, không phải input)
-  var sdCell  = tr.querySelector('[data-tp-sd]');
-  var dc3Cell = tr.querySelector('[data-tp-dc3]');
-  var hhCell  = tr.querySelector('[data-tp-hh]');
-  var sdV  = sdCell  ? parseInt(sdCell.textContent)||0  : 0;
-  var dc3V = dc3Cell ? parseInt(dc3Cell.textContent)||0 : 0;
-  var hhV  = hhCell  ? parseInt(hhCell.textContent)||0  : 0;
-  var tin  = twV + dcV;
-  var tout = sdV + dc3V + hhV;
-  var fin  = openVal + tin - tout;
-  // Cập nhật ô Tổng nhập
-  var tinEl = tr.querySelector('strong.tp-tin');
-  if(tinEl) tinEl.textContent = tin;
-  // Cập nhật ô Tổng xuất
-  var toutEl = tr.querySelector('strong.tp-tout');
-  if(toutEl) toutEl.textContent = tout;
-  // Cập nhật tồn cuối
-  var finCell = tr.querySelector('td.final-ok, td.final-low');
-  if(!finCell){
-    var allCells = tr.querySelectorAll('td');
-    finCell = allCells[allCells.length - 2];
-  }
-  if(finCell){ finCell.textContent = fin; finCell.className = fin < threshold.low ? 'final-low' : 'final-ok'; }
-}
 
 // alias
 
@@ -15240,15 +15120,6 @@ function _mml(ml, note){ // liều ml (nghiền/hòa viên người lớn trong 
   return {
     monthTotal: +(perDay*DOSE_DAYS_PER_MONTH).toFixed(2),
     note: (note||(_fmtNum(ml)+' ml/ngày')) + ' (≈ '+perDayTxt+' viên người lớn/ngày, nghiền/hòa trong 10 ml) ⚠'
-  };
-}
-function _mmlWeek(ml, daysPerWeek, note){ // liều ml theo nhịp tuần (nghiền/hòa trong 10ml)
-  var perDose = ml/10;
-  var mt = perDose*daysPerWeek*DOSE_WEEKS_PER_MONTH;
-  var perDoseTxt = _fmtNum(perDose);
-  return {
-    monthTotal: +mt.toFixed(2),
-    note: (note||(_fmtNum(ml)+' ml × '+daysPerWeek+' ngày/tuần')) + ' (≈ '+perDoseTxt+' viên/lần, nghiền/hòa trong 10 ml) ⚠'
   };
 }
 function _fmtNum(n){ return (Math.round(n*100)/100).toString().replace('.', ','); }
@@ -16669,7 +16540,15 @@ function _safeRefreshNow(){
   if(!pk) return;
   // Đánh dấu đây là silent auto-refresh để fullRender kiểm tra lại activeElement trước khi vẽ
   _silentRefreshInProgress = true;
-  loadFromSupabase(pk, true).catch(function(){}).finally(function(){ _silentRefreshInProgress = false; });
+  loadFromSupabase(pk, true).catch(function(){}).finally(function(){
+    _silentRefreshInProgress = false;
+    // Tự động cập nhật bảng điều chuyển sau khi data load xong
+    var tqEl = document.getElementById('tq-transfer-table');
+    if(tqEl && tqEl.offsetParent !== null){
+      _tqTransferCache = null;  // xóa cache để fetch mới
+      _renderTQTransfersCached().catch(function(){});
+    }
+  });
   // Đồng thời làm mới chuông thông báo cho cảm giác tức thì
   try{ loadNotifications(); }catch(e){}
 }
