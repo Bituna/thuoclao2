@@ -3706,6 +3706,57 @@ function onExpInput(inp){
   }
 }
 
+// Chuẩn hóa tên thuốc để so sánh fuzzy: bỏ space, lowercase, chuẩn hóa đơn vị
+function _normDrugName(name){
+  if(!name) return '';
+  return name.trim()
+    .toLowerCase()
+    // Chuẩn hóa đơn vị: "0.5g" → "500mg", "1g" → "1000mg"
+    .replace(/(\d+(?:\.\d+)?)\s*g/g, function(_,n){ return Math.round(parseFloat(n)*1000)+'mg'; })
+    // Bỏ tất cả space và dấu gạch ngang
+    .replace(/[\s\-]/g, '')
+    // Chuẩn hóa tên phổ biến bị viết sai
+    .replace(/pyrazynamide/g, 'pyrazinamide')
+    .replace(/protionamid/g, 'prothionamide')
+    .replace(/protionamide/g, 'prothionamide');
+}
+
+// Tính độ tương đồng chuỗi Levenshtein (0-1)
+function _drugSimilarity(a, b){
+  a = _normDrugName(a); b = _normDrugName(b);
+  if(a === b) return 1.0;
+  if(!a || !b) return 0;
+  var la = a.length, lb = b.length;
+  if(Math.abs(la-lb) > Math.max(la,lb)*0.4) return 0; // quá khác nhau → bỏ qua
+  var dp = [];
+  for(var i=0;i<=la;i++){ dp[i]=[i]; }
+  for(var j=0;j<=lb;j++){ dp[0][j]=j; }
+  for(var ii=1;ii<=la;ii++){
+    for(var jj=1;jj<=lb;jj++){
+      dp[ii][jj] = a[ii-1]===b[jj-1]
+        ? dp[ii-1][jj-1]
+        : 1+Math.min(dp[ii-1][jj], dp[ii][jj-1], dp[ii-1][jj-1]);
+    }
+  }
+  var dist = dp[la][lb];
+  return 1 - dist / Math.max(la, lb);
+}
+
+// Tìm tên thuốc tương tự đã có trong danh mục (ngưỡng 85%)
+function _findSimilarDrug(drugName){
+  var existing = [];
+  var seen = {};
+  catalogData.forEach(function(c){ if(!seen[c.drug]){ seen[c.drug]=true; existing.push(c.drug); } });
+  var matches = [];
+  existing.forEach(function(d){
+    if(d === drugName) return; // trùng y chang → không báo (đã có check riêng)
+    var sim = _drugSimilarity(d, drugName);
+    if(sim >= 0.82) matches.push({name:d, sim:sim});
+  });
+  matches.sort(function(a,b){ return b.sim-a.sim; });
+  return matches.slice(0,3);
+}
+
 function addCatalog(){
   if(!isAdmin()){toast('Chỉ Admin mới thêm được danh mục!','var(--danger)');return;}
   var selVal = document.getElementById('cat-drug').value;
@@ -3718,10 +3769,22 @@ function addCatalog(){
   if(!drug||!lot||!expRaw){toast('Nhập đủ: tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập mm/yyyy','var(--danger)');return;}
   var expParsed = parseMonthExp(expRaw);
-  // Kiểm tra trùng: cùng thuốc + lô + hạn dùng
+  // Kiểm tra trùng chính xác: cùng thuốc + lô + hạn dùng
   for(var k=0;k<catalogData.length;k++){
     if(catalogData[k].drug===drug && catalogData[k].lot===lot && catalogData[k].exp===expParsed){
       toast('Lô "'+lot+'" HSD '+expRaw+' của "'+drug+'" đã có trong danh mục!','var(--warning)');return;
+    }
+  }
+  // Nếu nhập tên mới ("+ Thêm tên thuốc mới"), kiểm tra fuzzy với tên đã có
+  if(selVal === '__khac__'){
+    var similar = _findSimilarDrug(drug);
+    if(similar.length){
+      var simList = similar.map(function(s){ return '"'+s.name+'" ('+Math.round(s.sim*100)+'%)'; }).join(', ');
+      var _simMsg = '⚠ Ten thuoc "' + drug + '" co the trung voi:\n\n'
+        + similar.map(function(s){ return '  - '+s.name+' (tuong dong '+Math.round(s.sim*100)+'%)'; }).join('\n')
+        + '\n\nNeu day la cung 1 loai thuoc, hay chon ten da co.\n\nBam OK: day la thuoc KHAC. Bam Huy: chon lai.';
+      var confirmed = confirm(_simMsg);
+      if(!confirmed) return;
     }
   }
   catalogData.push({drug:drug,lot:lot,exp:expParsed,note:note||'—'});
@@ -3729,7 +3792,7 @@ function addCatalog(){
   var cds=document.getElementById('cat-drug');if(cds)cds.value='';
   var cdw=document.getElementById('cat-drug-custom-wrap');if(cdw)cdw.style.display='none';
   renderCatalog();
-  fillDrugSelects(); // cập nhật form báo cáo
+  fillDrugSelects();
   toast('Đã thêm: '+drug+' — Lô '+lot,'var(--success)');
 }
 
@@ -8312,10 +8375,38 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
         btnOK.disabled = true; btnOK.textContent = 'Đang xử lý...';
         _confirmTransferInProgress = true;  // block auto-refresh trong suốt quá trình
         try{
-          // 1. Cập nhật status = confirmed trên Supabase — PHẢI thành công trước mới cộng báo cáo
-          var _patchRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
+          // 0a. Cảnh báo nếu kỳ của phiếu đã khóa (không chặn cứng — dữ liệu điều chuyển vẫn phải vào)
+          var _txPk0 = transfer.period || _currentPeriodKey();
+          if(typeof lockedPeriods !== 'undefined' && lockedPeriods[_txPk0]){
+            if(!confirm('⚠ Kỳ '+_txPk0+' ĐÃ KHÓA báo cáo.\n\nXác nhận phiếu này sẽ thay đổi số liệu của kỳ đã khóa.\nBạn có chắc chắn muốn tiếp tục?')){
+              btnOK.disabled=false; btnOK.textContent='✓ Xác nhận';
+              _confirmTransferInProgress = false;
+              return;
+            }
+          }
+          // 0. GUARD chống double-confirm: kiểm tra status hiện tại trên server
+          var _stRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id+'&select=status', {headers:_supaHdr, cache:'no-store'});
+          if(_stRes.ok){
+            var _stRows = await _stRes.json();
+            var _curSt = (_stRows[0]||{}).status;
+            if(_curSt === 'confirmed'){
+              card.style.cssText = 'background:#f0fff4;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
+              card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Phiếu này đã được xác nhận trước đó — không cộng lại</span>';
+              toast('Phiếu đã được xác nhận trước đó','var(--warning)');
+              return;
+            }
+            if(_curSt === 'cancelled' || _curSt === 'rejected'){
+              card.style.cssText = 'background:#fff5f5;border:1px solid #e74c3c;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
+              card.innerHTML = '<span style="color:#e74c3c;font-size:12px">✕ Phiếu này đã bị '+(_curSt==='cancelled'?'hủy':'từ chối')+' — không thể xác nhận</span>';
+              toast('Phiếu đã bị '+(_curSt==='cancelled'?'hủy':'từ chối'),'var(--warning)');
+              return;
+            }
+          }
+          // 1. Cập nhật status = confirmed — ATOMIC: chỉ PATCH nếu đang pending
+          // (2 tab cùng confirm → chỉ 1 tab thành công, tab kia PATCH 0 rows)
+          var _patchRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id+'&status=eq.pending', {
             method:'PATCH',
-            headers: Object.assign({}, _supaHdr, {'Prefer':'return=minimal','Content-Type':'application/json'}),
+            headers: Object.assign({}, _supaHdr, {'Prefer':'return=representation','Content-Type':'application/json'}),
             body: JSON.stringify({status:'confirmed', notif_for: transfer.from_unit, notif_read: false})
           });
           if(!_patchRes.ok){
@@ -8325,6 +8416,14 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
               ? 'Máy chủ Supabase lỗi 503 — project có thể bị tạm dừng. Vào supabase.com kiểm tra.'
               : 'PATCH transfers lỗi '+_patchRes.status+': '+_patchErr.slice(0,120));
           }
+          // Kiểm tra rows affected: nếu 0 rows → phiếu đã được xử lý bởi tab/người khác
+          var _patchedRows = await _patchRes.json().catch(function(){ return []; });
+          if(!_patchedRows.length){
+            card.style.cssText = 'background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.8';
+            card.innerHTML = '<span style="color:#b45309;font-size:12px">⚠ Phiếu đã được xử lý ở nơi khác (tab khác hoặc người khác) — không cộng lại</span>';
+            toast('Phiếu đã được xử lý ở nơi khác','var(--warning)');
+            return;
+          }
           // 2. Cộng dc/tinh vào báo cáo — UPSERT TRỰC TIẾP lên Supabase
           // (không dùng saveToSupabase/_dirty để tránh race condition với auto-refresh)
           var txPeriod = transfer.period || periodKey || _currentPeriodKey();
@@ -8333,7 +8432,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           var _dbUnit = (myUnit===BVPH||myUnit==='bvph') ? 'bvph' : myUnit;
 
           // Bước 2a: đọc dòng hiện tại từ Supabase để biết dc/tinh đang là bao nhiêu
-          var _expQuery = tExp ? ('&exp=eq.'+encodeURIComponent(tExp)) : '';
+          var _expQuery = '&exp=eq.'+encodeURIComponent(tExp||'');
           var _getUrl = SUPA_URL+'/rest/v1/reports'
             + '?period=eq.'+encodeURIComponent(txPeriod)
             + '&unit=eq.'+encodeURIComponent(_dbUnit)
@@ -10856,7 +10955,7 @@ async function showDcOutDetail(prefix, rowIdx){
         try{
           var _dbUnit = (fUnit===BVPH||fUnit==='bvph') ? 'bvph' : fUnit;
           var _row = a[ri];
-          var _expQ = _row.exp ? ('&exp=eq.'+encodeURIComponent(_row.exp)) : '';
+          var _expQ = '&exp=eq.'+encodeURIComponent(_row.exp||'');
           // GET trước — kiểm tra dòng đã có chưa
           // GET trước → PATCH chỉ field dc2, không đụng dc/tinh/open/...
           var _chkRes = await fetch(
@@ -11051,7 +11150,7 @@ async function showDcDetail(prefix, rowIdx){
       try{
         var _dbUnit2 = (row.unit===BVPH||row.unit==='bvph') ? 'bvph' : (row.unit||'');
         var _pk2 = row.bcMonth||_currentPeriodKey();
-        var _expQ2 = row.exp ? ('&exp=eq.'+encodeURIComponent(row.exp)) : '';
+        var _expQ2 = '&exp=eq.'+encodeURIComponent(row.exp||'');
         // Bước 1: GET kiểm tra dòng đã có trong DB chưa
         // GET trước để biết dòng đã có chưa → PATCH chỉ field dc, INSERT đầy đủ nếu chưa có
         var _chkRes2 = await fetch(
