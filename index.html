@@ -11131,27 +11131,43 @@ async function showDcDetail(prefix, rowIdx){
   var toUnit = row.unit||BVPH;
   var periodKey = _currentPeriodKey();
   var transfers = [];
+  var _rxColMissing = false;   // true nếu DB chưa có cột receive_date
   if(_supaOnline){
+    var _baseQ = '&to_unit=eq.'+encodeURIComponent(toUnit)
+      +'&drug=eq.'+encodeURIComponent(row.drug)
+      +'&lot=eq.'+encodeURIComponent(row.lot)
+      +'&type=in.(dc2_to_dc,dc3_to_tinh)'
+      +'&status=eq.confirmed'
+      +'&order=created_at.asc';
     try{
       // Lọc theo NGÀY NHẬN (receive_date) — vì dc được cộng vào kỳ của ngày nhận.
-      // Phiếu cũ chưa có receive_date → fallback lọc theo period.
+      // Phiếu cũ chưa có receive_date → lấy theo period.
       var _pr = _periodRange(periodKey);
       var _rxFilter = _pr
         ? '&or=(and(receive_date.gte.'+_pr.from+',receive_date.lt.'+_pr.to+'),and(receive_date.is.null,period.eq.'+encodeURIComponent(periodKey)+'))'
         : '&period=eq.'+encodeURIComponent(periodKey);
-      var r = await fetch(
-        SUPA_URL+'/rest/v1/transfers?select=*'
-        + _rxFilter
-        +'&to_unit=eq.'+encodeURIComponent(toUnit)
-        +'&drug=eq.'+encodeURIComponent(row.drug)
-        +'&lot=eq.'+encodeURIComponent(row.lot)
-        +'&type=in.(dc2_to_dc,dc3_to_tinh)'
-        +'&status=eq.confirmed'
-        +'&order=created_at.asc',
-        {headers:_supaHdr}
-      );
-      if(r.ok) transfers = await r.json();
-    }catch(e){}
+      var r = await fetch(SUPA_URL+'/rest/v1/transfers?select=*'+_rxFilter+_baseQ, {headers:_supaHdr});
+      if(r.ok){
+        transfers = await r.json();
+      } else {
+        // 400 = cột receive_date chưa tồn tại → fallback query cũ theo period
+        _rxColMissing = true;
+        var r2 = await fetch(
+          SUPA_URL+'/rest/v1/transfers?select=*&period=eq.'+encodeURIComponent(periodKey)+_baseQ,
+          {headers:_supaHdr}
+        );
+        if(r2.ok) transfers = await r2.json();
+      }
+    }catch(e){
+      _rxColMissing = true;
+      try{
+        var r3 = await fetch(
+          SUPA_URL+'/rest/v1/transfers?select=*&period=eq.'+encodeURIComponent(periodKey)+_baseQ,
+          {headers:_supaHdr}
+        );
+        if(r3.ok) transfers = await r3.json();
+      }catch(e2){}
+    }
   }
   var old=document.getElementById('_dc_detail_modal'); if(old) old.remove();
   var ov=document.createElement('div');
@@ -11180,6 +11196,15 @@ async function showDcDetail(prefix, rowIdx){
   var totalEl=document.createElement('div'); totalEl.style.cssText='font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px;padding:8px 12px;background:#eff6ff;border-radius:8px';
   totalEl.textContent='Tổng nhập điều chuyển: '+(row.dc||0).toLocaleString()+' viên';
   dcBody.appendChild(totalEl);
+
+  // Cảnh báo nếu DB chưa có cột receive_date
+  if(_rxColMissing){
+    var rxWarn = document.createElement('div');
+    rxWarn.style.cssText='background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 11px;margin-bottom:10px;font-size:11px;color:#92400e;line-height:1.5';
+    rxWarn.innerHTML='⚠ <b>Chưa bật tính năng Ngày nhận.</b> Cần chạy SQL trong Supabase:<br>'
+      +'<code style="display:block;background:white;border:1px solid #fde68a;border-radius:5px;padding:5px 7px;margin-top:4px;font-size:10px;color:#78350f">ALTER TABLE transfers ADD COLUMN IF NOT EXISTS receive_date date;</code>';
+    dcBody.appendChild(rxWarn);
+  }
   var listEl=document.createElement('div');
   if(!transfers.length){
     listEl.style.cssText='color:#888;font-size:12px;font-style:italic;margin-bottom:14px';
