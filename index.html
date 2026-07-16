@@ -2199,15 +2199,8 @@ async function _autoLoadOnLogin(){
         toast('Kỳ '+_keyToLabel(periodKey)+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverN+' dòng.','#1a5276');
         _cacheTransfers(periodKey);
       }
-      // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng)
-      try{
-        var loadedTblE = await _loadPatientsFromTable();
-        if(!loadedTblE){
-          var prE = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
-          var pdE = prE.ok ? await prE.json() : [];
-          if(pdE.length && Array.isArray(pdE[0].value)) BN_DATA = pdE[0].value || [];
-        }
-      }catch(e3){}
+      // Load PATIENTS — chỉ từ bảng patients (KHÔNG fallback settings cũ)
+      try{ await _loadPatientsFromTable(); }catch(e3){}
       // Cập nhật biểu đồ phác đồ ngay sau khi có BN_DATA
       try{ _renderRegimenChart(); }catch(e){}
       var bnPageE = document.getElementById('page-bn');
@@ -2308,17 +2301,8 @@ async function _autoLoadOnLogin(){
 
     // Load PATIENTS — ƯU TIÊN bảng patients mới (mỗi BN 1 dòng, chống ghi đè đa luồng)
     try{
-      var loadedFromTable = await _loadPatientsFromTable();
-      if(!loadedFromTable){
-        // Fallback: dữ liệu cũ trong settings.PATIENTS (mảng JSON)
-        var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
-        var pd2 = pr.ok ? await pr.json() : [];
-        var best = [];
-        pd2.forEach(function(row){
-          if(Array.isArray(row.value) && row.value.length >= best.length) best = row.value;
-        });
-        BN_DATA = best;
-      }
+      // Chỉ đọc từ bảng patients — KHÔNG fallback settings cũ (gây BN sống lại sau khi xóa)
+      await _loadPatientsFromTable();
     }catch(e2){}
     // Cập nhật biểu đồ phác đồ ngay sau khi có BN_DATA
     try{ _renderRegimenChart(); }catch(e){}
@@ -14694,31 +14678,8 @@ async function _loadPatientsFromTable(){
       return true;
     }
 
-    // Bảng patients RỖNG → kiểm tra dữ liệu cũ trong settings để DI CƯ một lần
-    var oldR = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.PATIENTS&select=value',{headers:_supaHdr, cache:'no-store'});
-    var oldD = oldR.ok ? await oldR.json() : [];
-    var bestOld = [];
-    oldD.forEach(function(row){ if(Array.isArray(row.value) && row.value.length >= bestOld.length) bestOld = row.value; });
-    if(bestOld.length > 0){
-      // Gán id cho từng BN cũ rồi đẩy lên bảng mới
-      var migrateRows = bestOld.map(function(pt){
-        if(!pt.id) pt.id = _genPatientId();
-        return _patientToRow(pt);
-      });
-      try{
-        // Mã hóa toàn bộ trước khi migrate
-        var encMigrateRows = await Promise.all(migrateRows.map(_encryptPatientRow));
-        await fetch(SUPA_URL+'/rest/v1/patients?on_conflict=id', {
-          method:'POST',
-          headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
-          body: JSON.stringify(encMigrateRows)
-        });
-        if(typeof toast==='function') toast('☁ Đã chuyển '+migrateRows.length+' bệnh nhân sang bảng mới (an toàn đa người dùng)','#27ae60');
-      }catch(eMig){ console.warn('Di cư BN lỗi', eMig); }
-      BN_DATA = bestOld; // dữ liệu cũ từ settings đã là plaintext, giữ nguyên
-      return true;
-    }
-    // Không có dữ liệu cũ → danh sách rỗng
+    // Bảng patients RỖNG → danh sách rỗng thật sự (KHÔNG khôi phục từ settings cũ)
+    // (Trước đây có auto-migrate từ settings.PATIENTS → gây "BN sống lại" sau khi xóa)
     BN_DATA = [];
     return true;
   }catch(e){ console.warn('_loadPatientsFromTable', e); }
@@ -16643,21 +16604,40 @@ function savePatient(){
   });
 }
 
-function deletePatient(idx) {
+async function deletePatient(idx) {
   if (idx < 0 || idx >= BN_DATA.length) return;
-  var ptName = BN_DATA[idx].name || BN_DATA[idx].hoTen || 'bệnh nhân này';
-  var deletedId = BN_DATA[idx].id; 
+  var pt = BN_DATA[idx];
+  var ptName = pt.name || pt.hoTen || 'bệnh nhân này';
+  var deletedId = pt.id;
   if (!confirm('Xóa [' + ptName + '] khỏi danh sách?')) return;
+
+  // Xóa trên cloud TRƯỚC — chỉ xóa local nếu server xác nhận
+  if (_supaOnline && deletedId) {
+    try {
+      var r = await fetch(SUPA_URL+'/rest/v1/patients?id=eq.' + encodeURIComponent(deletedId), {
+        method: 'DELETE',
+        headers: Object.assign({}, _supaHdr, {'Prefer':'return=representation'})
+      });
+      if (!r.ok) {
+        var errTxt = await r.text().catch(function(){ return ''; });
+        toast('✕ Xóa thất bại ' + r.status + ': ' + errTxt.slice(0,80), 'var(--danger)');
+        return;  // KHÔNG xóa local nếu cloud lỗi
+      }
+    } catch(e) {
+      toast('✕ Không kết nối được máy chủ — chưa xóa: ' + e.message, 'var(--danger)');
+      return;
+    }
+  } else if (!_supaOnline) {
+    toast('⚠ Đang offline — không thể xóa. Kết nối lại rồi thử.', 'var(--danger)');
+    return;
+  }
+
+  // Cloud OK → xóa local
   BN_DATA.splice(idx, 1);
   _fillBnFilters();
   renderPatientTable();
   renderDuTru();
-  if (_supaOnline && deletedId) {
-      fetch(SUPA_URL+'/rest/v1/patients?id=eq.' + deletedId, {
-          method: 'DELETE', headers: _supaHdr
-      }).catch(function(e){ console.log("Lỗi xóa cloud:", e); });
-  }
-  toast('Đã xóa: ' + ptName, 'var(--danger)');
+  toast('✓ Đã xóa: ' + ptName, 'var(--success)');
 }
 
 // Hàm xóa toàn bộ bệnh nhân có cảnh báo an toàn
@@ -16671,18 +16651,35 @@ async function deleteAllPatients() {
     '⚠ Xóa toàn bộ danh sách bệnh nhân?',
     'Sẽ xóa <b>' + BN_DATA.length + ' bệnh nhân</b> khỏi hệ thống cloud.<br>Hành động này <b style="color:red">KHÔNG THỂ HOÀN TÁC</b>!',
     async function() {
-      BN_DATA = [];
-      _fillBnFilters();
-      renderPatientTable();
-      renderDuTru();
-
-      if (_supaOnline) {
+      if (!_supaOnline) {
+        toast('⚠ Đang offline — không thể xóa. Kết nối lại rồi thử.', 'var(--danger)');
+        return;
+      }
+      try {
+        // 1. Xóa bảng patients
+        var r1 = await fetch(SUPA_URL + '/rest/v1/patients?id=not.is.null', {
+          method: 'DELETE', headers: _supaHdr
+        });
+        if (!r1.ok) {
+          var e1 = await r1.text().catch(function(){ return ''; });
+          toast('✕ Xóa thất bại ' + r1.status + ': ' + e1.slice(0,80), 'var(--danger)');
+          return;  // KHÔNG xóa local nếu cloud lỗi
+        }
+        // 2. Xóa luôn settings.PATIENTS cũ (nếu còn) để BN không "sống lại"
         try {
-          await fetch(SUPA_URL + '/rest/v1/patients?id=not.is.null', { method: 'DELETE', headers: _supaHdr });
-          toast('✓ Đã xóa toàn bộ BN khỏi hệ thống!', 'var(--danger)');
-        } catch(e) { toast('⚠ Xóa thất bại: ' + e.message, 'orange'); }
-      } else {
-        toast('Đã xóa dữ liệu trên máy. Chờ kết nối cloud để xóa đồng bộ.', 'var(--warning)');
+          await fetch(SUPA_URL + '/rest/v1/settings?key=eq.PATIENTS', {
+            method: 'DELETE', headers: _supaHdr
+          });
+        } catch(e2){ /* không sao nếu key không tồn tại */ }
+
+        // 3. Cloud OK → xóa local
+        BN_DATA = [];
+        _fillBnFilters();
+        renderPatientTable();
+        renderDuTru();
+        toast('✓ Đã xóa toàn bộ BN khỏi hệ thống!', 'var(--success)');
+      } catch(e) {
+        toast('✕ Không kết nối được máy chủ — chưa xóa: ' + e.message, 'var(--danger)');
       }
     }
   );
