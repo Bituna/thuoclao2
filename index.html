@@ -3548,7 +3548,7 @@ function _parseCatalogCSV(csvText){
     // Nếu cột tên thuốc trống → kế thừa từ dòng trên (như ảnh 2)
     if(!drug) drug = lastDrug;
     else lastDrug = drug;
-    var lot  = cols[colLot]||'';
+    var lot  = (cols[colLot]||'').replace(/\s+/g,'');  // chuẩn hóa: xóa space trong số lô
     var expRaw = cols[colExp]||'';
     var note = colNote>=0 ? (cols[colNote]||'') : '';
 
@@ -3763,7 +3763,7 @@ function addCatalog(){
   var drug   = selVal==='__khac__'
     ? (document.getElementById('cat-drug-custom').value.trim())
     : selVal;
-  var lot    = document.getElementById('cat-lot').value.trim();
+  var lot    = document.getElementById('cat-lot').value.trim().replace(/\s+/g,'');  // chuẩn hóa: xóa space trong số lô
   var expRaw = document.getElementById('cat-exp').value.trim();
   var note   = document.getElementById('cat-note').value.trim();
   if(!drug||!lot||!expRaw){toast('Nhập đủ: tên thuốc, số lô, hạn dùng!','var(--danger)');return;}
@@ -3920,7 +3920,7 @@ function editCatalog(i){
   btnSave.style.cssText = 'padding:8px 20px;border:none;border-radius:20px;background:#155724;color:white;cursor:pointer;font-size:13px;font-weight:700;transition:opacity .15s';
   btnSave.onmouseenter=function(){this.style.opacity='.85';}; btnSave.onmouseleave=function(){this.style.opacity='1';};
   btnSave.onclick = function(){
-    var newLot  = lotInp.value.trim();
+    var newLot  = lotInp.value.trim().replace(/\s+/g,'');  // chuẩn hóa: xóa space
     var newExpRaw = expInp.value.trim();
     var newNote = noteInp.value.trim() || '—';
     if(!newLot){ toast('Số lô không được để trống!','var(--danger)'); lotInp.focus(); return; }
@@ -6718,7 +6718,8 @@ function renderCapPhat(){
       else { stColor='#dc2626'; stText='✗ Lệch '+(diff>0?'+':'')+fmtNum(diff); }
     }
     var del=canDel?'<button onclick="cpDelByKey(\''+_jsEsc(r.unit)+'\',\''+_jsEsc(r.drug)+'\',\''+_jsEsc(r.lot)+'\',\''+_jsEsc(r.exp)+'\')" title="Xóa dòng cấp phát" style="border:none;background:rgba(239,68,68,0.1);color:#dc2626;border-radius:18px;cursor:pointer;padding:5px 12px;font-size:11px;font-weight:700;transition:.15s" onmouseover="this.style.background=\'rgba(239,68,68,0.2)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.1)\'">✕ Xóa</button>':'<span style="color:#cbd5e1">—</span>';
-    return '<tr style="border-bottom:1px solid #e2e8f0;transition:background .15s" data-cp-unit="'+_jsEsc(r.unit).toLowerCase()+'" data-cp-drug="'+_jsEsc(r.drug).toLowerCase()+'" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'">'
+    var _isOk = (d>0&&p>0&&d===p);
+    return '<tr style="border-bottom:1px solid #e2e8f0;transition:background .15s" data-cp-unit="'+_jsEsc(r.unit).toLowerCase()+'" data-cp-drug="'+_jsEsc(r.drug).toLowerCase()+'" data-cp-status="'+(_isOk?'ok':'err')+'" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'">'
       +'<td class="cp-tt" style="text-align:center;vertical-align:middle;line-height:1;padding:10px 8px;border-right:1px solid rgba(0,0,0,0.05);color:#64748b;font-weight:600;font-size:12px">'+(i+1)+'</td>'
       +'<td class="left" style="vertical-align:middle;line-height:1;padding:10px 8px;border-right:1px solid rgba(0,0,0,0.05);font-weight:500;font-size:12px">'+_displayUnit(r.unit)+'</td>'
       +'<td class="left" style="vertical-align:middle;line-height:1;padding:10px 8px;border-right:1px solid rgba(0,0,0,0.05);font-weight:700;color:#1e293b;font-size:12px">'+r.drug+'</td>'
@@ -6731,8 +6732,35 @@ function renderCapPhat(){
           +'<td class="no-print" style="text-align:center;padding:10px 14px">'+del+'</td></tr>';
   }).join('');
   tb.innerHTML=html;
-      if(sumEl) sumEl.innerHTML='<span style="color:#10b981;font-weight:700">✓ '+okN+' khớp</span> &nbsp;&nbsp;·&nbsp;&nbsp; <span style="color:#ef4444;font-weight:700">⚠ '+errN+' lệch</span> <span style="color:#94a3b8;font-weight:400;margin-left:12px;font-size:11px">(Khớp theo từng lô)</span>';
+      if(sumEl) sumEl.innerHTML=''
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<span style="color:#10b981;font-weight:700">✓ '+okN+' khớp</span>'
+        + '<span style="color:#94a3b8">·</span>'
+        + '<span style="color:#ef4444;font-weight:700">⚠ '+errN+' lệch</span>'
+        + '<span style="color:#94a3b8;font-size:11px">(Khớp theo từng lô)</span>'
+        + '<span style="flex:1"></span>'
+        + '<div style="display:flex;gap:4px">'
+        + '<button onclick="_setCpFilter(\'all\')" id="cp-btn-all" style="padding:4px 12px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #cbd5e1;background:'+(_cpStatusFilter==='all'?'#1d4ed8':'white')+';color:'+(_cpStatusFilter==='all'?'white':'#64748b')+'">Tất cả</button>'
+        + '<button onclick="_setCpFilter(\'ok\')" id="cp-btn-ok" style="padding:4px 12px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #10b981;background:'+(_cpStatusFilter==='ok'?'#10b981':'white')+';color:'+(_cpStatusFilter==='ok'?'white':'#10b981')+'">✓ Khớp</button>'
+        + '<button onclick="_setCpFilter(\'err\')" id="cp-btn-err" style="padding:4px 12px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #ef4444;background:'+(_cpStatusFilter==='err'?'#ef4444':'white')+';color:'+(_cpStatusFilter==='err'?'white':'#ef4444')+'">⚠ Chưa khớp</button>'
+        + '</div></div>';
   filterCapPhatTable(); // Chạy lại bộ lọc sau khi render
+}
+
+var _cpStatusFilter = 'all'; // 'all' | 'ok' | 'err'
+
+function _setCpFilter(val){
+  _cpStatusFilter = val;
+  filterCapPhatTable();
+  // Cập nhật màu nút
+  var btns = {all:'#1d4ed8', ok:'#10b981', err:'#ef4444'};
+  ['all','ok','err'].forEach(function(k){
+    var btn = document.getElementById('cp-btn-'+k);
+    if(!btn) return;
+    var active = (k === val);
+    btn.style.background = active ? btns[k] : 'white';
+    btn.style.color = active ? 'white' : btns[k];
+  });
 }
 
 function _cpNoMark(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().trim(); }
@@ -6755,7 +6783,10 @@ function filterCapPhatTable(){
   rows.forEach(function(tr){
     var u=_cpNoMark(tr.getAttribute('data-cp-unit')||'');
     var d=_cpNoMark(tr.getAttribute('data-cp-drug')||'');
-    var match=!searchVal || u.indexOf(searchVal)>=0 || d.indexOf(searchVal)>=0;
+    var st=tr.getAttribute('data-cp-status')||'';
+    var searchMatch=!searchVal || u.indexOf(searchVal)>=0 || d.indexOf(searchVal)>=0;
+    var statusMatch=_cpStatusFilter==='all' || st===_cpStatusFilter;
+    var match=searchMatch && statusMatch;
     if(match){ tr.style.display=''; var tt=tr.querySelector('.cp-tt'); if(tt) tt.textContent=visibleIndex++; }
     else { tr.style.display='none'; }
   });
@@ -6884,7 +6915,7 @@ function cpSubmitFormMulti(){
   for(var i=0;i<blocks.length;i++){
     var n=blocks[i].getAttribute('data-seq');
     var drug=(document.getElementById('cp-drug-'+n)||{}).value||'';
-    var lot=(document.getElementById('cp-lot-'+n)||{}).value||'';
+    var lot=((document.getElementById('cp-lot-'+n)||{}).value||'').replace(/\s+/g,'');  // chuẩn hóa lot
     var expEl=document.getElementById('cp-exp-'+n);
     var exp=expEl?(expEl.getAttribute('data-exp')||''):'';
     var allocs=blocks[i].querySelectorAll('.cpm-alloc');
@@ -12196,7 +12227,7 @@ function importReportsExcel(input){
         var isBvph=(col.unit==null);
         for(var r=hr+1;r<aoa.length;r++){ var rec=aoa[r]||[];
           var drug=String(rec[col.drug]==null?'':rec[col.drug]).trim();
-          var lot=String(rec[col.lot]==null?'':rec[col.lot]).trim();
+          var lot=String(rec[col.lot]==null?'':rec[col.lot]).trim().replace(/\s+/g,'');  // chuẩn hóa lot
           if(!drug||!lot) continue;
           var _rawUnit = isBvph ? BVPH : String(rec[col.unit]==null?'':rec[col.unit]).trim();
           // Normalize: "Kho nội trú" / "Phòng chỉ đạo tuyến" / "Kho lẻ" → tên chuẩn trong UNITS
