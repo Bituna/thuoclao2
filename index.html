@@ -795,7 +795,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <div class="stat-card c-green" style="cursor:pointer" onclick="_showTQUnitList('submitted')" title="Bấm xem danh sách"><div class="stat-left"><div class="lbl">Đã nộp BC</div><div class="sub" id="tq-pct">—</div></div><div class="val" id="tq-da">—</div></div>
       <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQUnitList('notsub')" title="Bấm xem danh sách"><div class="stat-left"><div class="lbl">Chưa nộp</div><div class="sub">Bấm xem danh sách</div></div><div class="val" id="tq-chua">—</div></div>
       <div class="stat-card c-amber" style="cursor:pointer" onclick="_showTQAlert('low')" title="Bấm xem chi tiết"><div class="stat-left"><div class="lbl">Cảnh báo tồn kho</div><div class="sub" id="tq-low-sub">Mặt hàng dưới ngưỡng</div></div><div class="val" id="tq-low">—</div></div>
-      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQAlert('exp')" title="Bấm xem chi tiết"><div class="stat-left"><div class="lbl">Thuốc sắp hết hạn</div><div class="sub">&lt; 6 tháng — bấm xem</div></div><div class="val" id="tq-exp-count" style="color:var(--danger)">—</div></div>
+      <div class="stat-card c-red" style="cursor:pointer" onclick="_showTQAlert('exp')" title="Bấm xem chi tiết"><div class="stat-left"><div class="lbl">Lô sắp hết hạn</div><div class="sub">HSD &lt; 6 tháng — bấm xem</div></div><div class="val" id="tq-exp-count" style="color:var(--danger)">—</div></div>
     </div>
 
     <!-- BẢNG TỔNG HỢP + BIỂU ĐỒ PHÁC ĐỒ -->
@@ -917,7 +917,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
     <div style="background:white;border-radius:12px;border:1px solid var(--border,#e2e8f0);box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-direction:column;padding:12px;box-sizing:border-box">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span style="font-size:13px;font-weight:700;color:#1a2332">Cảnh báo nguy cơ hết hạn</span>
+        <span style="font-size:13px;font-weight:700;color:#1a2332">Nguy cơ lãng phí do hết hạn</span>
       </div>
       <div id="amc-exp-table" style="overflow-x:auto;flex:1">
         <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Đang tải...</div>
@@ -13921,7 +13921,7 @@ async function renderAllAMC(){
   var expHtml;
   if(!expRows.length){
     expHtml='<div style="display:flex;align-items:center;gap:8px;padding:14px 16px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0">'
-      +'<span style="color:#15803d;font-size:13px;font-weight:600">✓ Không có lô nào có nguy cơ hết hạn trong 6 tháng tới</span></div>';
+      +'<span style="color:#15803d;font-size:13px;font-weight:600">✓ Không có lô nào bị lãng phí — các lô sắp hết hạn đều dùng hết kịp</span></div>';
   } else {
     expHtml='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
     expRows.forEach(function(r,ri){
@@ -14040,7 +14040,7 @@ async function renderAllAMC(){
   }
   var el3=document.getElementById('amc-exp-table');if(el3)el3.innerHTML=expHtml;
   var n3=document.getElementById('amc-exp-note');
-  if(n3) n3.textContent='Mức dùng dự kiến = AMC × số tháng còn đến hạn · Cảnh báo lô HH trong '+(threshold.expMonths||6)+' tháng tới · Chỉ hiện lô tồn > mức dùng dự kiến';
+  if(n3) n3.textContent='Chỉ hiện lô DÙNG KHÔNG HẾT KỊP (tồn > AMC × số tháng còn đến hạn) · Các lô sắp hết hạn khác vẫn dùng hết kịp nên không cảnh báo · Xem tất cả lô sắp hết hạn ở thẻ "Lô sắp hết hạn" phía trên';
 
   // ══ BẢNG 4: Dự trù TW ══
   var orderHtml='<div style="border-radius:10px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow:hidden"><div style="overflow-x:auto">'
