@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-receive-date-4';
+window.APP_VERSION = 'v2026.07.17-receive-date-5';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Ngày nhận · dc chờ xác nhận · tinh cộng ngay', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Bảng ĐC: cột Ngày nhận + Khớp kèm tháng', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -5647,17 +5647,47 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
         return db.localeCompare(da);
       });
     } else {
-      var filterPart = 'period=eq.'+encodeURIComponent(periodKey);
-      r = await fetch(SUPA_URL+'/rest/v1/transfers?'+filterPart
-        +'&status=not.in.(cancelled,cancel_notif)'
-        +'&order=transfer_date.desc,created_at.desc',
-        {headers:_supaHdr});
-      transfers = r.ok ? await r.json() : [];
+      // Phiếu chuyển cuối T6 nhưng nhận đầu T7 → period='2026-06' mà `dc` lại cộng vào T7.
+      // Nên phải lấy cả kỳ TRƯỚC và kỳ SAU rồi lọc theo KỲ GHI NHẬN ở dưới.
+      var _pp = periodKey.split('-');
+      var _y = parseInt(_pp[0]), _m = parseInt(_pp[1]);
+      var _prevY = (_m===1)?_y-1:_y, _prevM = (_m===1)?12:_m-1;
+      var _nextY = (_m===12)?_y+1:_y, _nextM = (_m===12)?1:_m+1;
+      var _periods = [
+        _prevY+'-'+String(_prevM).padStart(2,'0'),
+        periodKey,
+        _nextY+'-'+String(_nextM).padStart(2,'0')
+      ];
+      var _res = await Promise.all(_periods.map(function(pk){
+        return fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(pk)
+          +'&status=not.in.(cancelled,cancel_notif)'
+          +'&order=transfer_date.desc,created_at.desc',
+          {headers:_supaHdr})
+          .then(function(rr){ return rr.ok?rr.json():[]; })
+          .catch(function(){ return []; });
+      }));
+      _res.forEach(function(arr){ transfers = transfers.concat(arr); });
     }
 
     if(!transfers.length){
       el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Chưa có phiếu điều chuyển nào trong kỳ này.</div>';
       return;
+    }
+
+    // Lọc theo KỲ GHI NHẬN — phải khai báo _txRecPeriod trước khi dùng
+    // (dc3_to_tinh: kỳ ngày chuyển · dc2_to_dc: kỳ ngày nhận · dc3_province: kỳ ngày chuyển)
+    function _txRecPeriodEarly(t){
+      if(t.type === 'dc3_to_tinh' || t.type === 'dc3_province') return t.period || '';
+      var rx = t.receive_date || '';
+      return rx ? (_periodFromDate(rx) || t.period || '') : (t.period || '');
+    }
+    if(p.type !== 'year'){
+      transfers = transfers.filter(function(t){ return _txRecPeriodEarly(t) === periodKey; });
+      if(!transfers.length){
+        el.innerHTML='<div style="color:#888;font-size:12px;font-style:italic;text-align:center;padding:10px">Chưa có phiếu điều chuyển nào ghi nhận trong kỳ này.</div>';
+        _tqTransferCache = {periodKey: periodKey, html: el.innerHTML, matchDetail: {}, ts: Date.now()};
+        return;
+      }
     }
 
     var dc2List = transfers.filter(function(t){ return t.type==='dc2_to_dc'||t.type==='dc3_to_tinh'; });
@@ -5666,10 +5696,24 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
 
     // ── Tính trạng thái "Đối chiếu báo cáo" cho từng phiếu ──
     // (dùng _normExp toàn cục: chuẩn hóa hạn dùng về YYYY-MM để khớp chính xác)
+    //
+    // Kỳ GHI NHẬN của phiếu — khác nhau theo loại:
+    //   dc3_to_tinh (BVPH→ĐV): `tinh` cộng NGAY lúc xuất → kỳ = ngày chuyển (t.period)
+    //   dc2_to_dc  (ĐV→BVPH/ĐV): `dc` cộng khi xác nhận → kỳ = ngày NHẬN (receive_date)
+    function _txRecPeriod(t){
+      if(t.type === 'dc3_to_tinh') return t.period || '';
+      var rx = t.receive_date || '';
+      return rx ? (_periodFromDate(rx) || t.period || '') : (t.period || '');
+    }
+    // Cột báo cáo mà phiếu rơi vào bên NHẬN
+    function _txRecField(t){
+      return (t.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
+    }
+
     var expectedMap = {};
     transfers.forEach(function(t){
       if(t.type==='dc3_province') return;
-      var k = (t.period||'')+'|'+(t.to_unit||'')+'|'+(t.drug||'')+'|'+(t.lot||'')+'|'+_normExp(t.exp);
+      var k = _txRecPeriod(t)+'|'+(t.to_unit||'')+'|'+(t.drug||'')+'|'+(t.lot||'')+'|'+_normExp(t.exp)+'|'+_txRecField(t);
       expectedMap[k] = (expectedMap[k]||0) + Number(t.qty||0);
     });
     // Lưu chi tiết đối chiếu theo id phiếu để hiện popup
@@ -5678,7 +5722,9 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
       if(tx.type==='dc3_province'){
         return { status:'na', tx:tx };
       }
-      var to = tx.to_unit||'', per = tx.period||'';
+      var to = tx.to_unit||'';
+      var per = _txRecPeriod(tx);          // kỳ GHI NHẬN (theo ngày nhận với dc2_to_dc)
+      var fld = _txRecField(tx);           // cột báo cáo: 'tinh' hoặc 'dc'
       var isBvphRecv = (to===BVPH || to==='bvph');
       var arr = isBvphRecv ? bvphData : bcData;
       var row = arr.find(function(r){
@@ -5686,17 +5732,18 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
         if(!isBvphRecv && (r.unit||'') !== to) return false;
         return (r.drug||'')===(tx.drug||'') && (r.lot||'')===(tx.lot||'') && _normExp(r.exp)===_normExp(tx.exp);
       });
-      var k = per+'|'+to+'|'+(tx.drug||'')+'|'+(tx.lot||'')+'|'+_normExp(tx.exp);
+      var k = per+'|'+to+'|'+(tx.drug||'')+'|'+(tx.lot||'')+'|'+_normExp(tx.exp)+'|'+fld;
       var expected = expectedMap[k]||0;
-      var actual = row ? Number(row.dc||0) : 0;
-      // Danh sách các phiếu cùng nhóm (cùng đơn vị nhận + thuốc + lô + hạn)
+      var actual = row ? Number(row[fld]||0) : 0;   // FIX: dc3_to_tinh phải đọc cột `tinh`
+      // Danh sách các phiếu cùng nhóm (cùng kỳ ghi nhận + đơn vị nhận + thuốc + lô + hạn)
       var siblings = transfers.filter(function(t){
         if(t.type==='dc3_province') return false;
-        return (t.period||'')===per && (t.to_unit||'')===to && (t.drug||'')===(tx.drug||'')
-          && (t.lot||'')===(tx.lot||'') && _normExp(t.exp)===_normExp(tx.exp);
+        return _txRecPeriod(t)===per && (t.to_unit||'')===to && (t.drug||'')===(tx.drug||'')
+          && (t.lot||'')===(tx.lot||'') && _normExp(t.exp)===_normExp(tx.exp) && _txRecField(t)===fld;
       });
       var status = (row && actual === expected && expected > 0) ? 'yes' : 'no';
-      return { status:status, tx:tx, row:row, expected:expected, actual:actual, siblings:siblings, rowFound:!!row };
+      return { status:status, tx:tx, row:row, expected:expected, actual:actual,
+               siblings:siblings, rowFound:!!row, recPeriod:per, recField:fld };
     }
 
     function makeTable(list, headerColor, typeLabel){
@@ -5711,12 +5758,19 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
         +'<th style="padding:7px 10px;text-align:center">Lô</th>'
         +'<th style="padding:7px 10px;text-align:center">Hạn</th>'
         +'<th style="padding:7px 10px;text-align:center">Ngày chuyển</th>'
+        +'<th style="padding:7px 10px;text-align:center">Ngày nhận</th>'
         +'<th style="padding:7px 10px;text-align:center">Đối chiếu</th>'
         +(canCancel?'<th style="padding:7px 10px;text-align:center">Thao tác</th>':'')
         +'</tr></thead><tbody>';
       list.forEach(function(tx,i){
         var bg=i%2===0?'#f8f9fa':'white';
         var dt=tx.transfer_date?_fmtDate(tx.transfer_date):(tx.created_at?_fmtDate(tx.created_at):'—');
+        // Ngày nhận: chỉ có khi phiếu đã xác nhận
+        var rxDt = (tx.type==='dc3_province')
+                 ? '<span style="color:#cbd5e1;font-weight:400">—</span>'
+                 : (tx.receive_date ? _fmtDate(tx.receive_date)
+                 : (tx.status==='confirmed' && tx.created_at ? _fmtDate(tx.created_at)
+                 : '<span style="color:#cbd5e1;font-weight:400">Chờ nhận</span>'));
         var expD=tx.exp?expFmt(tx.exp):'—';
         var subLabel = tx.type==='dc3_to_tinh'?'<span style="font-size:10px;background:#27ae60;color:white;padding:1px 5px;border-radius:3px;margin-left:4px">Tổ CL</span>':'';
         // Chi tiết đối chiếu
@@ -5724,7 +5778,13 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
         _tqMatchDetail[tx.id] = det;
         var matchCell;
         var clickAttr = ' onclick="_showTransferMatch(\''+tx.id+'\')" style="cursor:pointer;';
-        if(det.status==='yes')      matchCell='<span'+clickAttr+'display:inline-flex;align-items:center;gap:3px;background:#e7f7ee;color:#1a8a4f;border:1px solid #a3e0bf;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700" title="Bấm xem chi tiết đối chiếu">✓ Khớp</span>';
+        if(det.status==='yes'){
+          // Khớp → ghi rõ đã vào báo cáo THÁNG NÀO (kỳ ghi nhận thực tế)
+          var _pv = det.recPeriod ? _fmtPeriodVN(det.recPeriod).replace('Tháng ','T') : '';
+          var _fldTxt = det.recField==='tinh' ? 'Tỉnh cấp' : 'Nhập ĐC';
+          matchCell='<span'+clickAttr+'display:inline-flex;align-items:center;gap:3px;background:#e7f7ee;color:#1a8a4f;border:1px solid #a3e0bf;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700" '
+            +'title="Đã cộng vào cột '+_fldTxt+' của báo cáo '+(det.recPeriod?_fmtPeriodVN(det.recPeriod):'')+' — bấm xem chi tiết">✓ Khớp '+_pv+'</span>';
+        }
         else if(det.status==='no')  matchCell='<span'+clickAttr+'display:inline-flex;align-items:center;gap:3px;background:#fff3e0;color:#c46a00;border:1px solid #ffc88a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700" title="Bấm xem chi tiết đối chiếu">✗ Chưa khớp</span>';
         else                matchCell='<span style="color:#aaa;font-size:11px">—</span>';
         t+='<tr style="background:'+bg+';border-bottom:1px solid #eee">'
@@ -5736,6 +5796,7 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
           +'<td style="padding:6px 10px;text-align:center;color:#666">'+tx.lot+'</td>'
           +'<td style="padding:6px 10px;text-align:center;color:#666">'+expD+'</td>'
           +'<td style="padding:6px 10px;text-align:center;color:#888">'+dt+'</td>'
+          +'<td style="padding:6px 10px;text-align:center;color:#0369a1;font-weight:600">'+rxDt+'</td>'
           +'<td style="padding:6px 10px;text-align:center">'+matchCell+'</td>'
           +(canCancel?'<td style="padding:6px 10px;text-align:center"><button onclick="cancelTransferById(\''+tx.id+'\',\''+tx.to_unit+'\')" style="font-size:11px;padding:3px 10px;border:1px solid #e74c3c;border-radius:18px;color:#e74c3c;background:white;cursor:pointer">✕ Hủy</button></td>':'')
           +'</tr>';
