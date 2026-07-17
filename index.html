@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-receive-date-5';
+window.APP_VERSION = 'v2026.07.17-receive-date-6';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Bảng ĐC: cột Ngày nhận + Khớp kèm tháng', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Điều chuyển: audit 26/26 · hủy/cascade đúng kỳ', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -8692,10 +8692,14 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           if((myUnit===BVPH||myUnit==='bvph') && transfer.type==='dc3_to_tinh'){
             try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(txPeriod); }catch(e){}
           }
+          // Tồn cuối kỳ nhận vừa đổi → cascade sang tồn đầu kỳ kế tiếp
+          try{ if(typeof _scheduleCascade==='function') _scheduleCascade(txPeriod); }catch(e){}
+
           // Ẩn card này + làm mới cache thông báo
+          var _perTxt = _fmtPeriodVN(txPeriod);
           card.style.cssText = 'background:#f0fff4;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
-          card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Đã xác nhận — '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug+' đã vào báo cáo</span>';
-          toast('✓ Đã xác nhận nhận '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug,'#27ae60');
+          card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Đã xác nhận — '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug+' đã vào báo cáo <b>'+_perTxt+'</b></span>';
+          toast('✓ Đã nhận '+transfer.qty.toLocaleString('vi-VN')+' viên '+transfer.drug+' · vào báo cáo '+_perTxt,'#27ae60');
           // Reload từ Supabase để đảm bảo local data khớp server
           setTimeout(function(){
             try{
@@ -11481,6 +11485,12 @@ async function cancelTransferById(transferId, toUnit){
 
         var tPeriod = t.period || periodKey; // kỳ của phiếu (có thể khác kỳ admin đang xem)
 
+        // Kỳ GHI NHẬN bên NHẬN — khác kỳ phiếu nếu ngày nhận sang tháng khác.
+        //   dc3_to_tinh: `tinh` cộng theo ngày chuyển  → dùng t.period
+        //   dc2_to_dc  : `dc`   cộng theo ngày NHẬN    → dùng kỳ của receive_date
+        var _rxPer = isdc3 ? tPeriod
+                   : ((t.receive_date && _periodFromDate(t.receive_date)) || tPeriod);
+
         // 3. Trừ dc2/dc3 bên XUẤT trực tiếp trên Supabase
         //    → đúng dù admin đang xem kỳ nào
         var srcUnit = t.from_unit || '';
@@ -11488,11 +11498,15 @@ async function cancelTransferById(transferId, toUnit){
         var srcUnitVal = (srcUnit===BVPH||srcUnit==='bvph') ? 'bvph' : srcUnit;
         var hdRpc = Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'});
 
-        // Lấy giá trị hiện tại rồi trừ (dùng cột period + unit đúng schema)
+        // Lấy giá trị hiện tại rồi trừ.
+        // LƯU Ý: PHẢI lọc cả `exp` — cùng thuốc+lô nhưng khác hạn là 2 dòng khác nhau,
+        // thiếu filter này sẽ trừ nhầm sang lô có hạn khác.
+        var _expQ = '&exp=eq.'+encodeURIComponent(t.exp||'');
         var srcQ = SUPA_URL+'/rest/v1/reports'
           +'?period=eq.'+encodeURIComponent(tPeriod)
           +'&drug=eq.'+encodeURIComponent(t.drug)
           +'&lot=eq.'+encodeURIComponent(t.lot)
+          + _expQ
           +'&unit=eq.'+encodeURIComponent(srcUnitVal)
           +'&select=id,'+srcField;
         try{
@@ -11513,10 +11527,12 @@ async function cancelTransferById(transferId, toUnit){
         if(wasConfirmed){
           var dstField = isdc3 ? 'tinh' : 'dc';
           var dstUnitVal = (rcvUnit===BVPH||rcvUnit==='bvph') ? 'bvph' : rcvUnit;
+          // Dùng _rxPer (kỳ ngày nhận) — KHÔNG dùng tPeriod, nếu không sẽ trừ nhầm kỳ
           var dstQ = SUPA_URL+'/rest/v1/reports'
-            +'?period=eq.'+encodeURIComponent(tPeriod)
+            +'?period=eq.'+encodeURIComponent(_rxPer)
             +'&drug=eq.'+encodeURIComponent(t.drug)
             +'&lot=eq.'+encodeURIComponent(t.lot)
+            + _expQ
             +'&unit=eq.'+encodeURIComponent(dstUnitVal)
             +'&select=id,'+dstField;
           try{
@@ -11543,10 +11559,11 @@ async function cancelTransferById(transferId, toUnit){
           });
           if(srcRow){ srcRow[srcField]=Math.max(0,(srcRow[srcField]||0)-qty); srcRow._dirty = true; }
 
-          if(wasConfirmed){
+          // Bên nhận: chỉ trừ local khi kỳ ghi nhận (_rxPer) trùng kỳ đang xem
+          if(wasConfirmed && _rxPer===periodKey){
             var dstArr2=(rcvUnit===BVPH)?bvphData:bcData;
             var dstRow2=dstArr2.find(function(r){
-              return r.bcMonth===tPeriod&&r.drug===t.drug&&r.lot===t.lot&&r.exp===t.exp
+              return r.bcMonth===_rxPer&&r.drug===t.drug&&r.lot===t.lot&&r.exp===t.exp
                 &&(rcvUnit===BVPH?(r.unit===BVPH||r.unit==='bvph'):r.unit===rcvUnit);
             });
             if(dstRow2){ dstRow2[isdc3?'tinh':'dc']=Math.max(0,(dstRow2[isdc3?'tinh':'dc']||0)-qty); dstRow2._dirty = true; }
@@ -11560,7 +11577,13 @@ async function cancelTransferById(transferId, toUnit){
         setTimeout(renderTQTransfers, 800);
 
         // Cascade cập nhật tồn đầu kỳ sau vì tồn cuối vừa đổi
-        try{ if(typeof _scheduleCascade==='function') _scheduleCascade(tPeriod); }catch(e){}
+        // (phiếu liên tháng: kỳ gửi và kỳ nhận khác nhau → cascade cả hai)
+        try{
+          if(typeof _scheduleCascade==='function'){
+            _scheduleCascade(tPeriod);
+            if(_rxPer && _rxPer !== tPeriod) _scheduleCascade(_rxPer);
+          }
+        }catch(e){}
 
         var msg = 'Đã hủy phiếu '+(t.qty||0).toLocaleString()+' viên '+t.drug;
         if(wasConfirmed) msg += ' — đã trừ lại số nhập ĐC của '+rcvUnit;
@@ -11816,6 +11839,20 @@ async function _editTransferDate(transferId, field, currentVal){
           body: JSON.stringify(body3)
         });
         if(!p3.ok) throw new Error('Cập nhật phiếu lỗi '+p3.status);
+
+        // Số liệu 2 kỳ vừa đổi → cascade tồn đầu cho các kỳ kế tiếp của CẢ HAI
+        try{
+          if(typeof _scheduleCascade==='function'){
+            _scheduleCascade(oldPeriod);
+            _scheduleCascade(newPeriod);
+          }
+        }catch(e){}
+        // Xuất Tổ CL của BVPH = Σ tinh → tính lại nếu vừa đụng cột tinh
+        if(affField==='tinh'){
+          try{
+            if(typeof _scheduleDc2Sync==='function'){ _scheduleDc2Sync(oldPeriod); _scheduleDc2Sync(newPeriod); }
+          }catch(e){}
+        }
 
         toast('✓ Đã chuyển '+qty.toLocaleString('vi-VN')+' viên: '+_fmtPeriodVN(oldPeriod)+' → '+_fmtPeriodVN(newPeriod),'var(--success)');
         _tqTransferCache = null;
