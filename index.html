@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-receive-date';
+window.APP_VERSION = 'v2026.07.17-receive-date-2';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Tính năng Ngày nhận: ĐÃ CÓ', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Ngày nhận + lọc kỳ client-side', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -11137,41 +11137,28 @@ async function showDcDetail(prefix, rowIdx){
   var transfers = [];
   var _rxColMissing = false;   // true nếu DB chưa có cột receive_date
   if(_supaOnline){
-    var _baseQ = '&to_unit=eq.'+encodeURIComponent(toUnit)
-      +'&drug=eq.'+encodeURIComponent(row.drug)
-      +'&lot=eq.'+encodeURIComponent(row.lot)
-      +'&type=in.(dc2_to_dc,dc3_to_tinh)'
-      +'&status=eq.confirmed'
-      +'&order=created_at.asc';
     try{
-      // Lọc theo NGÀY NHẬN (receive_date) — vì dc được cộng vào kỳ của ngày nhận.
-      // Phiếu cũ chưa có receive_date → lấy theo period.
-      var _pr = _periodRange(periodKey);
-      var _rxFilter = _pr
-        ? '&or=(and(receive_date.gte.'+_pr.from+',receive_date.lt.'+_pr.to+'),and(receive_date.is.null,period.eq.'+encodeURIComponent(periodKey)+'))'
-        : '&period=eq.'+encodeURIComponent(periodKey);
-      var r = await fetch(SUPA_URL+'/rest/v1/transfers?select=*'+_rxFilter+_baseQ, {headers:_supaHdr});
-      if(r.ok){
-        transfers = await r.json();
-      } else {
-        // 400 = cột receive_date chưa tồn tại → fallback query cũ theo period
-        _rxColMissing = true;
-        var r2 = await fetch(
-          SUPA_URL+'/rest/v1/transfers?select=*&period=eq.'+encodeURIComponent(periodKey)+_baseQ,
-          {headers:_supaHdr}
-        );
-        if(r2.ok) transfers = await r2.json();
-      }
-    }catch(e){
-      _rxColMissing = true;
-      try{
-        var r3 = await fetch(
-          SUPA_URL+'/rest/v1/transfers?select=*&period=eq.'+encodeURIComponent(periodKey)+_baseQ,
-          {headers:_supaHdr}
-        );
-        if(r3.ok) transfers = await r3.json();
-      }catch(e2){}
-    }
+      // Lấy TẤT CẢ phiếu confirmed của thuốc+lô này (không lọc kỳ ở server),
+      // rồi lọc kỳ ở client theo NGÀY NHẬN — tránh lỗi cú pháp or() của PostgREST.
+      var _allUrl = SUPA_URL+'/rest/v1/transfers?select=*'
+        +'&to_unit=eq.'+encodeURIComponent(toUnit)
+        +'&drug=eq.'+encodeURIComponent(row.drug)
+        +'&lot=eq.'+encodeURIComponent(row.lot)
+        +'&type=in.(dc2_to_dc,dc3_to_tinh)'
+        +'&status=eq.confirmed'
+        +'&order=created_at.asc';
+      var r = await fetch(_allUrl, {headers:_supaHdr, cache:'no-store'});
+      var _all = r.ok ? await r.json() : [];
+      if(_all.length && !('receive_date' in _all[0])) _rxColMissing = true;
+
+      // Lọc: kỳ của NGÀY NHẬN === kỳ đang xem.
+      // Phiếu chưa có receive_date → dùng period gốc của phiếu (tương thích ngược).
+      transfers = _all.filter(function(t){
+        var rx = t.receive_date || '';
+        var pk = rx ? _periodFromDate(rx) : (t.period || '');
+        return pk === periodKey;
+      });
+    }catch(e){ transfers = []; }
   }
   var old=document.getElementById('_dc_detail_modal'); if(old) old.remove();
   var ov=document.createElement('div');
