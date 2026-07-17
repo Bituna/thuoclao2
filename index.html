@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-qa-10';
+window.APP_VERSION = 'v2026.07.17-auth-rpc-12';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Khóa (thuốc+lô+hạn) nhất quán toàn hệ thống', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Xác thực máy chủ · bcrypt · 100% online', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -2024,15 +2024,35 @@ async function loadCatalogFromCloud(){
 
 async function _loadAccountsFromCloud(){
   if(!_supaOnline) return;
+  // Ưu tiên RPC list_accounts — trả hồ sơ KHÔNG kèm mật khẩu.
+  // Mật khẩu nằm ở private.accounts (băm bcrypt), anon key không đọc được.
+  try{
+    var list = await _rpcListAccounts();
+    if(list && list.length){
+      ACCOUNTS = list;
+      _RPC_AUTH_OK = true;
+      return;
+    }
+  }catch(e){
+    var _m = String(e && e.message || '');
+    if(e && (e.status === 404 || _m.indexOf('list_accounts') >= 0 || _m.indexOf('PGRST202') >= 0)){
+      _RPC_AUTH_OK = false;   // chưa chạy SQL bảo mật
+    }
+  }
+  // Dự phòng: DB chưa có RPC → đọc settings cũ để dropdown không trống.
+  // (Chỉ để hiển thị tên đơn vị; đăng nhập vẫn bắt buộc qua RPC.)
   try{
     var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value&limit=1',{headers:_supaHdr,cache:'no-store'});
     if(r.ok){
       var d = await r.json();
       if(d.length && d[0].value && d[0].value.length > 0){
-        ACCOUNTS = d[0].value;
+        // Gỡ mật khẩu khỏi bản sao trong RAM — không giữ plaintext trong client
+        ACCOUNTS = d[0].value.map(function(a){
+          var o = Object.assign({}, a); delete o.pass; return o;
+        });
       }
     }
-  }catch(e){}
+  }catch(e2){}
 }
 
 // Tải ngưỡng cảnh báo (threshold) từ cloud — KHÔNG dùng localStorage
@@ -2141,18 +2161,8 @@ async function _autoLoadOnLogin(){
     }
     // Admin: tải tất cả
 
-    // Tải ACCOUNTS từ cloud để đảm bảo tài khoản mới được nhận diện
-    if(_supaOnline){
-      try{
-        var acr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.ACCOUNTS&select=value&limit=1',{headers:_supaHdr});
-        if(acr.ok){
-          var acd = await acr.json();
-          if(acd.length && acd[0].value && acd[0].value.length > 0){
-            ACCOUNTS = acd[0].value;
-          }
-        }
-      }catch(e){}
-    }
+    // Tải ACCOUNTS từ cloud (RPC — không kèm mật khẩu)
+    try{ await _loadAccountsFromCloud(); }catch(eAcc){}
 
     // Tải catalog trước (độc lập với reports)
     var cr = await fetch(SUPA_URL+'/rest/v1/catalog?order=drug,lot',{headers:_supaHdr});
@@ -4156,6 +4166,56 @@ function fillDrugSelects(){
 var ROLE_LABELS={admin:'Quản trị viên',bvph:'Nhập liệu Kho chính',donvi:'Nhập liệu đơn vị'};
 var ROLE_COLORS={admin:'#e74c3c',bvph:'#2980b9',donvi:'#27ae60'};
 
+// ══════════════════════════════════════════════════════════════
+// LỚP XÁC THỰC PHÍA MÁY CHỦ (RPC)
+// Mật khẩu băm bcrypt trong private.accounts — KHÔNG BAO GIỜ về client.
+// Client chỉ giữ mật khẩu của CHÍNH người đang đăng nhập, trong RAM,
+// để tái xác thực khi thao tác quản trị. Không ghi ra đĩa ở bất kỳ đâu.
+// ══════════════════════════════════════════════════════════════
+var _RPC_AUTH_OK = null;   // null=chưa biết · true=DB đã có RPC · false=chưa chạy SQL
+
+async function _rpc(fn, args){
+  var r = await fetch(SUPA_URL+'/rest/v1/rpc/'+fn, {
+    method:'POST',
+    headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json'}),
+    body: JSON.stringify(args||{})
+  });
+  if(!r.ok){
+    var t = await r.text().catch(function(){ return ''; });
+    var e = new Error(t || ('HTTP '+r.status));
+    e.status = r.status;
+    throw e;
+  }
+  return await r.json();
+}
+
+// Nạp danh sách tài khoản (KHÔNG có mật khẩu) từ RPC
+async function _rpcListAccounts(){
+  var rows = await _rpc('list_accounts', {});
+  return (rows||[]).map(function(a){
+    var o = { user:a.user_id, name:a.name||'', unit:a.unit||'', role:a.role||'donvi' };
+    if(a.display_unit) o.displayUnit = a.display_unit;
+    return o;   // KHÔNG có field `pass`
+  });
+}
+
+// Thông tin xác thực của người đang đăng nhập (RAM, không lưu đĩa)
+var _authUser = null, _authPass = null;
+function _authArgs(){ return { p_actor: _authUser||'', p_actor_pass: _authPass||'' }; }
+
+// Dịch mã lỗi RPC → câu tiếng Việt
+function _rpcErrMsg(code){
+  var M = {
+    ERR_AUTH:       'Phiên đăng nhập không hợp lệ — hãy đăng nhập lại',
+    ERR_FORBIDDEN:  'Không đủ quyền thực hiện thao tác này',
+    ERR_EMPTY_PASS: 'Mật khẩu không được để trống',
+    ERR_NOT_FOUND:  'Không tìm thấy tài khoản',
+    ERR_SELF:       'Không thể xóa tài khoản đang đăng nhập',
+    ERR_IS_ADMIN:   'Không thể xóa tài khoản Admin — đổi quyền trước'
+  };
+  return M[code] || ('Lỗi: '+code);
+}
+
 // Điền dropdown đơn vị vào màn login — từ ACCOUNTS (tải từ cloud trong checkSupabase)
 function fillLoginUnits() {
     var sel = document.getElementById('l-unit');
@@ -4234,41 +4294,68 @@ function doLogin(){
   var unitVal = sel.value;
   var unitName = sel.options[sel.selectedIndex].dataset.unit || null;
 
-  // Tìm tài khoản: ưu tiên đúng user, fallback đúng unit
-  var acc = ACCOUNTS.find(function(a){ return a.user===unitVal && a.pass===pass; });
-  if(!acc && unitName){
-    acc = ACCOUNTS.find(function(a){ return a.unit===unitName && a.pass===pass; });
-  }
-  if(!acc && _supaOnline){
-    // Mật khẩu có thể vừa đổi ở máy khác → tải lại tài khoản từ cloud rồi thử lại
-    errEl.textContent='Đang kiểm tra tài khoản...'; errEl.style.display='block';
-    _loadAccountsFromCloud().then(function(){
-      var acc2 = ACCOUNTS.find(function(a){ return a.user===unitVal && a.pass===pass; })
-              || (unitName ? ACCOUNTS.find(function(a){ return a.unit===unitName && a.pass===pass; }) : null);
-      if(acc2){ _finishLogin(acc2, unitName); }
-      else { errEl.textContent='Sai mật khẩu!'; errEl.style.display='block'; var lp=document.getElementById('lp'); if(lp){ lp.value=''; lp.focus(); } }
-    }).catch(function(){ errEl.textContent='Sai mật khẩu!'; errEl.style.display='block'; });
+  // ── XÁC THỰC PHÍA MÁY CHỦ ──
+  // Mật khẩu được so khớp bằng bcrypt trong Postgres (RPC verify_login).
+  // Client KHÔNG có bản sao mật khẩu để so sánh → không thể lộ qua devtools/network.
+  if(!_supaOnline){
+    errEl.textContent = 'Không có kết nối máy chủ — phần mềm chạy 100% online, không thể đăng nhập offline.';
+    errEl.style.display = 'block';
     return;
   }
-  if(!acc){
-    errEl.textContent='Sai mật khẩu!'; errEl.style.display='block';
-    var lp = document.getElementById('lp'); if(lp){ lp.value=''; lp.focus(); }
-    return;
-  }
-  if(!acc.unit && unitName){
-    acc.unit = unitName;
-  }
-  if(acc.unit) acc.unit = String(acc.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-  errEl.style.display='none';
-  currentUser = acc;
-  document.getElementById('login-screen').style.display='none';
-  
-  var now = new Date();
-  var cm = now.getMonth() + 1;
-  document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
-  document.getElementById('startup-year').value = now.getFullYear();
-  
-  openModal('modal-startup-period');
+
+  errEl.textContent = 'Đang kiểm tra...'; errEl.style.display = 'block';
+  var _btnLogin = document.querySelector('#login-screen .btn-primary');
+  if(_btnLogin) _btnLogin.disabled = true;
+
+  _rpc('verify_login', { p_user: unitVal, p_pass: pass }).then(function(rows){
+    if(_btnLogin) _btnLogin.disabled = false;
+    _RPC_AUTH_OK = true;
+
+    if(!rows || !rows.length){
+      errEl.textContent = 'Sai mật khẩu!'; errEl.style.display = 'block';
+      var lp0 = document.getElementById('lp'); if(lp0){ lp0.value=''; lp0.focus(); }
+      return;
+    }
+    var r0 = rows[0];
+    var acc = {
+      user: r0.user_id, name: r0.name||'', unit: r0.unit||unitName||'',
+      role: r0.role||'donvi'
+    };
+    if(r0.display_unit) acc.displayUnit = r0.display_unit;
+    if(acc.unit) acc.unit = String(acc.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
+
+    // Giữ thông tin xác thực trong RAM (chỉ phiên này) để tái xác thực thao tác quản trị
+    _authUser = acc.user; _authPass = pass;
+
+    // Đồng bộ vào ACCOUNTS (không có mật khẩu) để phần còn lại của app dùng
+    var _ix = ACCOUNTS.findIndex(function(a){ return a.user === acc.user; });
+    if(_ix >= 0) ACCOUNTS[_ix] = Object.assign({}, ACCOUNTS[_ix], acc);
+    else ACCOUNTS.push(acc);
+
+    errEl.style.display='none';
+    currentUser = acc;
+    document.getElementById('login-screen').style.display='none';
+
+    var now = new Date();
+    var cm = now.getMonth() + 1;
+    document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
+    document.getElementById('startup-year').value = now.getFullYear();
+
+    openModal('modal-startup-period');
+
+  }).catch(function(e){
+    if(_btnLogin) _btnLogin.disabled = false;
+    // Chưa chạy SQL bảo mật → hướng dẫn rõ, KHÔNG âm thầm quay về so sánh plaintext
+    var _msg = String(e && e.message || '');
+    if(e && (e.status === 404 || _msg.indexOf('verify_login') >= 0 || _msg.indexOf('PGRST202') >= 0)){
+      _RPC_AUTH_OK = false;
+      errEl.innerHTML = '⚠ <b>Chưa bật xác thực bảo mật.</b><br>'
+        + '<span style="font-size:11px">Cần chạy file <b>01_bao_mat_tai_khoan.sql</b> trong Supabase → SQL Editor.</span>';
+    } else {
+      errEl.textContent = 'Lỗi kết nối máy chủ: ' + _msg.slice(0,90);
+    }
+    errEl.style.display='block';
+  });
 }
 
 async function confirmStartupPeriod() {
@@ -4733,15 +4820,14 @@ function renderAccounts(){
     var pharmacistCell = '<span style="font-size:12px;color:#333;font-weight:500">'+a.name+'</span>';
 
     // Cột mật khẩu
+    // Mật khẩu được BĂM bcrypt trong private.accounts — không tồn tại ở client,
+    // nên không thể (và không nên) hiển thị. Admin chỉ ĐẶT LẠI, không xem được.
     var passCell='';
     if(isAdminView){
-      passCell='<div style="display:flex;align-items:center;gap:4px;justify-content:center">'
-        +'<span id="pass-mask-'+i+'" style="font-family:monospace;letter-spacing:3px;color:#aaa">•••••</span>'
-        +'<span id="pass-show-'+i+'" style="font-family:monospace;font-size:12px;color:var(--text);display:none;background:#f7f7f7;border-radius:4px;padding:1px 6px">'+a.pass+'</span>'
-        +'<button class="btn btn-xs" style="padding:2px 7px;background:#edf2f7;color:var(--text);font-size:10px;border-radius:5px" '
-        +'onclick="togglePass('+i+')" id="pass-btn-'+i+'" title="Hiện/ẩn">👁</button>'
+      passCell='<div style="display:flex;align-items:center;gap:6px;justify-content:center">'
+        +'<span style="font-family:monospace;letter-spacing:2px;color:#cbd5e1" title="Mật khẩu đã băm — không thể xem">••••••</span>'
         +'<button class="btn btn-xs" style="padding:2px 7px;background:#fff0f0;color:var(--danger);font-size:10px;border-radius:5px" '
-        +'onclick="resetPass('+i+')" title="Đổi mật khẩu">✎</button>'
+        +'onclick="resetPass('+i+')" title="Đặt lại mật khẩu">✎ Đặt lại</button>'
         +'</div>';
     } else {
       passCell='<span style="font-family:monospace;letter-spacing:3px;color:#ccc">•••••</span>';
@@ -4798,11 +4884,16 @@ function resetPass(i){
   np=np.trim();
   if(!np){toast('Mật khẩu không được để trống!','var(--danger)');return;}
   if(np.length<1){toast('Mật khẩu không được để trống!','var(--danger)');return;}
-  ACCOUNTS[i].pass=np;
-  saveLocalCache(buildPayload());
-  _saveAccountsToCloud();
-  renderAccounts();
-  toast('Đã đặt lại mật khẩu cho "'+ACCOUNTS[i].name+'"','var(--success)');
+  // Đổi mật khẩu qua RPC — mật khẩu được băm phía máy chủ, không lưu ở client
+  var _tgt = ACCOUNTS[i];
+  _rpc('change_password', Object.assign(_authArgs(), { p_target: _tgt.user, p_new_pass: np }))
+    .then(function(res){
+      if(res !== 'OK'){ toast('✕ '+_rpcErrMsg(res), 'var(--danger)'); return; }
+      toast('✓ Đã đặt lại mật khẩu cho "'+(_tgt.name||_tgt.user)+'" — có hiệu lực ngay','var(--success)');
+      // Nếu admin tự đổi mật khẩu của chính mình → cập nhật thông tin phiên
+      if(_tgt.user === _authUser) _authPass = np;
+    })
+    .catch(function(e){ toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)'); });
 }
 // ============================================================
 // MODAL SYSTEM — chuẩn, không phụ thuộc stacking context
@@ -4924,13 +5015,16 @@ function saveNewAccount(){
   while(ACCOUNTS.find(function(a){return a.user===user;})){
     user=baseSlug+idx; idx++;
   }
-  ACCOUNTS.push({name:name,user:user,pass:pass,unit:unit,role:role});
-  saveLocalCache(buildPayload());
-  _saveAccountsToCloud();
   closeModal('modal-acc');
-  renderAccounts();
-  fillLoginUnits(); // cập nhật dropdown đăng nhập
-  toast('Đã tạo tài khoản cho '+unit+' (đăng nhập: '+user+')','var(--success)');
+  _rpc('upsert_account', Object.assign(_authArgs(), {
+    p_user:user, p_name:name, p_unit:unit, p_role:role, p_display_unit:'', p_new_pass:pass
+  })).then(function(res){
+    if(res !== 'OK'){ toast('✕ '+_rpcErrMsg(res), 'var(--danger)'); return; }
+    return _loadAccountsFromCloud().then(function(){
+      renderAccounts(); fillLoginUnits();
+      toast('✓ Đã tạo tài khoản cho '+unit+' (đăng nhập: '+user+')','var(--success)');
+    });
+  }).catch(function(e){ toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)'); });
 }
 function editAccount(i){
   if(!isAdmin()){toast('Chỉ Admin mới sửa tài khoản!','var(--danger)');return;}
@@ -4941,12 +5035,18 @@ function editAccount(i){
   if(u === null) return;
   var nTrimmed = n.trim(), uTrimmed = u.trim();
   if(!nTrimmed){toast('Họ tên không được để trống!','var(--danger)');return;}
-  ACCOUNTS[i].name = nTrimmed;
-  if(uTrimmed) ACCOUNTS[i].unit = uTrimmed;
-  saveLocalCache(buildPayload());
-  _saveAccountsToCloud();
-  renderAccounts();
-  toast('Đã cập nhật: '+ACCOUNTS[i].name,'var(--success)');
+  var _ea = ACCOUNTS[i];
+  _rpc('upsert_account', Object.assign(_authArgs(), {
+    p_user: _ea.user, p_name: nTrimmed,
+    p_unit: uTrimmed || _ea.unit, p_role: _ea.role,
+    p_display_unit: _ea.displayUnit || '', p_new_pass: ''   // rỗng = giữ mật khẩu cũ
+  })).then(function(res){
+    if(res !== 'OK'){ toast('✕ '+_rpcErrMsg(res), 'var(--danger)'); return; }
+    return _loadAccountsFromCloud().then(function(){
+      renderAccounts();
+      toast('✓ Đã cập nhật: '+nTrimmed,'var(--success)');
+    });
+  }).catch(function(e){ toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)'); });
 }
 
 var _selfEditIdx = -1;
@@ -4983,8 +5083,7 @@ async function saveSelfAccount(){
 
   if (!newName) { toast('Tên dược sĩ không được để trống!', 'var(--danger)'); return; }
 
-  a.name = newName;
-  if (newPass) a.pass = newPass;
+  var _sOldDisp = a.displayUnit;
 
   // Tên hiển thị đơn vị (chỉ Admin sửa, không áp cho tài khoản admin)
   var dispInp = document.getElementById('self-edit-display');
@@ -5001,17 +5100,39 @@ async function saveSelfAccount(){
     }
   }
 
-  // Cập nhật lại thông tin cá nhân trên thanh Sidebar
-  if (currentUser && currentUser.user === a.user) {
-    currentUser.name = a.name;
-    if (newPass) currentUser.pass = newPass;
-    if (a.displayUnit !== undefined) currentUser.displayUnit = a.displayUnit;
-    document.getElementById('sb-name').textContent = a.name || _displayUnit(a.unit);
+  closeModal('modal-self-edit');
+
+  // ── Gửi RPC: máy chủ băm mật khẩu, client không giữ bản sao ──
+  var _res;
+  try{
+    _res = await _rpc('upsert_account', Object.assign(_authArgs(), {
+      p_user: a.user, p_name: newName,
+      p_unit: a.unit, p_role: a.role,
+      p_display_unit: (isAdmin() && a.role !== 'admin') ? (dispInp ? dispInp.value.trim() : '') : (a.displayUnit||''),
+      p_new_pass: newPass || ''      // rỗng = giữ mật khẩu cũ
+    }));
+  }catch(e){
+    toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)');
+    return;
   }
 
-  saveLocalCache(buildPayload());
-  closeModal('modal-self-edit');
-  var ok = await _saveAccountsToCloud();
+  if(_res !== 'OK'){
+    // Không đổi gì trong RAM → không cần rollback
+    toast('✕ '+_rpcErrMsg(_res), 'var(--danger)');
+    return;
+  }
+
+  // Máy chủ đã ghi xong → mới cập nhật RAM từ danh sách mới
+  if(newPass && a.user === _authUser) _authPass = newPass;   // giữ phiên hợp lệ
+  await _loadAccountsFromCloud();
+
+  var _me = ACCOUNTS.find(function(x){ return x.user === a.user; });
+  if(currentUser && _me && currentUser.user === _me.user){
+    currentUser.name = _me.name;
+    currentUser.displayUnit = _me.displayUnit;
+    var _sb = document.getElementById('sb-name');
+    if(_sb) _sb.textContent = _me.name || _displayUnit(_me.unit);
+  }
 
   // Đổi tên hiển thị → làm mới TOÀN BỘ giao diện để áp dụng ngay
   if(displayChanged){
@@ -5019,11 +5140,9 @@ async function saveSelfAccount(){
   }
   renderAccounts();
 
-  if(ok){
-    var msg = newPass ? 'Đã đổi mật khẩu' : 'Đã cập nhật';
-    if(displayChanged) msg += ' + đổi tên hiển thị "'+_displayUnit(a.unit)+'" (áp dụng toàn phần mềm)';
-    toast(msg + ' & lưu lên cloud thành công!', 'var(--success)');
-  }
+  var msg = newPass ? '✓ Đã đổi mật khẩu — lần đăng nhập sau dùng mật khẩu mới' : '✓ Đã cập nhật';
+  if(displayChanged) msg += ' + đổi tên hiển thị "'+_displayUnit(a.unit)+'" (áp dụng toàn phần mềm)';
+  toast(msg, 'var(--success)');
 }
 
 // Làm mới mọi nơi hiển thị tên đơn vị sau khi đổi tên hiển thị
@@ -5117,16 +5236,25 @@ function saveRole(){
   var newPass=_rnp?_rnp.value.trim():'';
   var RLABELS={admin:'Quản trị viên',bvph:'Nhập liệu Kho chính',donvi:'Nhập liệu đơn vị'};
   var oldName=target.name;
-  target.role=newRole;
-  if(newPass) target.pass=newPass;
   closeModal('modal-role');
   var _rnp2=document.getElementById('role-new-pass');if(_rnp2)_rnp2.value='';
-  saveLocalCache(buildPayload());
-  _saveAccountsToCloud();
-  renderAccounts();
-  var msg='Đã đổi quyền "'+oldName+'" → '+RLABELS[newRole];
-  if(newPass) msg+=' + đổi mật khẩu';
-  toast(msg,'var(--success)');
+
+  // Máy chủ là nguồn chân lý: gửi RPC, thành công mới nạp lại danh sách
+  _rpc('upsert_account', Object.assign(_authArgs(), {
+    p_user: target.user, p_name: target.name,
+    p_unit: target.unit, p_role: newRole,
+    p_display_unit: target.displayUnit || '',
+    p_new_pass: newPass || ''          // rỗng = giữ mật khẩu cũ
+  })).then(function(res){
+    if(res !== 'OK'){ toast('✕ '+_rpcErrMsg(res), 'var(--danger)'); return; }
+    if(newPass && target.user === _authUser) _authPass = newPass;
+    return _loadAccountsFromCloud().then(function(){
+      renderAccounts();
+      var msg='✓ Đã đổi quyền "'+oldName+'" → '+RLABELS[newRole];
+      if(newPass) msg+=' + đổi mật khẩu (có hiệu lực ngay)';
+      toast(msg,'var(--success)');
+    });
+  }).catch(function(e){ toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)'); });
   _roleEditIdx=-1;
 }
 
@@ -5137,12 +5265,15 @@ function deleteAccount(i){
   if(currentUser&&a.user===currentUser.user){toast('Không xóa tài khoản đang đăng nhập!','var(--danger)');return;}
   if(a.role==='admin'){toast('Không thể xóa tài khoản Admin! Đổi quyền trước rồi mới xóa.','var(--danger)');return;}
   _confirmModal('Xóa tài khoản?','Xóa tài khoản "'+a.name+'" ('+a.user+')? Hành động không thể hoàn tác.', function(){
-    ACCOUNTS.splice(i,1);
-    saveLocalCache(buildPayload());
-    _saveAccountsToCloud();
-    fillLoginUnits();
-    renderAccounts();
-    toast('Đã xóa: '+a.name,'var(--danger)');
+    _rpc('delete_account', Object.assign(_authArgs(), { p_target: a.user }))
+      .then(function(res){
+        if(res !== 'OK'){ toast('✕ '+_rpcErrMsg(res), 'var(--danger)'); return; }
+        return _loadAccountsFromCloud().then(function(){
+          fillLoginUnits(); renderAccounts();
+          toast('✓ Đã xóa: '+(a.name||a.user),'var(--danger)');
+        });
+      })
+      .catch(function(e){ toast('✕ Lỗi máy chủ: '+String(e.message).slice(0,80),'var(--danger)'); });
   });
 }
 
