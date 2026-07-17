@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-receive-date-6';
+window.APP_VERSION = 'v2026.07.17-qa-8';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Điều chuyển: audit 26/26 · hủy/cascade đúng kỳ', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ QA thông báo: đúng vai · đúng ngày · đúng kỳ', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -5633,6 +5633,7 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
         var pk = p.year+'-'+m;
         return fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(pk)
           +'&status=not.in.(cancelled,cancel_notif)'
+          +'&type=in.(dc2_to_dc,dc3_to_tinh,dc3_province)'
           +'&order=transfer_date.desc,created_at.desc',
           {headers:_supaHdr})
           .then(function(r){ return r.ok?r.json():[]; })
@@ -5661,6 +5662,7 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
       var _res = await Promise.all(_periods.map(function(pk){
         return fetch(SUPA_URL+'/rest/v1/transfers?period=eq.'+encodeURIComponent(pk)
           +'&status=not.in.(cancelled,cancel_notif)'
+          +'&type=in.(dc2_to_dc,dc3_to_tinh,dc3_province)'
           +'&order=transfer_date.desc,created_at.desc',
           {headers:_supaHdr})
           .then(function(rr){ return rr.ok?rr.json():[]; })
@@ -8113,18 +8115,31 @@ function renderNotifPanel(notifs){
       icon = '<i class="ti ti-circle-x" style="font-size:16px;color:#E24B4A;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
       if(isAdminView){
         // Admin thấy đầy đủ cả 2 đầu
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b>';
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b> — đã trả về kho đơn vị xuất';
       } else {
-        // Đơn vị xuất: biết bên nào từ chối
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b>';
+        // Đơn vị xuất: biết bên nào từ chối + số đã về lại kho mình
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> từ chối nhận <b>'+qtyStr+'</b>'
+            + ' — <span style="color:#16a34a;font-weight:600">số thuốc đã trả lại kho của bạn</span>';
       }
     } else if(t.status==='confirmed'){
       icon = '<i class="ti ti-circle-check" style="font-size:16px;color:#1D9E75;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
+      // Kỳ ghi nhận bên nhận: dc3_to_tinh theo ngày chuyển, còn lại theo ngày NHẬN
+      var _cfPer = (t.type==='dc3_to_tinh')
+        ? (t.period||'')
+        : ((t.receive_date && _periodFromDate(t.receive_date)) || t.period || '');
+      var _cfPerTxt = _cfPer ? ' — vào báo cáo <b>'+_fmtPeriodVN(_cfPer)+'</b>' : '';
       if(isAdminView){
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> xác nhận nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b>';
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> xác nhận nhận <b>'+qtyStr+'</b> của <b>'+_displayUnitForTuyen(t.from_unit)+'</b>'+_cfPerTxt;
       } else {
-        msg = '<b>'+_displayUnit(t.to_unit)+'</b> đã xác nhận nhận <b>'+qtyStr+'</b>';
+        msg = '<b>'+_displayUnit(t.to_unit)+'</b> đã xác nhận nhận <b>'+qtyStr+'</b>'+_cfPerTxt;
       }
+    } else if(t.status==='date_changed'){
+      // Admin sửa ngày phiếu → số liệu chuyển kỳ, đơn vị cần biết
+      icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">📅</span>';
+      msg = 'Admin đã sửa ngày phiếu <b>'+qtyStr+'</b>'
+          + (t.drug ? '' : '')
+          + ' — <span style="color:#e67e22;font-weight:600">số liệu đã chuyển kỳ báo cáo</span>'
+          + (t.lot ? '' : '');
     } else if(!t.status || t.status==='pending'){
       // Phiếu chờ xác nhận
       icon = '<i class="ti ti-package" style="font-size:16px;color:#f39c12;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
@@ -8144,14 +8159,18 @@ function renderNotifPanel(notifs){
       msg = 'Đơn vị <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">XÓA</span> dữ liệu báo cáo kỳ ' + (t.period ? _keyToLabel(t.period) : '') + (t.drug?': '+t.drug:'');
     } else if(t.status==='cancelled'){
       icon = '<i class="ti ti-ban" style="font-size:16px;color:#888;flex-shrink:0;margin-top:1px" aria-hidden="true"></i>';
+      // LƯU Ý: phiếu có thể bị hủy bởi Admin HOẶC bởi chính đơn vị xuất (khi xóa ô Xuất Tổ CL).
+      // Bảng transfers không lưu "ai hủy" → dùng câu trung lập, đúng trong mọi trường hợp.
       if(t.type==='cancel_notif'){
-        // Thông báo cho bên XUẤT: bạn đã thu hồi
-        msg = 'Bạn đã thu hồi phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b>';
+        // Gửi cho bên XUẤT
+        msg = 'Phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b> đã bị <span style="color:#e74c3c;font-weight:600">hủy</span>'
+            + ' — số thuốc đã được trả lại kho của bạn';
       } else if(isAdminView){
-        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b>';
+        msg = 'Phiếu điều chuyển <b>'+qtyStr+'</b> từ <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đến <b>'+_displayUnit(t.to_unit)+'</b> đã bị <span style="color:#e74c3c">hủy</span>';
       } else {
-        // Thông báo cho bên NHẬN: đơn vị xuất đã thu hồi
-        msg = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã <span style="color:#e74c3c;font-weight:600">thu hồi</span> phiếu điều chuyển <b>'+qtyStr+'</b> cho bạn';
+        // Gửi cho bên NHẬN
+        msg = 'Phiếu điều chuyển <b>'+qtyStr+'</b> từ <b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã bị <span style="color:#e74c3c;font-weight:600">hủy</span>'
+            + ' — bạn không cần xác nhận nữa';
       }
     } else if(t.status==='locked'){
       icon = '<span style="font-size:16px;flex-shrink:0;margin-top:1px">🔒</span>';
@@ -8162,7 +8181,16 @@ function renderNotifPanel(notifs){
     }
     if(!msg) return '';
 
-    var dt = t.created_at ? _fmtDate(t.created_at) : '';
+    // Ngày hiển thị: dòng thời gian phải khớp NỘI DUNG thông báo, không phải luôn là ngày tạo phiếu.
+    //   confirmed → ngày NHẬN thực tế (receive_date)
+    //   khác      → ngày tạo bản ghi thông báo
+    var _evDate = (t.status==='confirmed' && t.receive_date) ? t.receive_date : t.created_at;
+    var dt = _evDate ? _fmtDate(_evDate) : '';
+    // Phiếu điều chuyển: ghi thêm ngày chuyển để đối chiếu khi 2 mốc lệch nhau
+    if(t.qty && t.transfer_date && t.type!=='report_log' && t.type!=='system_notif'){
+      var _txD = _fmtDate(t.transfer_date);
+      if(_txD && _txD !== dt) dt += ' · phiếu chuyển ngày ' + _txD;
+    }
     var clickFn=(!t.status||t.status==='pending')?'openPendingTransferById(\''+t.id+'\')':'markNotifRead(\''+t.id+'\')';
     return '<div onclick="'+clickFn+'" style="padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;background:'+bg+';display:flex;gap:10px;align-items:flex-start">'
       +icon
@@ -8474,11 +8502,17 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     rxWrap.style.cssText = 'background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:9px 12px;margin-bottom:10px';
     var _todayISO = (function(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
     var _rxInputId = 'rx-date-' + t.id;
+    // Ngày nhận KHÔNG được trước ngày chuyển (không thể nhận trước khi gửi)
+    var _txISOMin = t.transfer_date ? String(t.transfer_date).slice(0,10)
+                  : (t.created_at ? String(t.created_at).slice(0,10) : '');
+    // Mặc định: hôm nay, nhưng nếu ngày chuyển ở tương lai (lệch giờ máy) thì lấy ngày chuyển
+    var _rxDefault = (_txISOMin && _txISOMin > _todayISO) ? _txISOMin : _todayISO;
     rxWrap.innerHTML = ''
       + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<label for="'+_rxInputId+'" style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.3px">Ngày nhận thuốc</label>'
-        + '<input type="date" id="'+_rxInputId+'" value="'+_todayISO+'" max="'+_todayISO+'" '
-          + 'style="padding:5px 9px;border:1px solid #7dd3fc;border-radius:7px;font-size:12px;font-weight:600;color:#0c4a6e;background:white">'
+        + '<input type="date" id="'+_rxInputId+'" value="'+_rxDefault+'" max="'+_todayISO+'"'
+          + (_txISOMin ? ' min="'+_txISOMin+'"' : '')
+          + ' style="padding:5px 9px;border:1px solid #7dd3fc;border-radius:7px;font-size:12px;font-weight:600;color:#0c4a6e;background:white">'
         + '<span id="'+_rxInputId+'-note" style="font-size:11px;color:#0369a1"></span>'
       + '</div>';
 
@@ -8552,7 +8586,36 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           // 0b. Lấy NGÀY NHẬN do đơn vị chọn → quyết định kỳ báo cáo bên NHẬN
           var _rxInput = document.getElementById('rx-date-' + transfer.id);
           var _rxDate = (_rxInput && _rxInput.value) ? _rxInput.value : _todayISO;
+
+          // 0c. VALIDATE ngày nhận (phòng trình duyệt bỏ qua min/max của input)
+          if(_rxDate > _todayISO){
+            toast('⚠ Ngày nhận không được ở tương lai','var(--danger)');
+            btnOK.disabled=false; btnOK.textContent='✓ Xác nhận'; return;
+          }
+          var _txMin = transfer.transfer_date ? String(transfer.transfer_date).slice(0,10) : '';
+          if(_txMin && _rxDate < _txMin){
+            toast('⚠ Ngày nhận không được trước ngày chuyển ('+_fmtDate(_txMin)+')','var(--danger)');
+            btnOK.disabled=false; btnOK.textContent='✓ Xác nhận'; return;
+          }
+
           var _rxPeriod = _periodFromDate(_rxDate) || transfer.period || periodKey || _currentPeriodKey();
+
+          // 0d. Cảnh báo nếu kỳ ghi nhận ĐÃ KHÓA — số sẽ vào kỳ đã chốt
+          var _myLockKey = (myUnit===BVPH||myUnit==='bvph') ? (_rxPeriod+'_bvph') : (_rxPeriod+'_'+myUnit);
+          var _rxLocked = !!(typeof lockedPeriods!=='undefined' &&
+                             (lockedPeriods[_myLockKey] || lockedPeriods[_rxPeriod]));
+          if(_rxLocked){
+            var _okLocked = await new Promise(function(res){
+              _confirmModal('⚠ Kỳ báo cáo đã khóa',
+                '<div style="font-size:13px;line-height:1.7">'
+                + 'Ngày nhận <b>'+_fmtDate(_rxDate)+'</b> thuộc <b>'+_fmtPeriodVN(_rxPeriod)+'</b> — kỳ này <b style="color:#dc2626">ĐÃ CHỐT</b>.<br><br>'
+                + 'Xác nhận sẽ cộng <b>'+(transfer.qty||0).toLocaleString('vi-VN')+' viên</b> vào báo cáo đã chốt, làm thay đổi số liệu đã nộp.<br><br>'
+                + '<b style="color:#b45309">Nên chọn ngày nhận thuộc kỳ chưa chốt, hoặc báo Admin mở khóa trước.</b>'
+                + '</div>',
+                function(){ res(true); }, function(){ res(false); }, 'Vẫn xác nhận');
+            });
+            if(!_okLocked){ btnOK.disabled=false; btnOK.textContent='✓ Xác nhận'; return; }
+          }
 
           // 1. Cập nhật status = confirmed + lưu receive_date — ATOMIC: chỉ PATCH nếu đang pending
           var _patchRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id+'&status=eq.pending', {
@@ -8721,26 +8784,111 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
       };
 
       btnNo.onclick = async function(){
-        if(!confirm('Từ chối phiếu này? Đơn vị xuất sẽ được thông báo.')) return;
-        btnNo.disabled = true; btnNo.textContent = '⏳';
-        try{
-          var _rejectRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id, {
-            method:'PATCH',
-            headers: Object.assign({}, _supaHdr, {'Prefer':'return=minimal','Content-Type':'application/json'}),
-            body: JSON.stringify({status:'rejected', notif_for: transfer.from_unit, notif_read: false})
-          });
-          if(!_rejectRes.ok){
-            var _rejErr = await _rejectRes.text().catch(function(){return '';});
-            throw new Error('Lỗi '+_rejectRes.status+': '+_rejErr.slice(0,80));
+        var _qtyTxt = (transfer.qty||0).toLocaleString('vi-VN');
+        var _srcName = _displayUnit(transfer.from_unit);
+        var _isDc3 = (transfer.type === 'dc3_to_tinh');
+        var _srcFld = _isDc3 ? 'dc3' : 'dc2';
+        var _srcFldTxt = _isDc3 ? 'Xuất tỉnh khác' : 'Xuất ĐC';
+
+        var _rejMsg = '<div style="font-size:13px;line-height:1.7">'
+          + 'Từ chối nhận <b>'+_qtyTxt+' viên '+transfer.drug+'</b> từ <b>'+_srcName+'</b>?<br><br>'
+          + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 11px">'
+            + 'Số thuốc sẽ được <b>trả lại kho</b> của '+_srcName+':<br>'
+            + '<span style="color:#16a34a;font-weight:700">Cột '+_srcFldTxt+' TRỪ '+_qtyTxt+' viên</span>'
+          + '</div>'
+          + '<br>Đơn vị xuất sẽ nhận được thông báo.'
+          + '</div>';
+
+        _confirmModal('Từ chối phiếu điều chuyển?', _rejMsg, async function(){
+          btnNo.disabled = true; btnNo.textContent = '⏳';
+          try{
+            // 1) Đánh dấu rejected — ATOMIC: chỉ khi còn pending
+            var _rejectRes = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+transfer.id+'&status=eq.pending', {
+              method:'PATCH',
+              headers: Object.assign({}, _supaHdr, {'Prefer':'return=representation','Content-Type':'application/json'}),
+              body: JSON.stringify({status:'rejected', notif_for: transfer.from_unit, notif_read: false})
+            });
+            if(!_rejectRes.ok){
+              var _rejErr = await _rejectRes.text().catch(function(){return '';});
+              throw new Error('Lỗi '+_rejectRes.status+': '+_rejErr.slice(0,80));
+            }
+            var _rejRows = await _rejectRes.json().catch(function(){ return []; });
+            if(!_rejRows.length){
+              card.style.cssText = 'background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;margin-bottom:10px';
+              card.innerHTML = '<span style="color:#92400e;font-size:12px">⚠ Phiếu đã được xử lý ở nơi khác — không cần từ chối lại</span>';
+              toast('⚠ Phiếu đã được xử lý ở nơi khác','var(--warning)');
+              try{ loadNotifications(); }catch(e){}
+              return;
+            }
+
+            // 2) TRẢ LẠI KHO bên gửi: trừ dc2/dc3 ở kỳ ngày chuyển
+            //    (Trước đây thiếu bước này → bên gửi đã ghi xuất mà không ai nhận
+            //     → thuốc "bốc hơi" khỏi hệ thống.)
+            var _srcPer  = transfer.period || _currentPeriodKey();
+            var _srcUnit = (transfer.from_unit===BVPH||transfer.from_unit==='bvph') ? 'bvph' : transfer.from_unit;
+            var _rejExpQ = '&exp=eq.'+encodeURIComponent(transfer.exp||'');
+            var _srcQ = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(_srcPer)
+              +'&unit=eq.'+encodeURIComponent(_srcUnit)
+              +'&drug=eq.'+encodeURIComponent(transfer.drug)
+              +'&lot=eq.'+encodeURIComponent(transfer.lot)
+              + _rejExpQ + '&select=id,'+_srcFld;
+            var _srcR = await fetch(_srcQ, {headers:_supaHdr, cache:'no-store'});
+            if(_srcR.ok){
+              var _srcRows = await _srcR.json();
+              for(var _si=0; _si<_srcRows.length; _si++){
+                var _sv = _srcRows[_si];
+                var _newSv = Math.max(0, (_sv[_srcFld]||0) - (transfer.qty||0));
+                var _bodySv = {}; _bodySv[_srcFld] = _newSv;
+                await fetch(SUPA_URL+'/rest/v1/reports?id=eq.'+_sv.id, {
+                  method:'PATCH',
+                  headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+                  body: JSON.stringify(_bodySv)
+                });
+              }
+            }
+
+            // 3) Nếu là phiếu Tổ CL (tinh đã cộng ngay lúc xuất) → trừ tinh bên nhận
+            if(_isDc3){
+              var _rxUnit = (transfer.to_unit===BVPH||transfer.to_unit==='bvph') ? 'bvph' : transfer.to_unit;
+              var _rxQ = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(_srcPer)
+                +'&unit=eq.'+encodeURIComponent(_rxUnit)
+                +'&drug=eq.'+encodeURIComponent(transfer.drug)
+                +'&lot=eq.'+encodeURIComponent(transfer.lot)
+                + _rejExpQ + '&select=id,tinh';
+              var _rxR = await fetch(_rxQ, {headers:_supaHdr, cache:'no-store'});
+              if(_rxR.ok){
+                var _rxRows = await _rxR.json();
+                for(var _ri=0; _ri<_rxRows.length; _ri++){
+                  var _rv = _rxRows[_ri];
+                  await fetch(SUPA_URL+'/rest/v1/reports?id=eq.'+_rv.id, {
+                    method:'PATCH',
+                    headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+                    body: JSON.stringify({tinh: Math.max(0, (_rv.tinh||0) - (transfer.qty||0))})
+                  });
+                }
+              }
+              try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(_srcPer); }catch(e){}
+            }
+
+            // 4) Tồn vừa đổi → cascade
+            try{ if(typeof _scheduleCascade==='function') _scheduleCascade(_srcPer); }catch(e){}
+
+            card.style.cssText = 'background:#fff5f5;border:1px solid #e74c3c;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
+            card.innerHTML = '<span style="color:#e74c3c;font-size:12px">✕ Đã từ chối — đã trả '+_qtyTxt+' viên về kho '+_srcName+'</span>';
+            toast('✓ Đã từ chối — trả '+_qtyTxt+' viên về kho '+_srcName,'var(--warning)');
+            _tqTransferCache = null;
+            setTimeout(function(){
+              try{ loadNotifications(); }catch(e){}
+              try{
+                var _pk = _currentPeriodKey();
+                if(_pk === _srcPer) loadFromSupabase(_pk, true);
+              }catch(e){}
+            }, 600);
+          }catch(e){
+            btnNo.disabled = false; btnNo.textContent = '✕ Từ chối';
+            toast('✕ Lỗi từ chối: '+e.message,'var(--danger)');
           }
-          card.style.cssText = 'background:#fff5f5;border:1px solid #e74c3c;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.7';
-          card.innerHTML = '<span style="color:#e74c3c;font-size:12px">✕ Đã từ chối phiếu điều chuyển này</span>';
-          toast('Đã từ chối — đơn vị xuất sẽ nhận thông báo','var(--warning)');
-          setTimeout(function(){ try{ loadNotifications(); }catch(e){} }, 600);
-        }catch(e){
-          btnNo.disabled = false; btnNo.textContent = '✕ Từ chối';
-          toast('Lỗi từ chối: '+e.message,'var(--danger)');
-        }
+        }, null, 'Từ chối & trả về kho');
       };
     })(t, info, btnRow);
 
@@ -11839,6 +11987,25 @@ async function _editTransferDate(transferId, field, currentVal){
           body: JSON.stringify(body3)
         });
         if(!p3.ok) throw new Error('Cập nhật phiếu lỗi '+p3.status);
+
+        // Báo cho ĐƠN VỊ bị ảnh hưởng biết số liệu của họ vừa nhảy kỳ
+        // (nếu không, đơn vị mở báo cáo thấy số đổi mà không hiểu vì sao)
+        try{
+          if(affUnit && affUnit !== 'admin'){
+            await fetch(SUPA_URL+'/rest/v1/transfers', {
+              method:'POST',
+              headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+              body: JSON.stringify([{
+                period: newPeriod,
+                from_unit: 'admin', to_unit: affUnit,
+                drug: tx.drug, lot: tx.lot, exp: tx.exp||'', qty: qty,
+                type: 'date_changed', status: 'date_changed',
+                transfer_date: tx.transfer_date || null,
+                notif_for: affUnit, notif_read: false
+              }])
+            });
+          }
+        }catch(eN){ console.warn('Gửi thông báo đổi ngày lỗi', eN); }
 
         // Số liệu 2 kỳ vừa đổi → cascade tồn đầu cho các kỳ kế tiếp của CẢ HAI
         try{
