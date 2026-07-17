@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-qa-8';
+window.APP_VERSION = 'v2026.07.17-qa-10';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ QA thông báo: đúng vai · đúng ngày · đúng kỳ', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Khóa (thuốc+lô+hạn) nhất quán toàn hệ thống', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -10602,6 +10602,7 @@ function onDc2BVPHChange(prefix, rowIdx, inp){
             +'&from_unit=eq.'+encodeURIComponent(fromUnit)
             +'&drug=eq.'+encodeURIComponent(row.drug)
             +'&lot=eq.'+encodeURIComponent(row.lot)
+            +'&exp=eq.'+encodeURIComponent(row.exp||'')
             +'&type=eq.dc3_to_tinh&status=eq.pending',
             {headers:_supaHdr})
             .then(function(r){return r.ok?r.json():[];})
@@ -10689,6 +10690,7 @@ async function _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, pre
       +'&from_unit=eq.'+encodeURIComponent(fromUnit)
       +'&drug=eq.'+encodeURIComponent(row.drug)
       +'&lot=eq.'+encodeURIComponent(row.lot)
+      +'&exp=eq.'+encodeURIComponent(row.exp||'')
       +'&type=eq.'+listType
       +'&status=not.in.(cancelled,cancel_notif)',
       {headers:_supaHdr}
@@ -10719,6 +10721,7 @@ async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx
       +'&from_unit=eq.'+encodeURIComponent(fromUnit)
       +'&drug=eq.'+encodeURIComponent(row.drug)
       +'&lot=eq.'+encodeURIComponent(row.lot)
+      +'&exp=eq.'+encodeURIComponent(row.exp||'')
       +'&type=eq.'+listType
       +'&status=not.in.(cancelled,cancel_notif)'
       +'&order=created_at.asc',
@@ -11130,16 +11133,19 @@ async function showDcOutDetail(prefix, rowIdx){
       );
       if(r.ok){
         var all = await r.json();
-        // Lọc đúng thuốc + lô + period ở client
+        // Lọc đúng thuốc + lô + HẠN + period ở client
+        // (exp bắt buộc: cùng lô khác hạn = 2 dòng báo cáo riêng)
         transfers = all.filter(function(t){
           return t.drug === row.drug
             && t.lot === row.lot
+            && _normExp(t.exp) === _normExp(row.exp)
             && t.period === periodKey;
         });
         // Nếu không có phiếu nào trong kỳ, thử lấy tất cả phiếu của lô này (mọi kỳ) để debug
         if(!transfers.length){
           transfersAllPeriods = all.filter(function(t){
-            return t.drug === row.drug && t.lot === row.lot;
+            return t.drug === row.drug && t.lot === row.lot
+              && _normExp(t.exp) === _normExp(row.exp);
           });
         }
       }
@@ -11355,10 +11361,13 @@ async function showDcDetail(prefix, rowIdx){
     try{
       // Lấy TẤT CẢ phiếu confirmed của thuốc+lô này (không lọc kỳ ở server),
       // rồi lọc kỳ ở client theo NGÀY NHẬN — tránh lỗi cú pháp or() của PostgREST.
+      // PHẢI lọc cả `exp`: cùng số lô nhưng khác hạn dùng là 2 dòng báo cáo RIÊNG.
+      // Thiếu filter này → popup gom nhầm phiếu của lô khác hạn, nút Đồng bộ ghi sai số.
       var _allUrl = SUPA_URL+'/rest/v1/transfers?select=*'
         +'&to_unit=eq.'+encodeURIComponent(toUnit)
         +'&drug=eq.'+encodeURIComponent(row.drug)
         +'&lot=eq.'+encodeURIComponent(row.lot)
+        +'&exp=eq.'+encodeURIComponent(row.exp||'')
         +'&type=in.(dc2_to_dc,dc3_to_tinh)'
         +'&status=eq.confirmed'
         +'&order=created_at.asc';
@@ -11477,8 +11486,11 @@ async function showDcDetail(prefix, rowIdx){
   var warnEl = document.createElement('div');
   if(realTotal !== rowDc){
     warnEl.style.cssText='background:#fff3cd;border:1px solid #ffc107;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#856404';
-    warnEl.innerHTML='⚠ <b>Số liệu lệch:</b> Báo cáo ghi <b>'+rowDc.toLocaleString()+' viên</b> nhưng tổng phiếu xác nhận là <b>'+realTotal.toLocaleString()+' viên</b>.'
-      +'<br>Có thể do phiếu bị xóa thủ công trước đây. <b>Ấn "Đồng bộ" để cập nhật lại.</b>';
+    var _dcDiff = rowDc - realTotal;
+    warnEl.innerHTML='⚠ <b>Số liệu lệch '+(_dcDiff>0?'+':'')+_dcDiff.toLocaleString('vi-VN')+' viên</b>'
+      +'<br>Báo cáo ghi <b>'+rowDc.toLocaleString('vi-VN')+' viên</b> · Tổng phiếu xác nhận của lô này <b>'+realTotal.toLocaleString('vi-VN')+' viên</b>'
+      +'<br><span style="color:#78350f">Nguyên nhân thường gặp: phiếu bị xóa thủ công, hoặc lô trùng số nhưng khác hạn dùng đã bị cộng nhầm vào một dòng.</span>'
+      +'<br><b>Ấn "Đồng bộ" để ghi lại đúng '+realTotal.toLocaleString('vi-VN')+' viên cho lô này.</b>';
   }
   var btnRow2=document.createElement('div'); btnRow2.style.cssText='display:flex;justify-content:flex-end;gap:8px;margin-top:4px';
   if(realTotal !== rowDc){
@@ -14720,12 +14732,13 @@ function renderTransferSuggestions(){
   var nMonths = 3;
 
   // Thu thập tất cả thuốc đang có trong kỳ
+  // KHÓA = thuốc + lô + HẠN DÙNG (bắt buộc — cùng lô khác hạn là 2 mặt hàng riêng)
   var allDrugs = {};
   var allData = bvphData.concat(bcData).filter(function(r){ return r.bcMonth===periodKey; });
   allData.forEach(function(r){
     if(!r.drug || !r.lot) return;
-    var k = r.drug + '||' + r.lot;
-    if(!allDrugs[k]) allDrugs[k] = {drug:r.drug, lot:r.lot, units:[]};
+    var k = r.drug + '||' + r.lot + '||' + _normExp(r.exp);
+    if(!allDrugs[k]) allDrugs[k] = {drug:r.drug, lot:r.lot, exp:r.exp||'', units:[]};
     // Tồn cuối = open + tinh + dc - sd - dc2 - dc3 - hh
     var tonCuoi = Math.max(0, (r.open||0)+(r.tinh||0)+(r.dc||0)-(r.sd||0)-(r.dc2||0)-(r.dc3||0)-(r.hh||0));
     allDrugs[k].units.push({unit:r.unit, ton:tonCuoi, r:r});
@@ -14795,7 +14808,7 @@ function renderTransferSuggestions(){
         var qty = Math.min(Math.round(s.surplus * 0.5), d.deficit); // chuyển tối đa 50% phần dư
         if(qty < 10) return; // bỏ qua đề xuất quá nhỏ
         suggestions.push({
-          drug: item.drug, lot: item.lot,
+          drug: item.drug, lot: item.lot, exp: item.exp||'',
           from: s.unit, fromTon: s.ton, fromSurplus: s.surplus, fromAmc: s.amc, fromBn: s.bn,
           bnUsingDrug: s.bnUsingDrug, fromNeedBN: s.needFromBN,
           to: d.unit, toTon: d.ton, toDeficit: d.deficit, toAmc: d.amc, toBn: d.bn,
@@ -14814,10 +14827,10 @@ function renderTransferSuggestions(){
     return;
   }
 
-  // Nhóm theo thuốc
+  // Nhóm theo thuốc + lô + HẠN (mỗi lô-hạn là 1 khối riêng)
   var byDrug = {};
   suggestions.forEach(function(s){
-    var k=s.drug+'||'+s.lot;
+    var k=s.drug+'||'+s.lot+'||'+_normExp(s.exp);
     if(!byDrug[k]) byDrug[k]=[];
     byDrug[k].push(s);
   });
@@ -14826,12 +14839,13 @@ function renderTransferSuggestions(){
 
   Object.keys(byDrug).forEach(function(k){
     var rows = byDrug[k];
-    var drug = rows[0].drug, lot = rows[0].lot;
+    var drug = rows[0].drug, lot = rows[0].lot, _sExp = rows[0].exp||'';
+    var _sExpTxt = _sExp ? (typeof expToMMYYYY==='function' ? expToMMYYYY(_sExp) : _normExp(_sExp)) : '';
     html += '<div style="border:1.5px solid #bae6fd;border-radius:12px;overflow:hidden;background:white;margin-bottom:2px">'
       +'<div style="background:#f0f9ff;border-bottom:1.5px solid #bae6fd;padding:9px 14px;display:flex;align-items:center;gap:10px">'
         +'<div style="width:3px;height:20px;background:#0891b2;border-radius:99px;flex-shrink:0"></div>'
         +'<span style="font-size:13px;font-weight:800;color:#0c4a6e">'+drug+'</span>'
-        +'<span style="font-size:11px;color:#7dd3fc;font-weight:500">Lô '+lot+'</span>'
+        +'<span style="font-size:11px;color:#7dd3fc;font-weight:500">Lô '+lot+(_sExpTxt?' · HD '+_sExpTxt:'')+'</span>'
         +'<span style="margin-left:auto;font-size:10px;background:#e0f2fe;color:#0369a1;font-weight:700;padding:2px 8px;border-radius:99px">'+rows.length+' đề xuất</span>'
       +'</div>'
       +'<div style="display:flex;flex-direction:column">';
