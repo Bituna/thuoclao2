@@ -1348,7 +1348,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
             </tr>
             <tr>
               <th class="hdr-in-sub" style="min-width:58px">Nhập TW</th><th class="hdr-in-sub" title="Nhập điều chuyển từ tỉnh/TP khác" style="min-width:68px">Nhập tỉnh khác</th><th class="hdr-in-sub" title="Nhập điều chuyển từ đơn vị tuyến về" style="min-width:60px">Nhập ĐC</th><th class="hdr-in-sub" style="min-width:62px">Tổng nhập</th>
-              <th class="hdr-out-sub" style="min-width:60px">Sử dụng</th><th class="hdr-out-sub" title="Nhập tay" style="min-width:66px">Xuất Tổ CL</th><th class="hdr-out-sub" style="min-width:68px">Xuất tỉnh khác</th><th class="hdr-out-sub" style="min-width:58px">Hỏng/HH</th><th class="hdr-out-sub" style="min-width:62px">Tổng xuất</th>
+              <th class="hdr-out-sub" style="min-width:60px">Sử dụng</th><th class="hdr-out-sub" title="Tự tính = tổng Tỉnh cấp của các đơn vị tuyến (không nhập tay)" style="min-width:66px">Xuất Tổ CL</th><th class="hdr-out-sub" style="min-width:68px">Xuất tỉnh khác</th><th class="hdr-out-sub" style="min-width:58px">Hỏng/HH</th><th class="hdr-out-sub" style="min-width:62px">Tổng xuất</th>
             </tr>
           </thead>
           <tbody id="bvph-body"></tbody>
@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-receive-date-2';
+window.APP_VERSION = 'v2026.07.17-receive-date-4';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Ngày nhận + lọc kỳ client-side', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Ngày nhận · dc chờ xác nhận · tinh cộng ngay', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -6248,7 +6248,8 @@ function buildTbl(data, bodyId, prefix){
     var row = data[idx];
     var rowIdx = idx; // index trong data[] (= filtered cho bcData)
 
-    // dc2 = Xuất Tổ CL nhập tay của BVPH — KHÔNG auto-fill
+    // dc2 (Xuất Tổ CL của BVPH) = tự tính từ tổng Tỉnh cấp các đơn vị
+    // (do _syncBVPHDc2FromUnits / _syncBVPHDc2ToCloud ghi vào row.dc2) — ô readonly
     var res = calcRow(row);
 
     sumOpen  += (row.open||0);
@@ -6306,7 +6307,7 @@ function buildTbl(data, bodyId, prefix){
           var dc2Fn = isBVPH ? 'onDc2BVPHChange' : 'showDcOutDetail';
           var dc2Color = isBVPH ? '#2ecc71' : '#f59e0b';
           var dc2Bg    = isBVPH ? '#f0fff4' : '#fffbeb';
-          var dc2Title = isBVPH ? 'Xuất Tổ CL → Tỉnh cấp đơn vị tuyến' : 'Bấm xem chi tiết / tạo phiếu điều chuyển';
+          var dc2Title = isBVPH ? 'Tự tính = tổng Tỉnh cấp các đơn vị · Bấm để xuất Tổ CL cho đơn vị tuyến' : 'Bấm xem chi tiết / tạo phiếu điều chuyển';
           // đơn vị tuyến: onfocus → popup chi tiết + có nút tạo phiếu bên trong
           var dc2FocusCall = isBVPH
             ? dc2Fn + '(\'' + prefix + '\',' + rowIdx + ',this)'
@@ -7659,7 +7660,7 @@ function checkMismatch(){
   // dc2 (Xuất Tổ CL) phải = tổng tinh (nhập tỉnh cấp) của các đơn vị
   var KEY = function(r){ return _normStr(r.drug)+'|'+_normStr(r.lot)+'|'+_normExp(r.exp); };
 
-  // Gom Xuất Tổ CL của BVPH theo key (dc2 nhập tay)
+  // Gom Xuất Tổ CL của BVPH theo key (dc2 = tự tính từ tổng tinh đơn vị)
   var bvphBySrc = {};
   bvphFiltered.forEach(function(r){
     var k = KEY(r);
@@ -8421,7 +8422,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
       + '</div>';
 
     // Cập nhật ghi chú kỳ báo cáo khi đổi ngày
-    (function(inputId, txPer){
+    (function(inputId, txPer, txType){
       setTimeout(function(){
         var inp = document.getElementById(inputId);
         var note = document.getElementById(inputId+'-note');
@@ -8429,6 +8430,11 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
         function upd(){
           var p = _periodFromDate(inp.value);
           if(!p){ note.textContent=''; return; }
+          if(txType === 'dc3_to_tinh'){
+            // Tỉnh cấp đã ghi theo ngày Kho chính xuất → ngày nhận chỉ lưu vết
+            note.innerHTML = '<span style="color:#64748b">Chỉ lưu ngày thực nhận — số liệu Tỉnh cấp đã ghi theo ngày Kho chính xuất</span>';
+            return;
+          }
           var pp = p.split('-');
           var same = (p === txPer);
           note.innerHTML = '→ vào báo cáo <b>Tháng '+parseInt(pp[1])+'/'+pp[0]+'</b>'
@@ -8437,7 +8443,7 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
         inp.addEventListener('change', upd);
         upd();
       }, 0);
-    })(_rxInputId, t.period||'');
+    })(_rxInputId, t.period||'', t.type||'');
 
     var btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:8px';
@@ -8510,9 +8516,22 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           }
           // 2. Cộng dc/tinh vào báo cáo — UPSERT TRỰC TIẾP lên Supabase
           // (không dùng saveToSupabase/_dirty để tránh race condition với auto-refresh)
-          // Bên NHẬN cộng dc/tinh vào kỳ của NGÀY NHẬN (không phải kỳ ngày chuyển)
+          // ── Phiếu BVPH → Đơn vị (dc3_to_tinh): `tinh` ĐÃ được cộng ngay lúc BVPH xuất kho
+          //    (xem _applyDc3Transfer). Xác nhận ở đây CHỈ đánh dấu đã nhận + lưu ngày nhận,
+          //    KHÔNG cộng lại để tránh gấp đôi. Đối chiếu thực tế dùng bảng Cấp phát thuốc.
+          if(transfer.type === 'dc3_to_tinh'){
+            card.style.cssText = 'background:#f0fff4;border:1px solid #27ae60;border-radius:8px;padding:8px 12px;margin-bottom:10px;opacity:0.85';
+            card.innerHTML = '<span style="color:#27ae60;font-size:12px">✓ Đã xác nhận nhận '
+              + (transfer.qty||0).toLocaleString('vi-VN') + ' viên ' + transfer.drug
+              + ' ngày ' + _fmtDate(_rxDate) + '</span>';
+            toast('✓ Đã xác nhận nhận thuốc từ Kho chính','var(--success)');
+            try{ loadNotifications(); }catch(e){}
+            return;
+          }
+
+          // ── Phiếu Đơn vị → BVPH/Đơn vị (dc2_to_dc): cộng `dc` vào kỳ của NGÀY NHẬN
           var txPeriod = _rxPeriod;
-          var fieldToUpdate = (transfer.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
+          var fieldToUpdate = 'dc';
           var tExp = transfer.exp || '';
           var _dbUnit = (myUnit===BVPH||myUnit==='bvph') ? 'bvph' : myUnit;
 
@@ -10441,7 +10460,7 @@ function onDc2Change(prefix, rowIdx, inp){
       if(txPeriod === periodKey){
         setTimeout(function(){ _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, prefix, rowIdx, 'dc2_to_dc'); }, 1200);
       }
-      toast('✓ Đã điều chuyển cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên)','#1d4ed8');
+      toast('✓ Đã gửi phiếu cho '+allocs.length+' đơn vị (tổng '+total.toLocaleString()+' viên) · Chờ xác nhận','#1d4ed8');
     }
   });
 }
@@ -10698,30 +10717,11 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPerio
     }
   }
 
-  // Tìm dòng đơn vị nhận
-  var targetArr = (toUnit===BVPH) ? bvphData : bcData;
-  var targetRow = targetArr.find(function(r){
-    return r.bcMonth===periodKey && r.drug===fromRow.drug
-      && r.lot===fromRow.lot && r.exp===fromRow.exp
-      && (toUnit===BVPH ? (r.unit===BVPH||r.unit==='bvph') : r.unit===toUnit);
-  });
-
-  if(!targetRow){
-    // Tự động thêm dòng cho đơn vị nhận
-    var newRow = {
-      unit: toUnit, drug: fromRow.drug, lot: fromRow.lot, exp: fromRow.exp||'',
-      open:0, tinh:0, ntk:0, dc:0, sd:0, dc2:0, dc3:0, hh:0,
-      locked:false, editing:false, bcMonth:periodKey, openLocked:false
-    };
-    newRow._dirty=true; if(toUnit===BVPH){ bvphData.push(newRow); targetArr=bvphData; }
-    else { bcData.push(newRow); targetArr=bcData; }
-    targetRow = newRow;
-    toast('Đã tự động thêm dòng "'+fromRow.drug+'" vào báo cáo của '+toUnit,'#1a5276');
-  }
-
-  // Cộng delta vào dc của đơn vị nhận (delta có thể âm)
-  targetRow.dc = Math.max(0, (targetRow.dc||0) + qty); 
-  targetRow._dirty=true;
+  // ⚠ KHÔNG cộng dc cho đơn vị nhận ở đây!
+  // Phiếu tạo ra ở trạng thái "pending" — dc chỉ được cộng KHI đơn vị nhận XÁC NHẬN,
+  // và cộng vào kỳ của NGÀY NHẬN (receive_date) do họ chọn.
+  // (Trước đây cộng ngay tại đây → xác nhận xong bị cộng lần 2 = GẤP ĐÔI,
+  //  đồng thời cộng sai kỳ vì chưa biết ngày nhận.)
 
   renderBVPH(); renderBC(); renderTP();
   _syncPeriodToCloud();
@@ -10732,7 +10732,7 @@ function _applyTransfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPerio
       .then(function(saved){
         if(saved && saved.id) _printTransfers.push(saved);
         else _cacheTransfers(periodKey);
-        toast('✓ Đã điều chuyển '+qty.toLocaleString()+' viên → '+toUnit+' | Phiếu đã lưu','#27ae60');
+        toast('✓ Đã gửi '+qty.toLocaleString()+' viên → '+toUnit+' · Chờ đơn vị nhận xác nhận','#27ae60');
         try{ renderTQTransfers(); }catch(e){}
       })
       .catch(function(e){
@@ -10805,12 +10805,14 @@ function _applyDc3Transfer(prefix, fromIdx, fromRow, qty, fromUnit, toUnit, txPe
     toast('Đã tự động thêm dòng "'+fromRow.drug+'" vào báo cáo của '+toUnit,'#1a5276');
   }
 
-  // Cộng vào tinh (Tỉnh cấp) của đơn vị nhận
-  targetRow.tinh = (targetRow.tinh||0) + qty; targetRow._dirty=true;
+  // BVPH → Đơn vị: cộng `tinh` NGAY, KHÔNG chờ xác nhận.
+  // (Xuất Tổ CL của BVPH = Σ tinh các đơn vị → phải lên số ngay khi xuất kho.
+  //  Việc đối chiếu thực tế dùng bảng Cấp phát thuốc riêng.)
+  // → Khi đơn vị bấm xác nhận, code confirm KHÔNG cộng lại (xem _confirmSkipAdd).
+  targetRow.tinh = (targetRow.tinh||0) + qty;
   targetRow._dirty = true;
 
-  // Tính lại dc2 của bvph (= tổng tinh đơn vị) TRƯỚC khi render và lưu cloud
-  // để đảm bảo dc2 đúng và được PATCH lên Supabase ngay
+  // Tính lại dc2 của bvph (= tổng tinh đơn vị)
   var dc2Changed = (typeof _syncBVPHDc2FromUnits==='function') ? _syncBVPHDc2FromUnits() : false;
 
   renderBVPH(); renderBC(); renderTP();
@@ -11599,16 +11601,53 @@ async function _editTransferDate(transferId, field, currentVal){
     var newPeriod = _periodFromDate(newISO);
     if(!newPeriod){ toast('Ngày không hợp lệ','var(--danger)'); return; }
 
-    // Xác định đơn vị + cột bị ảnh hưởng
+    // Xác định đơn vị + cột bị ảnh hưởng theo LOẠI phiếu
     var affUnit, affField;
-    if(isRx){
-      affUnit  = tx.to_unit;
-      affField = (tx.type === 'dc3_to_tinh') ? 'tinh' : 'dc';
+    var _noMove = false;   // true = đổi ngày không ảnh hưởng số liệu
+    if(tx.type === 'dc3_to_tinh'){
+      // BVPH → Đơn vị: `tinh` cộng theo NGÀY CHUYỂN (không chờ xác nhận)
+      // → sửa ngày NHẬN chỉ là ghi chú, không di chuyển số liệu.
+      if(isRx){
+        _noMove = true;
+      } else {
+        affUnit  = tx.to_unit;      // tinh nằm ở đơn vị NHẬN
+        affField = 'tinh';
+      }
     } else {
-      affUnit  = tx.from_unit;
-      affField = (tx.type === 'dc3_to_tinh' || tx.type === 'dc3_province') ? 'dc3' : 'dc2';
+      // Đơn vị → BVPH/Đơn vị (dc2_to_dc):
+      //   ngày NHẬN  → kỳ của `dc`  (bên nhận)
+      //   ngày CHUYỂN → kỳ của `dc2` (bên gửi)
+      if(isRx){
+        affUnit  = tx.to_unit;
+        affField = 'dc';
+      } else {
+        affUnit  = tx.from_unit;
+        affField = 'dc2';
+      }
     }
-    var dbUnit = (affUnit===BVPH || affUnit==='bvph') ? 'bvph' : affUnit;
+    var dbUnit = affUnit ? ((affUnit===BVPH || affUnit==='bvph') ? 'bvph' : affUnit) : '';
+
+    // Không ảnh hưởng số liệu → chỉ update ngày rồi thoát
+    if(_noMove){
+      bSave.disabled=true; bSave.textContent='Đang lưu...';
+      var bodyN = {}; bodyN[field] = newISO;
+      var rN = await fetch(SUPA_URL+'/rest/v1/transfers?id=eq.'+encodeURIComponent(transferId), {
+        method:'PATCH',
+        headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body: JSON.stringify(bodyN)
+      });
+      if(!rN.ok){
+        var eN = await rN.text().catch(function(){return '';});
+        toast('Lưu thất bại '+rN.status+': '+eN.slice(0,80),'var(--danger)');
+        bSave.disabled=false; bSave.textContent='Lưu thay đổi';
+        return;
+      }
+      ov.remove();
+      toast('✓ Đã đổi '+label+' → '+_fmtDate(newISO)+' (không ảnh hưởng số liệu)','var(--success)');
+      _tqTransferCache = null;
+      try{ await loadFromSupabase(_currentPeriodKey(), true); }catch(e){}
+      return;
+    }
 
     // Cùng kỳ → chỉ update ngày
     if(newPeriod === oldPeriod){
