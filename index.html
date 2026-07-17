@@ -1983,9 +1983,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-auth-rpc-12';
+window.APP_VERSION = 'v2026.07.17-match-auto-13';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Xác thực máy chủ · bcrypt · 100% online', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Đối chiếu tự cập nhật, không cần bấm Cập nhật', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -2736,6 +2736,17 @@ async function loadFromSupabase(periodKey, silent){
     // Tự động tính lại dc2 kho chính từ Supabase sau mỗi lần load
     // (kể cả silent/auto-refresh) để bvph thấy đúng Xuất TCL mà không cần bấm nút
     try{ if(typeof _scheduleDc2Sync==='function') _scheduleDc2Sync(periodKey); }catch(e){}
+
+    // Dữ liệu vừa về → bảng "Điều chuyển thuốc trong kỳ" phải tính lại cột Đối chiếu.
+    // Nếu không, bảng đã render lúc bvphData/bcData còn rỗng sẽ kẹt ở "Chưa khớp"
+    // cho tới khi người dùng tự bấm "Cập nhật".
+    try{
+      var _tqEl = document.getElementById('tq-transfer-table');
+      if(_tqEl && _tqEl.offsetParent !== null && typeof _renderTQTransfersCached === 'function'){
+        _tqTransferCache = null;
+        _renderTQTransfersCached().catch(function(){});
+      }
+    }catch(e){}
   }catch(e){
     if(!silent){
       var _m=(e&&e.message||'')+'';
@@ -5947,8 +5958,17 @@ async function _fetchAndRenderTQTransfers(el, periodKey){
       html+=makeTable(dc3List,'#8e44ad');
     }
     el.innerHTML=html;
-    // Lưu cache — lần sau renderTQ auto-refresh sẽ dùng lại, không fetch lại + không nháy
-    _tqTransferCache = {periodKey: periodKey, html: html, matchDetail: _tqMatchDetail, ts: Date.now()};
+
+    // Kết quả đối chiếu dựa vào bvphData/bcData trong RAM. Nếu 2 mảng này CHƯA tải xong
+    // (renderTQ chạy trước loadFromSupabase) thì mọi phiếu đều ra "Chưa khớp" — sai.
+    // → Chỉ cache khi dữ liệu kỳ này đã thực sự có mặt; nếu chưa, để lần render sau tính lại.
+    var _dataReady = bvphData.some(function(r){ return r.bcMonth === periodKey; })
+                  || bcData.some(function(r){ return r.bcMonth === periodKey; });
+    if(_dataReady){
+      _tqTransferCache = {periodKey: periodKey, html: html, matchDetail: _tqMatchDetail, ts: Date.now()};
+    } else {
+      _tqTransferCache = null;   // buộc tính lại ở lần render kế tiếp
+    }
   }catch(e){
     el.innerHTML='<div style="color:red;font-size:12px;padding:10px">Lỗi: '+e.message+'</div>';
   }
@@ -7964,6 +7984,9 @@ function updFieldLive(prefix, rowIdx, field, val){
 
 function updField(prefix, rowIdx, field, val){
   if(reportLocked){toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');return;}
+  // Số liệu sắp đổi → cột "Đối chiếu" ở bảng Điều chuyển phải tính lại,
+  // nếu không nó giữ kết quả cũ tới 60s (thời hạn cache).
+  _tqTransferCache = null;
   var v = Math.max(0, parseInt(val)||0);
   var realIdx = -1;
 
@@ -8780,7 +8803,12 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
               + (transfer.qty||0).toLocaleString('vi-VN') + ' viên ' + transfer.drug
               + ' ngày ' + _fmtDate(_rxDate) + '</span>';
             toast('✓ Đã xác nhận nhận thuốc từ Kho chính','var(--success)');
+            _tqTransferCache = null;   // bảng ĐC tính lại cột Đối chiếu
             try{ loadNotifications(); }catch(e){}
+            try{
+              var _tqE2 = document.getElementById('tq-transfer-table');
+              if(_tqE2 && _tqE2.offsetParent !== null) _renderTQTransfersCached().catch(function(){});
+            }catch(e){}
             return;
           }
 
@@ -8888,6 +8916,9 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
           }
           // Tồn cuối kỳ nhận vừa đổi → cascade sang tồn đầu kỳ kế tiếp
           try{ if(typeof _scheduleCascade==='function') _scheduleCascade(txPeriod); }catch(e){}
+          // dc vừa cộng → bảng "Điều chuyển thuốc trong kỳ" phải hiện ✓ Khớp ngay,
+          // không bắt người dùng bấm "Cập nhật"
+          _tqTransferCache = null;
 
           // Ẩn card này + làm mới cache thông báo
           var _perTxt = _fmtPeriodVN(txPeriod);
