@@ -141,6 +141,7 @@ td.calc-out{background:#fee2e2 !important;font-weight:700;color:#991b1b;border-r
 td.calc-cell{background:#eef7ff !important;font-weight:700;color:var(--accent2);border-right:2px solid #94a3b8}
 td.final-ok{font-weight:800;color:#1e40af;font-size:13px;background:#dbeafe !important;border-left:2px solid #3b82f6}
 td.final-low{font-weight:800;color:var(--danger);font-size:13px;background:#fff0f0 !important;border-left:2px solid #38bdf8}
+td.final-neg{font-weight:800;color:#fff;font-size:13px;background:#dc2626 !important;border-left:2px solid #7f1d1d;cursor:help}
 tfoot td{background:#edf2f7;font-weight:700;border:1px solid #d0d8e4;color:var(--text)}
 td input[type=number]{width:54px;padding:4px 4px;border:1px solid #cbd5e0;border-radius:5px;text-align:center;font-size:12px;font-family:'Be Vietnam Pro',sans-serif;background:white}
 td input[type=number]:focus{border-color:var(--accent);outline:none;background:#f0f8ff}
@@ -1651,6 +1652,11 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
         <div style="width:1px;height:24px;background:#dee2e6;margin:0 2px"></div>
 
+        <button id="btn-bulk-bc" onclick="toggleBulkEdit()"
+          title="Mở toàn bộ ô nhập để điền báo cáo, không cần bấm Sửa từng dòng"
+          style="padding:6px 16px;border:none;border-radius:18px;background:#0e7490;color:white;cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(14,116,144,.3)">
+          ✏️ Làm báo cáo
+        </button>
         <button id="btn-open-bc" onclick="openReport()"
           style="display:none;padding:6px 16px;border:none;border-radius:18px;background:#e67e22;color:white;cursor:pointer;font-size:12px;font-weight:600">
           🔓 Mở lại để sửa
@@ -2126,9 +2132,9 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.17-acct-ui-14';
+window.APP_VERSION = 'v2026.07.18-junk-19';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
-console.log('%c✓ Trang Tài khoản: giao diện mới', 'color:#16a34a;font-weight:bold');
+console.log('%c✓ Tồn đầu khóa cứng khi kỳ trước đã chốt (mọi ngõ)', 'color:#16a34a;font-weight:bold');
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
@@ -2412,7 +2418,7 @@ async function _autoLoadOnLogin(){
     // Dedup trong _createNextPeriodRows tự bỏ qua đơn vị đã có data.
     var _rolloverNAfter = await _ensureRolloverForPeriod(periodKey);
     if(_rolloverNAfter > 0){
-      saveLocalCache(buildPayload());
+      saveLocalCache();
       toast('Kỳ '+_keyToLabel(periodKey)+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverNAfter+' dòng.','#1a5276');
     }
 
@@ -2782,7 +2788,7 @@ async function loadFromSupabase(periodKey, silent){
       if(p.type !== 'year'){
         var _rolloverN = await _ensureRolloverForPeriod(periodKey);
         if(_rolloverN > 0){
-          saveLocalCache(buildPayload());
+          saveLocalCache();
           fullRender();
           updateSaveBtnUI();
           if(!silent) toast('Kỳ '+periodKey+': đã lấy tồn cuối kỳ trước làm tồn đầu cho '+_rolloverN+' dòng.','#1a5276');
@@ -3285,16 +3291,10 @@ function showLockManager(){
         }
       }catch(e2){ console.warn('sync dc2 lỗi',e2); }
 
-      // 3. Đánh dấu tất cả dòng kỳ này là _dirty rồi lưu lên Supabase
-      btnSyncLock.textContent='⏳ Đang lưu dữ liệu...';
-      var _markDirty=function(arr){ arr.forEach(function(r){ if(r.bcMonth===periodKey) r._dirty=true; }); };
-      _markDirty(bvphData); _markDirty(bcData);
-      await saveToSupabase(periodKey,{skipMeta:false});
-
-      // 4. Cascade tồn đầu kỳ sau
-      try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e3){}
-
-      // 5. Khóa tất cả đơn vị
+      // 3. ĐÁNH DẤU KHÓA TRƯỚC rồi mới lưu — để cột `locked` trong bảng
+      //    reports trên Supabase đồng bộ với trạng thái thật ngay lần ghi này
+      //    (trước đây khóa SAU khi lưu → DB giữ locked=false, không sai chức năng
+      //     vì nguồn chân lý là lockedPeriods, nhưng dữ liệu DB không nhất quán).
       btnSyncLock.textContent='⏳ Đang khóa...';
       checks.forEach(function(chk){
         var u=chk.dataset.unit, key=_lockKey(u);
@@ -3305,8 +3305,27 @@ function showLockManager(){
       });
       lockedPeriods[periodKey]=true;
 
+      // 4. Đánh dấu tất cả dòng kỳ này là _dirty rồi lưu TOÀN BỘ lên Supabase
+      //    (saveToSupabase bình thường chỉ ghi dòng _dirty — ép dirty để đẩy hết,
+      //     await bảo đảm dữ liệu lên cloud xong mới đi tiếp)
+      btnSyncLock.textContent='⏳ Đang lưu dữ liệu...';
+      var _markDirty=function(arr){ arr.forEach(function(r){ if(r.bcMonth===periodKey) r._dirty=true; }); };
+      _markDirty(bvphData); _markDirty(bcData);
+      await saveToSupabase(periodKey,{skipMeta:false});
+
+      // 5. Cascade tồn đầu kỳ sau
+      try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(e3){}
+
       // 6. Lưu lockedPeriods lên cloud
       await _saveLockedPeriodsToCloud();
+
+      // 7. Kỳ đã chốt → dọn rác thông báo/phiếu hủy của kỳ này trên transfers
+      //    (chỉ dọn khi CHỐT — lúc mọi phiếu đã xong vòng đời)
+      btnSyncLock.textContent='⏳ Đang dọn dữ liệu tạm...';
+      try{
+        var _junkN = await _cleanTransferJunk(periodKey);
+        if(_junkN > 0) console.log('Đã dọn '+_junkN+' bản ghi tạm của kỳ '+periodKey);
+      }catch(eJ){}
 
       renderBVPH(); renderBC(); renderTQ();
       updateSaveBtnUI(); updateLockedUI();
@@ -3341,7 +3360,7 @@ function showLockManager(){
     if(checks.every(function(c){return c.checked;})) lockedPeriods[periodKey]=true;
     else delete lockedPeriods[periodKey];
 
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     btnO.disabled=true; btnO.textContent='Đang lưu...';
     var ok = await _saveLockedPeriodsToCloud();
     _syncPeriodToCloud();
@@ -3418,6 +3437,17 @@ function _hasEarlierLockedPeriod(unitRole, periodKey){
 // Giữ tên cũ cho tương thích — nay trỏ về logic mới
 function _isPrevPeriodLockedForUnit(unitRole, periodKey){
   return _hasEarlierLockedPeriod(unitRole, periodKey);
+}
+
+// ── Tồn đầu (open) của dòng này có bị KHÓA CỨNG không? ──
+// Khi admin đã CHỐT một kỳ trước đó, tồn cuối kỳ đó cố định
+// → tồn đầu các kỳ sau là số DẪN XUẤT, không ai sửa được (kể cả admin),
+// qua BẤT KỲ đường nào: ô nhập, nút Sửa dòng, Làm báo cáo, flush lưu.
+function _openHardLocked(row, isBVPHRow){
+  if(!row) return false;
+  var unitRole = isBVPHRow ? 'bvph' : (row.unit||'');
+  var pk = row.bcMonth || _currentPeriodKey();
+  try{ return _isPrevPeriodLockedForUnit(unitRole, pk); }catch(e){ return false; }
 }
 
 
@@ -3746,7 +3776,7 @@ function _parseCatalogCSV(csvText){
 
   renderCatalog();
   fillDrugSelects();
-  saveLocalCache(buildPayload()); // (no-op — không lưu offline)
+  saveLocalCache(); // (no-op — không lưu offline)
   if(_supaOnline) _saveSupaCatalog().catch(function(){});
 
   var msg = '✓ Đã thêm '+added+' thuốc vào danh mục';
@@ -3804,7 +3834,7 @@ async function saveCatalogNow(){
 function unlockCatalog(){
   if(!isAdmin()){toast('Chỉ Admin mới mở lại danh mục!','var(--danger)');return;}
   catalogLocked = false;
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   _updateCatalogLockUI();
   renderCatalog();
   toast('Đã mở lại danh mục để chỉnh sửa','var(--warning)');
@@ -3833,7 +3863,7 @@ function clearAllCatalog(){
   catalogData=[];
   renderCatalog();
   fillDrugSelects();
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   // Đồng bộ catalog rỗng lên Supabase
   if(_supaOnline) _saveSupaCatalog().catch(function(){});
   toast('Đã xóa toàn bộ danh mục thuốc','var(--danger)');
@@ -3978,7 +4008,7 @@ function delCatalog(i){
     catalogData=clean;
     renderCatalog();
     fillDrugSelects();
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     if(_supaOnline) _saveSupaCatalog().catch(function(){});
     toast('Đã xóa lô khỏi danh mục','var(--danger)');
   });
@@ -4105,7 +4135,7 @@ function editCatalog(i){
     ov.remove();
     renderCatalog();
     fillDrugSelects();
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     if(_supaOnline) _saveSupaCatalog().catch(function(){});
     toast('✓ Đã cập nhật lô: '+item.drug+' — '+newLot,'var(--success)');
   };
@@ -4425,19 +4455,7 @@ function onLoginUnitChange(){
   if(lp){ lp.value = ''; lp.focus(); }
 }
 
-function _finishLogin(acc, unitName){
-  var errEl=document.getElementById('login-err');
-  if(!acc.unit && unitName){ acc.unit = unitName; }
-  if(acc.unit) acc.unit = String(acc.unit).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
-  if(errEl) errEl.style.display='none';
-  currentUser = acc;
-  document.getElementById('login-screen').style.display='none';
-  var now = new Date();
-  var cm = now.getMonth() + 1;
-  document.getElementById('startup-month').value = (cm < 10 ? '0' : '') + cm;
-  document.getElementById('startup-year').value = now.getFullYear();
-  openModal('modal-startup-period');
-}
+// (_finishLogin đã gỡ — luồng đăng nhập cũ trước khi chuyển sang RPC verify_login)
 function doLogin(){
   var sel   = document.getElementById('l-unit');
   var pass  = document.getElementById('lp').value;
@@ -6476,7 +6494,7 @@ function _buildDrugTableRows(all, q){
     totOpen+=r.open; totIn+=c.tin; totOut+=c.tout; totFinal+=c.final;
     uniqueLots[r.drug+'||'+r.lot+'||'+(r.exp||'')] = true;
     var expired=isExpiredStr(r.exp);
-    var fcls=c.final<threshold.low?'final-low':'final-ok';
+    var fcls = c.final<0 ? 'final-neg' : (c.final<threshold.low?'final-low':'final-ok');
     var st=expired
       ?'<span class="badge badge-y">Đã HH</span>'
       :(c.final<threshold.low
@@ -6628,17 +6646,21 @@ function buildTbl(data, bodyId, prefix){
     sumFinal += res.final;
 
     var expired   = isExpiredStr(row.exp);
-    var finalCls  = res.final < threshold.low ? 'final-low' : 'final-ok';
+    // Tồn ÂM = xuất nhiều hơn (tồn đầu + nhập) → dữ liệu SAI, phải nổi bật hơn 'tồn thấp'
+    var finalCls  = res.final < 0 ? 'final-neg' : (res.final < threshold.low ? 'final-low' : 'final-ok');
     var canEdit   = currentUser ? (isBVPH ? canEditBVPH() : canEditUnit(row.unit)) : false;
     var isLocked  = (row.locked  === true);
-    var isEditing = (row.editing === true);
+    var isEditing = (row.editing === true) || (_bulkEditBC && canEdit && !isLocked);
     // Tồn đầu khoá khi:
     //  (a) tháng TRƯỚC của đơn vị này đã CHỐT → tồn cuối kỳ trước cố định → tồn đầu
     //      kỳ này là số dẫn xuất, KHÔNG ai sửa được (kể cả admin); HOẶC
     //  (b) non-admin và dòng đã đánh dấu openLocked (giữ hành vi cũ cho an toàn).
     var _unitRoleForRow = isBVPH ? 'bvph' : row.unit;
     var _prevLocked = _isPrevPeriodLockedForUnit(_unitRoleForRow, _currentPeriodKey());
-    var openRO    = _prevLocked || (!isAdmin() && row.openLocked === true);
+    // Chế độ "Làm báo cáo": Tồn đầu LUÔN khóa (đổ từ tháng trước) — kể cả admin.
+    // Muốn sửa Tồn đầu phải dùng nút "Sửa" của riêng dòng đó.
+    var openRO    = (_bulkEditBC && row.editing !== true)
+                  || _prevLocked || (!isAdmin() && row.openLocked === true);
     var isPeriodLocked = isCurrentPeriodLocked();
 
     // Nút thao tác — chỉ ẩn khi KỲ bị khóa (đã In báo cáo).
@@ -6775,7 +6797,10 @@ function buildTbl(data, bodyId, prefix){
     var toutOnc = 'showBVPHDetail(\''+prefix+'\','+idx+',\'tout\')';
     tr += '<td class="calc-out bvph-cc" onclick="'+toutOnc+'" title="Bấm xem chi tiết tổng xuất" style="cursor:pointer"><strong>'+fmtNum(res.tout)+'</strong></td>';
     var finalOnc = 'showBVPHDetail(\''+prefix+'\','+idx+',\'final\')';
-    tr += '<td class="'+finalCls+' bvph-cc" onclick="'+finalOnc+'" title="Bấm xem chi tiết tồn cuối" style="cursor:pointer">'+fmtNum(res.final)+'</td>';
+    var finalTip = res.final < 0
+      ? '⚠ TỒN ÂM — tổng xuất vượt quá (tồn đầu + tổng nhập). Kiểm tra lại số liệu Sử dụng / Xuất / Tồn đầu của dòng này.'
+      : 'Bấm xem chi tiết tồn cuối';
+    tr += '<td class="'+finalCls+' bvph-cc" onclick="'+finalOnc+'" title="'+finalTip+'" style="cursor:pointer">'+fmtNum(res.final)+'</td>';
     tr += '<td class="no-print" style="white-space:nowrap">'+btns+'</td>';
     tr += '</tr>';
     htmlString += tr; // Đổi từ tbody.innerHTML += tr
@@ -6848,6 +6873,7 @@ function onYearChange(){ onGlobalMonthChange(); }
 
 function onGlobalMonthChange(){
   _tqTransferCache = null;   // đổi kỳ toàn cục → fetch lại bảng điều chuyển
+  if(_bulkEditBC){ _bulkEditBC = false; _updateBulkBtn(); }   // đổi kỳ → thoát chế độ Làm báo cáo
   var p = getSelectedPeriod();
   // Reset cache pool dòng kỳ trước — đảm bảo applyAutoOpen luôn dùng dữ liệu cloud tươi
   if(typeof _clearPrevPeriodCache === 'function') _clearPrevPeriodCache();
@@ -8112,6 +8138,11 @@ function getFilteredBC(){
 // KHÔNG render lại bảng (giữ con trỏ trong ô). Việc render + lưu để onchange xử lý.
 function updFieldLive(prefix, rowIdx, field, val){
   if(reportLocked) return;
+  if(field === 'open'){
+    var _gA = prefix==='bvph' ? bvphData : bcData;
+    var _gI = getReal(prefix, rowIdx);
+    if(_gI >= 0 && _openHardLocked(_gA[_gI], prefix==='bvph')) return;
+  }
   var v = Math.max(0, parseInt(val)||0);
   var realIdx = -1;
   if(prefix === 'bvph'){
@@ -8139,6 +8170,16 @@ function updField(prefix, rowIdx, field, val){
   _tqTransferCache = null;
   var v = Math.max(0, parseInt(val)||0);
   var realIdx = -1;
+  // Tồn đầu khóa cứng khi kỳ trước đã chốt — chặn ở TẦNG HÀM (mọi ngõ đều qua đây)
+  if(field === 'open'){
+    var _gArr = prefix==='bvph' ? bvphData : bcData;
+    var _gIdx = getReal(prefix, rowIdx);
+    if(_gIdx >= 0 && _openHardLocked(_gArr[_gIdx], prefix==='bvph')){
+      toast('⛔ Tồn đầu bị khóa — kỳ trước đã chốt, tồn đầu là số dẫn xuất không sửa được','var(--danger)');
+      if(prefix==='bvph') renderBVPH(); else renderBC();   // trả ô về giá trị cũ
+      return;
+    }
+  }
 
   if(prefix === 'bvph'){
     var bvphFiltered2 = _sortByDrugLot(bvphData.filter(matchPeriod));
@@ -8182,7 +8223,7 @@ function updField(prefix, rowIdx, field, val){
   row[field] = v;
   row._dirty = true;                    // đánh dấu CHỈ dòng này được người dùng sửa
   if(prefix==='bvph') renderBVPH(); else renderBC();
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   _syncPeriodToCloud();
 }
 function delR(prefix, rowIdx){
@@ -8201,14 +8242,35 @@ function delR(prefix, rowIdx){
   if(realIdx < 0) return;
   var target = arr[realIdx];
   if(!target) return;
-  _confirmModal('Xóa dòng này?','"'+target.drug+' — Lô '+target.lot+'"', function(){
+  // Phân loại dòng để người dùng biết xóa có an toàn không:
+  //  - Tồn 0 + không hoạt động = dòng kéo từ kỳ trước, xóa an toàn
+  //  - Có số liệu = cảnh báo mạnh
+  var _hasData = (target.open||0) + (target.tinh||0) + (target.ntk||0) + (target.dc||0)
+               + (target.sd||0) + (target.dc2||0) + (target.dc3||0) + (target.hh||0);
+  var _delMsg;
+  if(_hasData === 0){
+    _delMsg = '<div style="font-size:13px;line-height:1.7">'
+      + '<b>'+target.drug+'</b> — Lô '+target.lot+'<br><br>'
+      + '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 11px;color:#166534">'
+      + '✓ Dòng này <b>tồn 0, chưa có hoạt động</b> trong kỳ — thường là dòng kéo từ tháng trước.<br>'
+      + 'Xóa <b>an toàn</b>: chỉ xóa ở kỳ này, báo cáo các kỳ trước giữ nguyên.'
+      + '</div></div>';
+  } else {
+    _delMsg = '<div style="font-size:13px;line-height:1.7">'
+      + '<b>'+target.drug+'</b> — Lô '+target.lot+'<br><br>'
+      + '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 11px;color:#991b1b">'
+      + '⚠ Dòng này <b>ĐANG CÓ SỐ LIỆU</b> (tổng các cột: '+_hasData.toLocaleString('vi-VN')+').<br>'
+      + 'Xóa sẽ mất số liệu của kỳ này (kỳ khác không ảnh hưởng).'
+      + '</div></div>';
+  }
+  _confirmModal('Xóa dòng này?', _delMsg, function(){
     var _delUnit = (prefix==='bvph') ? 'bvph' : (target.unit||'');
     var _delDrug = target.drug + ' (lô ' + target.lot + ')';
     var _delPeriod = target.bcMonth || _currentPeriodKey();
     var _delLot = target.lot, _delExp = target.exp||'', _delDrugName = target.drug;
     arr.splice(realIdx, 1);
     if(prefix==='bvph') renderBVPH(); else renderBC();
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     // XÓA TRỰC TIẾP dòng này trên cloud (chỉ khi người dùng chủ động bấm Xóa)
     _deleteRowFromCloud(_delPeriod, _delUnit, _delDrugName, _delLot, _delExp);
     _syncPeriodToCloud();
@@ -8261,14 +8323,15 @@ function editR(prefix, rowIdx){
       // Dùng data-rowidx và data-fld để flush chính xác — không parse chuỗi onchange
       tbody.querySelectorAll('input[data-rowidx="'+rowIdx+'"][data-prefix="'+prefix+'"]').forEach(function(inp){
         var fld = inp.getAttribute('data-fld');
-        if(fld && fld in arr[realIdx]){
-          arr[realIdx][fld] = Math.max(0, parseInt(inp.value)||0);
-        }
+        if(!fld || !(fld in arr[realIdx])) return;
+        // Tồn đầu khóa cứng (kỳ trước đã chốt) → bỏ qua
+        if(fld === 'open' && _openHardLocked(arr[realIdx], prefix==='bvph')) return;
+        arr[realIdx][fld] = Math.max(0, parseInt(inp.value)||0);
       });
     }
     target.editing = false;
     target._dirty = true;
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     _syncPeriodToCloud();
     _logReportActivity('report_edit', (prefix==='bvph'?BVPH:(target.unit||'')), target.drug + ' (lô ' + target.lot + ')');
     toast('Đã lưu: '+target.drug, 'var(--success)');
@@ -8372,11 +8435,15 @@ async function loadNotifications(){
   if(!_supaOnline || !currentUser) return;
   var url;
   if(isAdmin()){
-    // Admin thấy: (1) thông báo hệ thống gửi cho admin, (2) report_log từ đơn vị
-    // (3) phiếu điều chuyển pending/confirmed/cancelled cần theo dõi
-    // KHÔNG lấy tất cả bảng transfers (quá nhiều, đếm badge sai vì có notif của đơn vị khác)
+    // Admin thấy:
+    //  (1) thông báo hệ thống gửi riêng cho admin
+    //  (2) report_log từ các đơn vị
+    //  (3) MỌI phiếu điều chuyển thật (dc2_to_dc / dc3_to_tinh / dc3_province)
+    //      — vai trò giám sát toàn hệ thống, thấy phiếu tạo/xác nhận/từ chối/hủy.
+    // Badge chỉ đếm mục gửi ĐÍCH DANH admin (xem updateNotifBadge) để phiếu
+    // của đơn vị chưa đọc không làm badge admin đếm sai.
     url = SUPA_URL+'/rest/v1/transfers'
-      +'?or=(notif_for.eq.__admin__,notif_for.eq.admin,type.eq.report_log)'
+      +'?or=(notif_for.eq.__admin__,notif_for.eq.admin,type.eq.report_log,type.in.(dc2_to_dc,dc3_to_tinh,dc3_province))'
       +'&order=created_at.desc&limit=80';
   } else {
     // Đơn vị: chỉ lấy notif gửi cho mình
@@ -8510,7 +8577,18 @@ function renderNotifPanel(notifs){
 
 // Cập nhật badge số thông báo chưa đọc
 function updateNotifBadge(notifs){
-  var unread = notifs.filter(function(t){ return !t.notif_read; }).length;
+  // Admin xem phiếu của đơn vị ở chế độ THEO DÕI — badge chỉ đếm mục
+  // gửi đích danh admin (__admin__/admin/report_log), tránh badge đỏ
+  // vì những phiếu mà người phải xử lý là ĐƠN VỊ chứ không phải admin.
+  var unread;
+  if(isAdmin()){
+    unread = notifs.filter(function(t){
+      if(t.notif_read) return false;
+      return t.notif_for === '__admin__' || t.notif_for === 'admin' || t.type === 'report_log';
+    }).length;
+  } else {
+    unread = notifs.filter(function(t){ return !t.notif_read; }).length;
+  }
   var badge = document.getElementById('notif-badge');
   if(!badge) return;
   if(unread > 0){
@@ -8788,6 +8866,12 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
 
   // Danh sách phiếu
   transfers.forEach(function(t){
+    // ── QUYỀN XÁC NHẬN: CHỈ đơn vị nhận (to_unit) mới được xác nhận/từ chối.
+    //    Admin (giám sát mọi phiếu) hay bên gửi mở phiếu → chế độ CHỈ XEM,
+    //    tránh xác nhận nhầm danh nghĩa làm số cộng sai chỗ.
+    var _isRecipient = (t.to_unit === myUnit)
+                    || ((t.to_unit === BVPH || t.to_unit === 'bvph') && (myUnit === BVPH || myUnit === 'bvph'));
+
     var card = document.createElement('div');
     card.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fafbfd';
 
@@ -8795,7 +8879,8 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     info.style.cssText='font-size:13px;color:#334155;line-height:1.8;margin-bottom:10px';
     var expDisp = t.exp ? (function(){ var ep=t.exp.split('-'); return ep.length>=2?ep[1]+'/'+ep[0]:t.exp; })() : '';
     var dt = t.transfer_date ? _fmtDate(t.transfer_date) : (t.created_at ? _fmtDate(t.created_at) : '');
-    info.innerHTML = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã điều chuyển cho bạn:<br>'
+    var _rcvTxt = _isRecipient ? 'cho bạn' : ('cho <b>'+_displayUnit(t.to_unit)+'</b>');
+    info.innerHTML = '<b>'+_displayUnitForTuyen(t.from_unit)+'</b> đã điều chuyển '+_rcvTxt+':<br>'
       +'<span style="color:#1a5276;font-weight:700">'+t.qty.toLocaleString('vi-VN')+' viên</span>'
       +' <b>'+t.drug+'</b>'
       +' — Lô: '+t.lot+(expDisp?' — Hạn: '+expDisp:'')
@@ -9205,7 +9290,17 @@ function _showPendingTransferPopup(transfers, myUnit, periodKey){
     })(t, info, btnRow);
 
     btnRow.appendChild(btnOK); btnRow.appendChild(btnNo);
-    card.appendChild(info); card.appendChild(rxWrap); card.appendChild(btnRow);
+    // Người xem KHÔNG phải đơn vị nhận (admin giám sát / bên gửi mở nhầm):
+    // chỉ xem thông tin — KHÔNG có ô ngày nhận và nút Xác nhận/Từ chối.
+    if(_isRecipient){
+      card.appendChild(info); card.appendChild(rxWrap); card.appendChild(btnRow);
+    } else {
+      card.appendChild(info);
+      var _viewNote = document.createElement('div');
+      _viewNote.style.cssText = 'font-size:11px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:7px 11px';
+      _viewNote.textContent = '👁 Chế độ theo dõi — chỉ ' + _displayUnit(t.to_unit) + ' mới xác nhận được phiếu này.';
+      card.appendChild(_viewNote);
+    }
     scrollWrap.appendChild(card);
   });
 
@@ -9335,7 +9430,7 @@ function addNoUsageRow(){
     noUsagePeriods[nuKey] = true;
     _saveNoUsageToCloud();
     renderBC(); renderTQ();
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     _syncPeriodToCloud();
     toast('✓ Đã ghi nhận "Không có báo cáo" cho '+unit+' kỳ '+mon,'#6c3483');
   }
@@ -9407,7 +9502,7 @@ async function addBVPHRow(){
     var el=document.getElementById(id); if(el) el.value='';
   });
   renderBVPH();
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   _syncPeriodToCloud();
   toast('Đã thêm BVPHP: '+drug+' — Lô '+lot, 'var(--success)');
 }
@@ -9452,7 +9547,7 @@ function addBcRow(){
     if(fm&&mon) fm.value=mon;
     renderBC();
     renderBVPH();
-    saveLocalCache(buildPayload());
+    saveLocalCache();
     _syncPeriodToCloud();
     _logReportActivity('report_new', unit, drug + ' (lô ' + lot + ')');
     toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
@@ -9647,10 +9742,12 @@ function _setSaveStatus(state){
   show();
 }
 
-function saveLocalCache(payload){
+function saveLocalCache(){
   // ĐÃ VÔ HIỆU HÓA — phần mềm chạy 100% ONLINE, KHÔNG lưu offline bất cứ đâu.
   // Mọi dữ liệu (báo cáo, danh mục, tài khoản, cấp phát, bệnh nhân) chỉ lưu trên Supabase.
   // Giữ hàm rỗng để các lời gọi cũ không gây lỗi.
+  // LƯU Ý hiệu năng: các nơi gọi KHÔNG truyền buildPayload() nữa —
+  // trước đây mỗi lần lưu 1 ô lại xây nguyên payload (22 ĐV × thuốc × 12 cột) rồi vứt.
   return;
 }
 
@@ -9661,6 +9758,45 @@ function _mustOnline(){
   }
   return true;
 }
+// ══════════════════════════════════════════════════════════
+// CHẾ ĐỘ "LÀM BÁO CÁO" — mở toàn bộ ô nhập cùng lúc
+// Người dùng bấm 1 lần thay vì bấm "Sửa" từng dòng (22 đơn vị × chục
+// thuốc = hàng chục lần bấm). Tồn đầu vẫn khóa (đổ từ tháng trước).
+// Muốn sửa Tồn đầu → dùng nút "Sửa" từng dòng như cũ.
+// ══════════════════════════════════════════════════════════
+var _bulkEditBC = false;
+
+function toggleBulkEdit(){
+  if(reportLocked){
+    toast('Báo cáo đã lưu! Bấm "Mở lại để sửa" trước.','var(--danger)');
+    return;
+  }
+  if(isCurrentPeriodLocked() && !isAdmin()){
+    toast('Báo cáo kỳ này đã chốt và khóa! Chỉ Admin mở được.','var(--danger)');
+    return;
+  }
+  _bulkEditBC = !_bulkEditBC;
+  _updateBulkBtn();
+  renderBVPH(); renderBC();
+  if(_bulkEditBC){
+    toast('✏️ Đang làm báo cáo — nhập xong bấm "💾 Lưu báo cáo" để lưu toàn bộ','#1a5276');
+  }
+}
+
+function _updateBulkBtn(){
+  var b = document.getElementById('btn-bulk-bc');
+  if(!b) return;
+  if(_bulkEditBC){
+    b.innerHTML = '✅ Đang làm báo cáo...';
+    b.style.background = 'var(--success)';
+    b.title = 'Đang mở toàn bộ ô nhập — bấm "Lưu báo cáo" để lưu và đóng';
+  } else {
+    b.innerHTML = '✏️ Làm báo cáo';
+    b.style.background = '#0e7490';
+    b.title = 'Mở toàn bộ ô nhập để điền báo cáo, không cần bấm Sửa từng dòng';
+  }
+}
+
 async function saveBC(){
   if(!_mustOnline()) return;
   var periodKey = _currentPeriodKey();
@@ -9668,6 +9804,36 @@ async function saveBC(){
 
   var role = currentUser ? currentUser.role : 'admin';
   var unit = currentUser ? currentUser.unit : '';
+
+  // ── FLUSH: đọc giá trị mọi ô input đang mở trên màn hình vào model ──
+  // Cần cho chế độ "Làm báo cáo": các ô không có nút Lưu riêng, giá trị
+  // cuối cùng có thể chưa kịp qua onchange (đang focus dở) → đọc thẳng DOM.
+  ['bvph-body','bc-body'].forEach(function(bodyId){
+    var tb = document.getElementById(bodyId);
+    if(!tb) return;
+    tb.querySelectorAll('input[data-fld]').forEach(function(inp){
+      var pfx = inp.getAttribute('data-prefix');
+      var ri  = parseInt(inp.getAttribute('data-rowidx'));
+      var fld = inp.getAttribute('data-fld');
+      if(isNaN(ri) || !fld) return;
+      var arr = (pfx === 'bvph') ? bvphData : bcData;
+      var realIdx = getReal(pfx, ri);
+      if(realIdx < 0 || !arr[realIdx]) return;
+      // Tồn đầu khóa cứng (kỳ trước đã chốt) → bỏ qua, không ghi đè
+      if(fld === 'open' && _openHardLocked(arr[realIdx], pfx==='bvph')) return;
+      var v = Math.max(0, parseInt(inp.value)||0);
+      if((arr[realIdx][fld]||0) !== v){
+        arr[realIdx][fld] = v;
+        arr[realIdx]._dirty = true;
+      }
+    });
+  });
+
+  // Tắt chế độ "Làm báo cáo" — lưu xong là đóng các ô nhập
+  if(_bulkEditBC){
+    _bulkEditBC = false;
+    _updateBulkBtn();
+  }
 
   // Chỉ tắt chế độ "đang sửa" (editing=false) để update giao diện, KHÔNG khóa cứng
   if (role === 'donvi') {
@@ -9935,6 +10101,42 @@ var _cascadeRunning = false;
 var _cascadePending = null;
 
 // Hẹn giờ chạy cascade (gộp nhiều lần lưu liên tiếp), debounce 1.2s
+// ══════════════════════════════════════════════════════════
+// TỰ DỌN RÁC bảng transfers khi CHỐT KỲ
+// Kỳ đã khóa = mọi phiếu đã xong vòng đời → dọn được:
+//   XÓA thông báo đã đọc của kỳ (report_log, system_notif, cancel_notif,
+//        date_changed, locked/unlocked...)
+//   XÓA phiếu cancelled / rejected của kỳ (số liệu đã hoàn nguyên xong)
+//   GIỮ phiếu confirmed (chứng từ + bảng đối chiếu cần vĩnh viễn)
+//   GIỮ phiếu pending (hiếm khi còn ở kỳ khóa, nhưng không tự hủy hộ)
+//   GIỮ thông báo chưa đọc (người nhận còn chưa xem)
+// ══════════════════════════════════════════════════════════
+async function _cleanTransferJunk(periodKey){
+  if(!_supaOnline || !periodKey) return 0;
+  var removed = 0;
+  var hdD = Object.assign({}, _supaHdr, {'Prefer':'return=representation'});
+  try{
+    // 1) Thông báo đã đọc của kỳ (mọi type KHÔNG phải phiếu thật)
+    var r1 = await fetch(SUPA_URL+'/rest/v1/transfers'
+      +'?period=eq.'+encodeURIComponent(periodKey)
+      +'&notif_read=eq.true'
+      +'&type=not.in.(dc2_to_dc,dc3_to_tinh,dc3_province)'
+      +'&select=id',
+      {method:'DELETE', headers:hdD});
+    if(r1.ok){ var d1 = await r1.json().catch(function(){return [];}); removed += d1.length; }
+
+    // 2) Phiếu thật đã hủy/từ chối + đã đọc thông báo (vòng đời xong)
+    var r2 = await fetch(SUPA_URL+'/rest/v1/transfers'
+      +'?period=eq.'+encodeURIComponent(periodKey)
+      +'&status=in.(cancelled,rejected,cancel_notif)'
+      +'&notif_read=eq.true'
+      +'&select=id',
+      {method:'DELETE', headers:hdD});
+    if(r2.ok){ var d2 = await r2.json().catch(function(){return [];}); removed += d2.length; }
+  }catch(e){ console.warn('Dọn rác transfers lỗi', e); }
+  return removed;
+}
+
 function _scheduleCascade(periodKey){
   if(!periodKey || !_supaOnline) return;
   // Luôn cascade từ kỳ SỚM NHẤT trong các yêu cầu đang chờ
@@ -10294,7 +10496,7 @@ function openReport(){
       if(fB){ fB.style.opacity='1'; fB.style.pointerEvents='auto'; fB.style.display=(_role==='admin'||_role==='bvph')?'block':'none'; }
       if(fD){ fD.style.opacity='1'; fD.style.pointerEvents='auto'; fD.style.display=(_role==='admin'||_role==='donvi')?'block':'none'; }
       
-      saveLocalCache(buildPayload());
+      saveLocalCache();
       if(_supaOnline) {
           saveToSupabase(periodKey).catch(function(){});
           if (role === 'admin' && unitVal !== '__all__') {
@@ -10337,7 +10539,11 @@ function updateSaveBtnUI(){
   var saveBtn  = document.getElementById('btn-save-bc');
   var openBtn  = document.getElementById('btn-open-bc');
   var openBtnBanner = document.getElementById('btn-open-bc-banner');
+  var bulkBtn  = document.getElementById('btn-bulk-bc');
   if(saveBtn) saveBtn.style.display = locked ? 'none' : '';
+  // Nút "Làm báo cáo": ẩn khi kỳ khóa; tắt chế độ nếu đang bật mà kỳ vừa khóa
+  if(bulkBtn) bulkBtn.style.display = locked ? 'none' : '';
+  if(locked && _bulkEditBC){ _bulkEditBC = false; _updateBulkBtn(); }
   // Nút "Mở lại để sửa" CHỈ hiện với Admin. Đơn vị/BVPH không bao giờ thấy.
   if(openBtn) openBtn.style.display = (locked && isAdmin) ? '' : 'none';
   if(openBtnBanner) openBtnBanner.style.display = (locked && isAdmin) ? '' : 'none';
@@ -11016,7 +11222,7 @@ async function _syncDc2FromTransfers(periodKey, fromUnit, row, arr, realIdx, pre
       arr[realIdx].dc2 = sumQty;
       arr[realIdx]._dirty = true;
       renderBVPH(); renderBC(); renderTP();
-      saveLocalCache(buildPayload());
+      saveLocalCache();
       _syncPeriodToCloud();
     }
   }catch(e){ console.warn('syncDc2 error', e); }
@@ -11087,7 +11293,7 @@ async function _loadTransferList(el, periodKey, fromUnit, row, inp, arr, realIdx
         if(inp) inp.value = sumQty;
         if(typeof renderBVPH==='function') renderBVPH();
         if(typeof renderBC==='function') renderBC();
-        saveLocalCache(buildPayload());
+        saveLocalCache();
       }
     }
     // Thêm dòng tổng dưới bảng cho rõ
@@ -12358,17 +12564,6 @@ async function _editTransferDate(transferId, field, currentVal){
 }
 
 // Khoảng ngày của 1 kỳ: '2026-07' → {from:'2026-07-01', to:'2026-08-01'}
-function _periodRange(pk){
-  if(!pk) return null;
-  var pp = String(pk).split('-');
-  if(pp.length < 2) return null;
-  var y = parseInt(pp[0]), m = parseInt(pp[1]);
-  var from = y+'-'+String(m).padStart(2,'0')+'-01';
-  var ny = (m===12) ? y+1 : y;
-  var nm = (m===12) ? 1 : m+1;
-  var to = ny+'-'+String(nm).padStart(2,'0')+'-01';
-  return {from:from, to:to};
-}
 
 // Format kỳ YYYY-MM → "Tháng M/YYYY"
 function _fmtPeriodVN(p){
@@ -12591,7 +12786,7 @@ function _showPrintUnitPicker(periodKey){
             else { bcData.push(pr); }
           });
         }
-        saveLocalCache(buildPayload());
+        saveLocalCache();
         if (_supaOnline) {
           saveToSupabase(printPeriod).catch(function(){});
           if (role !== 'admin') _sendLockNotification(printPeriod, currentUser.unit || BVPH);
@@ -13679,7 +13874,7 @@ function clearRows(key){
     bcData=bcData.filter(function(r){return !matchPeriod(r);});
     renderBC();
   }
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   _syncPeriodToCloud();
   toast('Đã xóa toàn bộ thuốc trong kỳ này','var(--warning)');
 }
@@ -13690,7 +13885,7 @@ function clearAll(key){
   if(!confirm('⚠ XÓA TẤT CẢ DỮ LIỆU?\n\nHành động này không thể hoàn tác!'))return;
   if(key==='bvph'){bvphData=[];renderBVPH();toast('Đã xóa toàn bộ dữ liệu BVPHP','var(--danger)');}
   else{bcData=[];renderBC();toast('Đã xóa toàn bộ dữ liệu 22 đơn vị','var(--danger)');}
-  saveLocalCache(buildPayload());
+  saveLocalCache();
   _syncPeriodToCloud();
 }
 
@@ -14024,7 +14219,7 @@ function renderTP(){
     var tin  = tw + ntk;
     var tout = sd + dc3 + hh;
     var fin  = m.open + tin - tout;
-    var fcls = fin < threshold.low ? 'final-low' : 'final-ok';
+    var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
     var exp_ = isExpiredStr(m.exp);
     var expD = expToMMYYYY(m.exp);
 
@@ -14706,7 +14901,6 @@ function _getDuTruBN(drugName, unitFilter, nMonths, currentPeriodKey){
   };
 }
 
-function _fmt(n){ return (n||0).toLocaleString('vi-VN'); }
 
 async function renderAllAMC(){
   var periodKey  = _tqCurrentPeriodKey();
@@ -17485,7 +17679,7 @@ function savePatient(){
 
   if(!nameVal || !startVal || !pdVal) {
     if(typeof toast === 'function') toast('Vui lòng điền đủ Tên, Ngày bắt đầu và Phác đồ!', 'var(--warning)');
-    else alert('Vui lòng điền đủ Tên, Ngày bắt đầu và Phác đồ!');
+    else toast('Vui lòng điền đủ Tên, Ngày bắt đầu và Phác đồ!','var(--danger)');
     return;
   }
 
@@ -17635,9 +17829,9 @@ async function deleteAllPatients() {
 }
 
 function exportPatientExcel(){
-  if(typeof XLSX === 'undefined') { alert('Không tải được thư viện Excel, cần mạng internet.'); return; }
+  if(typeof XLSX === 'undefined') { toast('Không tải được thư viện Excel — kiểm tra mạng rồi thử lại','var(--danger)'); return; }
   var list = typeof _filteredPatients === 'function' ? _filteredPatients() : BN_DATA;
-  if(!list.length) { alert('Không có dữ liệu xuất!'); return; }
+  if(!list.length) { toast('Không có dữ liệu để xuất','var(--warning)'); return; }
 
   var aoa = [['BÁO CÁO DANH SÁCH BỆNH NHÂN ĐIỀU TRỊ LAO KHÁNG THUỐC'], []];
   aoa.push(['STT', 'Họ và tên', 'Giới tính', 'Tuổi', 'Cân nặng', 'Địa chỉ', 'Phác đồ', 'Ngày bắt đầu', 'Ngày kết thúc', 'Đơn vị', 'Trạng thái']);
@@ -17869,7 +18063,7 @@ function importPatientExcel(input) {
       if (typeof renderPatientTable === 'function') renderPatientTable();
       if (typeof renderDuTru === 'function') renderDuTru();
 
-      if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache(buildPayload());
+      if (typeof saveLocalCache === 'function' && typeof buildPayload === 'function') saveLocalCache();
 
       // Đồng bộ lên cloud — lưu TỪNG BN với mã hóa name/age/address
       var savedCount = 0, failCount = 0;
@@ -17904,7 +18098,7 @@ function importPatientExcel(input) {
 
 // Hàm tải file Excel mẫu (Đã cập nhật thêm Cột Đơn vị)
 function downloadTemplateExcel() {
-    if(typeof XLSX === 'undefined') { alert('Thư viện Excel chưa được tải, vui lòng kiểm tra mạng!'); return; }
+    if(typeof XLSX === 'undefined') { toast('Thư viện Excel chưa tải được — kiểm tra mạng rồi thử lại','var(--danger)'); return; }
     
     var aoa = [
         ['MẪU NHẬP DANH SÁCH BỆNH NHÂN ĐIỀU TRỊ LAO KHÁNG THUỐC'],
