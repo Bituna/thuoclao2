@@ -2132,7 +2132,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
 
 <script>
 // ═══ PHIÊN BẢN — kiểm tra bản đang chạy ═══
-window.APP_VERSION = 'v2026.07.18-junk-19';
+window.APP_VERSION = 'v2026.07.18-nozombie-20';
 console.log('%c[PM Thuốc Lao] Phiên bản: ' + window.APP_VERSION, 'background:#1d4ed8;color:white;padding:3px 8px;border-radius:4px;font-weight:bold');
 console.log('%c✓ Tồn đầu khóa cứng khi kỳ trước đã chốt (mọi ngõ)', 'color:#16a34a;font-weight:bold');
 // ============================================================
@@ -7760,9 +7760,13 @@ async function _syncBVPHDc2ToCloud(periodKey){
         }
       });
     });
-// Tạo dòng kho chính cho thuốc đơn vị báo nhưng kho chính chưa có (dù tinh=0)
+// Tạo dòng kho chính cho thuốc đơn vị báo mà kho chính chưa có —
+    // CHỈ khi tổng tinh > 0. Nếu tổng = 0 mà kho chính không có dòng thì
+    // KHÔNG tự sinh: người dùng đã chủ động xóa dòng toàn-0, tự tạo lại
+    // sẽ làm dòng "mọc lại" ngay sau khi xóa (bug người dùng từng gặp).
     var newRows = [];
     Object.keys(sumByKey).forEach(function(k){
+      if((sumByKey[k]||0) <= 0) return;   // tổng 0 → không có gì cần ghi → bỏ qua
       var found = rows.some(function(r){
         var u=r.unit||''; if(u!==BVPH && u!=='bvph') return false;
         return _normStr(r.drug)+'||'+_normStr(r.lot)+'||'+_normExp(r.exp||'')===k;
@@ -7872,6 +7876,9 @@ async function adminSyncXuatTCL(){
         }
       } else {
         // Đơn vị có nhập tỉnh nhưng kho chính chưa có dòng thuốc/lô này → tạo mới
+        // CHỈ khi tổng > 0. Tổng = 0 + kho chính không có dòng → người dùng đã
+        // chủ động xóa dòng toàn-0, KHÔNG tự sinh lại (bug "dòng mọc lại sau khi xóa").
+        if((correctDc2||0) <= 0) return;
         var parts = k.split('||');
         // Tìm thông tin gốc (drug/lot/exp chưa chuẩn hóa) từ dòng đơn vị bất kỳ
         var src = rows.find(function(row){
