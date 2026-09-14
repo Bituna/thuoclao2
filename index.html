@@ -2856,7 +2856,17 @@ async function loadFromSupabase(periodKey, silent){
 
     // lockedPeriods — đã fetch song song ở trên, giờ chỉ xử lý kết quả
     var sv = await srParallel.json();
-    if(sv.length && sv[0].value) lockedPeriods = sv[0].value;
+    if(sv.length && sv[0].value){
+      if(silent){
+        // Refresh nền: CHỈ hợp nhất, KHÔNG để bản cloud gỡ khóa đang có cục bộ.
+        // Tránh trường hợp vừa khóa xong, một vòng refresh đọc bản cũ và làm mất khóa.
+        var _srvLocked = sv[0].value;
+        Object.keys(_srvLocked).forEach(function(k){ lockedPeriods[k] = _srvLocked[k]; });
+      } else {
+        // Mở kỳ chủ động: nạp đầy đủ từ cloud (nguồn chân lý).
+        lockedPeriods = sv[0].value;
+      }
+    }
 
     // catalog — đã fetch song song ở trên (chỉ khi !silent), giờ chỉ xử lý kết quả
     if(!silent && crParallel){
@@ -12795,7 +12805,15 @@ function _showPrintUnitPicker(periodKey){
         }
         saveLocalCache();
         if (_supaOnline) {
-          saveToSupabase(printPeriod).catch(function(){});
+          // CHỜ ghi xong dữ liệu rồi mới coi là khóa (tránh đóng popup khi cloud chưa nhận)
+          try { await saveToSupabase(printPeriod, {skipMeta:false}); } catch(e){}
+          // QUAN TRỌNG: đẩy trạng thái khóa lên bảng settings.lockedPeriods NGAY.
+          // Nếu bỏ bước này, auto-refresh 60s sẽ đọc bản cũ trên cloud và ghi đè
+          // → khóa "tự mở lại", báo cáo bị tính là chưa nộp.
+          var _lockOk = await _saveLockedPeriodsToCloud();
+          if (!_lockOk) {
+            toast('⚠ Chưa lưu được trạng thái khóa lên cloud. Vui lòng kiểm tra mạng và khóa lại.','var(--danger)');
+          }
           if (role !== 'admin') _sendLockNotification(printPeriod, currentUser.unit || BVPH);
         }
         // Luôn cập nhật UI sau khi khóa, dù in kỳ hiện tại hay kỳ cũ
