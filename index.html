@@ -2454,6 +2454,14 @@ async function _autoLoadOnLogin(){
         if(nuv.length && nuv[0].value) noUsagePeriods = nuv[0].value;
       }
     }catch(e){}
+    // Tải danh sách dòng đã xóa chủ động (deletedRows) — để rollover không tạo lại
+    try{
+      var drr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.deletedRows&select=value',{headers:_supaHdr});
+      if(drr.ok){
+        var drv = await drr.json();
+        if(drv.length && drv[0].value) deletedRows = drv[0].value;
+      }
+    }catch(e){}
     fullRender();
     updateSaveBtnUI();
     toast('☁ Đã tải dữ liệu kỳ '+periodKey+' từ cloud ('+rows.length+' dòng)','#27ae60');
@@ -3019,6 +3027,32 @@ var catalogData=[];  // Danh mục thuốc — tải từ cloud (Supabase)
 var lockedPeriods={};  // {"2026-05": true, "2026-06": true, ...}
 // Đánh dấu "không có báo cáo / không phát sinh" theo cặp kỳ|đơn vị, vd {"2026-06_Cơ sở cai nghiện số 1": true}
 var noUsagePeriods={};
+// deletedRows: các dòng người dùng CHỦ ĐỘNG xóa (tồn 0). Rollover/cascade sẽ KHÔNG
+// tự tạo lại các dòng này. Key = period||unit||drug||lot||exp. Lưu ở settings cloud.
+var deletedRows={};
+function _delRowKey(period, unit, drug, lot, exp){
+  var u = (unit===BVPH || unit==='bvph') ? 'bvph' : (unit||'');
+  return period+'||'+u+'||'+drug+'||'+lot+'||'+(exp||'');
+}
+// Lưu deletedRows lên settings cloud (PATCH-first, giống noUsagePeriods)
+async function _saveDeletedRowsToCloud(){
+  if(!_supaOnline) return;
+  try{
+    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.deletedRows', {
+      method:'PATCH',
+      headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:deletedRows})
+    });
+    var updated = pr.ok ? await pr.json() : [];
+    if(pr.ok && !updated.length){
+      await fetch(SUPA_URL+'/rest/v1/settings', {
+        method:'POST',
+        headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'deletedRows', value:deletedRows}])
+      });
+    }
+  }catch(e){ console.warn('saveDeletedRows error', e); }
+}
 var extraTP={};
 // reportLocked = computed property theo kỳ đang chọn (backward compat)
 Object.defineProperty(window,'reportLocked',{
@@ -8286,6 +8320,9 @@ function delR(prefix, rowIdx){
     var _delPeriod = target.bcMonth || _currentPeriodKey();
     var _delLot = target.lot, _delExp = target.exp||'', _delDrugName = target.drug;
     arr.splice(realIdx, 1);
+    // GHI NHỚ dòng đã xóa → rollover/cascade sẽ KHÔNG tự tạo lại dòng tồn 0 này nữa
+    deletedRows[_delRowKey(_delPeriod, _delUnit, _delDrugName, _delLot, _delExp)] = true;
+    _saveDeletedRowsToCloud();
     if(prefix==='bvph') renderBVPH(); else renderBC();
     saveLocalCache();
     // XÓA TRỰC TIẾP dòng này trên cloud (chỉ khi người dùng chủ động bấm Xóa)
@@ -9507,21 +9544,82 @@ async function addBVPHRow(){
   if(!validateMonthExp(expRaw)){toast('Hạn dùng sai định dạng! Nhập dạng mm/yyyy (vd: 07/2027)','var(--danger)');return;}
   if(!canEditBVPH()){toast('Bạn không có quyền nhập BVPHP!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
-  var newRowBV={unit:BVPH,drug:drug,lot:lot,exp:exp,open:open,
-    tinh:tinh,ntk:ntk,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
-    locked:false,editing:false,bcMonth:mon,openLocked:false};
-  await applyAutoOpen(newRowBV,bvphData);
-  newRowBV._dirty=true; bvphData.push(newRowBV);
-  var ls=document.getElementById('bvph-lot-sel');if(ls)ls.value='';
-  var bd=document.getElementById('bvph-drug');if(bd)bd.value='';
-  ['bvph-exp','bvph-open','bvph-dc2',
-   'bvph-tinh','bvph-ntk','bvph-dc','bvph-sd','bvph-dc3','bvph-hh'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  renderBVPH();
-  saveLocalCache();
-  _syncPeriodToCloud();
-  toast('Đã thêm BVPHP: '+drug+' — Lô '+lot, 'var(--success)');
+
+  async function _writeRowBV(){
+    var newRowBV={unit:BVPH,drug:drug,lot:lot,exp:exp,open:open,
+      tinh:tinh,ntk:ntk,dc:dc,sd:sd,dc2:dc2,dc3:dc3,hh:hh,
+      locked:false,editing:false,bcMonth:mon,openLocked:false};
+    await applyAutoOpen(newRowBV,bvphData);
+    newRowBV._dirty=true; bvphData.push(newRowBV);
+    var ls=document.getElementById('bvph-lot-sel');if(ls)ls.value='';
+    var bd=document.getElementById('bvph-drug');if(bd)bd.value='';
+    ['bvph-exp','bvph-open','bvph-dc2',
+     'bvph-tinh','bvph-ntk','bvph-dc','bvph-sd','bvph-dc3','bvph-hh'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    renderBVPH();
+    saveLocalCache();
+    _syncPeriodToCloud();
+    toast('Đã thêm BVPHP: '+drug+' — Lô '+lot, 'var(--success)');
+  }
+
+  // Kiểm tra lô đã dùng hết ở kỳ trước → hỏi xác nhận trước khi nhập lại
+  var emptiedKeyBV = null;
+  try{ emptiedKeyBV = await _findPeriodLotEmptied('bvph', drug, lot, exp, mon); }catch(e){}
+  if(emptiedKeyBV){
+    var htmlBV =
+      '<div style="background:#fff8e1;border-radius:10px;padding:18px 20px;border:2px solid #f39c12">'
+      +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 12px">'
+      +'Lô <b style="color:#1a2332">'+lot+'</b> của thuốc <b style="color:#1a5276">'+drug+'</b>'
+      +' (hạn <b>'+expToMMYYYY(exp)+'</b>) đã được <b style="color:#c0392b">dùng hết ('+_keyToLabel(emptiedKeyBV)+')</b> tại Kho chính.'
+      +'</p>'
+      +'<p style="font-size:14px;font-weight:700;color:#7d4e00;margin:0">'
+      +'Bạn có chắc chắn muốn nhập lại lô thuốc này kỳ '+_keyToLabel(mon)+' không?</p>'
+      +'</div>';
+    _confirmModal('Nhập lại lô đã dùng hết?', htmlBV, function(){
+      delete deletedRows[_delRowKey(mon, 'bvph', drug, lot, exp)];
+      _saveDeletedRowsToCloud();
+      _writeRowBV();
+    }, null, 'Chắc chắn, nhập lại');
+    return;
+  }
+  if(deletedRows[_delRowKey(mon, 'bvph', drug, lot, exp)]){
+    delete deletedRows[_delRowKey(mon, 'bvph', drug, lot, exp)];
+    _saveDeletedRowsToCloud();
+  }
+  await _writeRowBV();
+}
+
+// Tìm kỳ GẦN NHẤT trước kỳ hiện tại mà lô (drug+lot+exp) của đơn vị này đã dùng hết
+// (tồn cuối = 0), HOẶC dòng đã bị xóa chủ động. Trả về key kỳ đó ("2026-05") hoặc null.
+// Quét tối đa 12 kỳ lùi. Dùng để cảnh báo khi nhập lại lô đã hết.
+async function _findPeriodLotEmptied(unit, drug, lot, exp, curPeriodKey){
+  if(!_supaOnline || !curPeriodKey) return null;
+  var u = (unit===BVPH || unit==='bvph') ? 'bvph' : (unit||'');
+  var k = curPeriodKey;
+  for(var i=0;i<12;i++){
+    k = _prevPeriodKey(k);
+    if(!k) break;
+    // Nếu dòng này từng bị xóa chủ động ở kỳ đó → coi như đã dùng hết ở kỳ đó
+    if(deletedRows[_delRowKey(k, u, drug, lot, exp)]) return k;
+    try{
+      var url = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(k)
+        +'&unit=eq.'+encodeURIComponent(u)
+        +'&drug=eq.'+encodeURIComponent(drug)
+        +'&lot=eq.'+encodeURIComponent(lot)
+        +'&exp=eq.'+encodeURIComponent(exp||'')
+        +'&select=open,tinh,ntk,dc,sd,dc2,dc3,hh';
+      var r = await fetch(url, {headers:_supaHdr, cache:'no-store'});
+      if(!r.ok) continue;
+      var rows = await r.json();
+      if(!rows.length) continue;         // kỳ này lô chưa từng có → xét tiếp kỳ trước
+      var row = rows[0];
+      var fin = Math.max(0, calcRow(_mapRow(row)).final);
+      if(fin === 0) return k;            // đã có lô này và tồn cuối = 0 → kỳ đã dùng hết
+      return null;                       // kỳ gần nhất có lô này vẫn còn tồn → không cảnh báo
+    }catch(e){ continue; }
+  }
+  return null;
 }
 
 function addBcRow(){
@@ -9546,7 +9644,8 @@ function addBcRow(){
   if(!canEditUnit(unit)){toast('Bạn không có quyền nhập đơn vị này!','var(--danger)');return;}
   var exp = parseMonthExp(expRaw);
 
-  async function doAdd(){
+  // Ghi dòng thật sự (sau khi đã qua mọi cảnh báo)
+  async function _writeRowBC(){
     var newRowBC={unit:unit,drug:drug,lot:lot,exp:exp,open:open,
       tinh:tinh,dc:dc,sd:sd,dc2:dc2,hh:hh,
       locked:false,editing:false,bcMonth:mon,openLocked:false};
@@ -9568,6 +9667,36 @@ function addBcRow(){
     _syncPeriodToCloud();
     _logReportActivity('report_new', unit, drug + ' (lô ' + lot + ')');
     toast('Đã thêm: '+drug+' ('+unit+')', 'var(--success)');
+  }
+
+  // doAdd = kiểm tra "lô đã dùng hết ở kỳ trước" → nếu có thì HỎI xác nhận, rồi mới ghi
+  async function doAdd(){
+    var emptiedKey = null;
+    try{ emptiedKey = await _findPeriodLotEmptied(unit, drug, lot, exp, mon); }catch(e){}
+    if(emptiedKey){
+      var html2 =
+        '<div style="background:#fff8e1;border-radius:10px;padding:18px 20px;border:2px solid #f39c12">'
+        +'<p style="font-size:14px;color:#333;line-height:1.8;margin:0 0 12px">'
+        +'Lô <b style="color:#1a2332">'+lot+'</b> của thuốc <b style="color:#1a5276">'+drug+'</b>'
+        +' (hạn <b>'+expToMMYYYY(exp)+'</b>) đã được <b style="color:#c0392b">dùng hết ('+_keyToLabel(emptiedKey)+')</b>.'
+        +'</p>'
+        +'<p style="font-size:14px;font-weight:700;color:#7d4e00;margin:0">'
+        +'Bạn có chắc chắn muốn nhập lại lô thuốc này cho '+unit+' kỳ '+_keyToLabel(mon)+' không?</p>'
+        +'</div>';
+      _confirmModal('Nhập lại lô đã dùng hết?', html2, function(){
+        // Xác nhận → gỡ đánh dấu đã xóa (cho lô sống lại), rồi ghi dòng
+        delete deletedRows[_delRowKey(mon, unit, drug, lot, exp)];
+        _saveDeletedRowsToCloud();
+        _writeRowBC();
+      }, null, 'Chắc chắn, nhập lại');
+      return;
+    }
+    // Không vướng cảnh báo → gỡ đánh dấu (nếu có) và ghi luôn
+    if(deletedRows[_delRowKey(mon, unit, drug, lot, exp)]){
+      delete deletedRows[_delRowKey(mon, unit, drug, lot, exp)];
+      _saveDeletedRowsToCloud();
+    }
+    await _writeRowBC();
   }
 
   // Cảnh báo: so sánh số đơn vị đang nhập (tinh) với số KHO CHÍNH đã xuất RIÊNG cho
@@ -10040,6 +10169,10 @@ async function _createNextPeriodRows(curKey, nextKey){
     var fin = Math.max(0, calcRow(r).final);
     // Bỏ qua dòng tồn cuối = 0 và đã hết hạn (rác)
     if(fin === 0 && isExpiredStr(r.exp)) return;
+
+    // Nếu người dùng đã CHỦ ĐỘNG xóa dòng này ở kỳ tiếp → tôn trọng, KHÔNG tạo lại.
+    // (chỉ áp cho dòng tồn cuối = 0; dòng còn tồn vẫn phải cuốn sang để không mất số)
+    if(fin === 0 && deletedRows[_delRowKey(nextKey, uk, r.drug, r.lot, r.exp)]) return;
 
     var k = _key(uk, r);
     var exist = existIdx[k];
