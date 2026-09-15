@@ -2429,20 +2429,24 @@ async function _autoLoadOnLogin(){
     var sv = await sr.json();
     if(sv.length && sv[0].value){
       var serverLocked = sv[0].value;
+      // Tách phần đơn vị của key khóa (sau dấu "_" đầu tiên); null = khóa toàn cục.
+      var _unitTokOfLoad = function(k){ var i = k.indexOf('_'); return (i < 0) ? null : k.slice(i + 1); };
       if(role === 'admin'){
         lockedPeriods = serverLocked;
       } else if(role === 'bvph'){
-        // Chỉ giữ các key liên quan bvph (key kết thúc bằng _bvph) + khóa toàn cục
+        // Chỉ giữ khóa của Kho chính (đơn vị 'bvph') + khóa toàn cục
         lockedPeriods = {};
         Object.keys(serverLocked).forEach(function(k){
-          if(k.endsWith('_bvph') || k.indexOf('_') < 0) lockedPeriods[k] = serverLocked[k];
+          var t = _unitTokOfLoad(k);
+          if(t === null || t === 'bvph') lockedPeriods[k] = serverLocked[k];
         });
       } else {
-        // donvi: chỉ giữ khóa của đúng đơn vị mình + khóa toàn cục
+        // donvi: chỉ giữ khóa của ĐÚNG đơn vị mình + khóa toàn cục (so khớp ===, không endsWith)
         lockedPeriods = {};
-        var myKeySuffix = '_' + (currentUser.unit || '');
+        var myUnitTokLoad = currentUser.unit || '';
         Object.keys(serverLocked).forEach(function(k){
-          if(k.endsWith(myKeySuffix) || k.indexOf('_') < 0) lockedPeriods[k] = serverLocked[k];
+          var t = _unitTokOfLoad(k);
+          if(t === null || t === myUnitTokLoad) lockedPeriods[k] = serverLocked[k];
         });
       }
     }
@@ -2560,19 +2564,8 @@ async function saveToSupabase(periodKey, opts){
     if(rows.length === 0){
       if(opts.skipMeta) return true;
       try{
-        var lpP0 = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods', {
-          method: 'PATCH',
-          headers: Object.assign({}, hdBase, {'Prefer': 'return=representation'}),
-          body: JSON.stringify({value:lockedPeriods})
-        });
-        var lpU0 = lpP0.ok ? await lpP0.json() : [];
-        if(!lpU0.length){
-          await fetch(SUPA_URL+'/rest/v1/settings', {
-            method: 'POST',
-            headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
-            body: JSON.stringify([{key:'lockedPeriods', value:lockedPeriods}])
-          });
-        }
+        // Ghi khóa QUA HÀM MERGE để không đè mất khóa của đơn vị khác trên cloud
+        await _saveLockedPeriodsToCloud();
         if(role==='admin') await _saveSupaCatalog();
       }catch(eMeta){ console.warn('[saveToSupabase] ghi meta (rows rỗng) lỗi:', eMeta); }
       return true;
@@ -2655,20 +2648,9 @@ async function saveToSupabase(periodKey, opts){
     // lockedPeriods chỉ thay đổi khi chốt/mở báo cáo; catalog chỉ đổi khi admin sửa danh mục.
     // Bỏ 2 ghi này khỏi đường lưu nháp giúp mỗi lần nhập liệu nhanh hơn rõ rệt.
     if(!opts.skipMeta){
-      // Bước 3: Lưu lockedPeriods vào settings (PATCH-first, tránh dòng trùng)
-      var lpPatch = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods', {
-        method: 'PATCH',
-        headers: Object.assign({}, hdBase, {'Prefer': 'return=representation'}),
-        body: JSON.stringify({value:lockedPeriods})
-      });
-      var lpUpdated = lpPatch.ok ? await lpPatch.json() : [];
-      if(!lpUpdated.length){
-        await fetch(SUPA_URL+'/rest/v1/settings', {
-          method: 'POST',
-          headers: Object.assign({}, hdBase, {'Prefer': 'return=minimal'}),
-          body: JSON.stringify([{key:'lockedPeriods', value:lockedPeriods}])
-        });
-      }
+      // Bước 3: Lưu lockedPeriods QUA HÀM MERGE (đọc cloud, giữ khóa đơn vị khác, chỉ
+      // cập nhật khóa của mình) — tránh mỗi lần lưu lại đè mất khóa của đơn vị khác.
+      await _saveLockedPeriodsToCloud();
       // Bước 4: Admin lưu catalog
       if(role==='admin') await _saveSupaCatalog();
     }
@@ -3108,10 +3090,19 @@ async function _saveLockedPeriodsToCloud(){
         } else {
           // donvi/bvph: giữ nguyên khóa cloud của đơn vị KHÁC, chỉ đồng bộ khóa của mình.
           var merged = Object.assign({}, cloudLocked);
+          var myUnitTok = (role === 'bvph') ? 'bvph' : (currentUser.unit || '');
+          // Tách phần đơn vị của 1 key khóa. Key dạng "YYYY-MM" (toàn cục) hoặc
+          // "YYYY-MM_<đơn vị>". period luôn là YYYY-MM (không chứa "_"), nên phần đơn vị
+          // là toàn bộ chuỗi sau dấu "_" ĐẦU TIÊN. So khớp CHÍNH XÁC (===), KHÔNG endsWith,
+          // để tên đơn vị này không bao giờ khớp nhầm tên đơn vị khác.
+          var _unitTokOf = function(k){
+            var i = k.indexOf('_');
+            return (i < 0) ? null : k.slice(i + 1);   // null = khóa toàn cục
+          };
           var mine = function(k){
-            if(k.indexOf('_') < 0) return true; // khóa toàn cục
-            if(role === 'bvph') return k.endsWith('_bvph');
-            return k.endsWith('_' + (currentUser.unit || ''));
+            var t = _unitTokOf(k);
+            if(t === null) return true;                // khóa toàn cục → của mình
+            return t === myUnitTok;                     // chỉ đúng đơn vị mình
           };
           // Xóa khỏi merged các khóa-của-mình đang có trên cloud (để phản ánh cả việc MỞ khóa)...
           Object.keys(merged).forEach(function(k){ if(mine(k)) delete merged[k]; });
