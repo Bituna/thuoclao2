@@ -3090,10 +3090,42 @@ function _tqCurrentPeriodKey(){
 async function _saveLockedPeriodsToCloud(){
   if(!_supaOnline){ toast('⚠ Offline — trạng thái khóa chỉ lưu tạm, sẽ mất khi tải lại.','var(--warning)'); return false; }
   try{
+    // ── MERGE-TRƯỚC-KHI-GHI ──
+    // donvi/bvph chỉ giữ khóa của MÌNH trong RAM (đã lọc lúc nạp). Nếu PATCH thẳng
+    // RAM lên cloud sẽ ĐÈ MẤT khóa của các đơn vị khác → khóa của họ "tự mở lại".
+    // Vì vậy: đọc bản cloud mới nhất, gộp khóa của mình vào, rồi mới ghi.
+    var _payload = lockedPeriods;
+    try{
+      var gr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',
+        {headers:_supaHdr, cache:'no-store'});
+      if(gr.ok){
+        var gv = await gr.json();
+        var cloudLocked = (gv.length && gv[0].value) ? gv[0].value : {};
+        var role = currentUser ? currentUser.role : 'admin';
+        if(role === 'admin'){
+          // Admin thấy toàn bộ khóa → RAM là bản đầy đủ, ghi thẳng.
+          _payload = lockedPeriods;
+        } else {
+          // donvi/bvph: giữ nguyên khóa cloud của đơn vị KHÁC, chỉ đồng bộ khóa của mình.
+          var merged = Object.assign({}, cloudLocked);
+          var mine = function(k){
+            if(k.indexOf('_') < 0) return true; // khóa toàn cục
+            if(role === 'bvph') return k.endsWith('_bvph');
+            return k.endsWith('_' + (currentUser.unit || ''));
+          };
+          // Xóa khỏi merged các khóa-của-mình đang có trên cloud (để phản ánh cả việc MỞ khóa)...
+          Object.keys(merged).forEach(function(k){ if(mine(k)) delete merged[k]; });
+          // ...rồi đắp lại đúng trạng thái khóa-của-mình hiện tại trong RAM.
+          Object.keys(lockedPeriods).forEach(function(k){ if(mine(k)) merged[k] = lockedPeriods[k]; });
+          _payload = merged;
+        }
+      }
+    }catch(e){ console.warn('merge lockedPeriods trước khi ghi lỗi, ghi thẳng RAM', e); }
+
     var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods', {
       method:'PATCH',
       headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=representation'}),
-      body:JSON.stringify({value:lockedPeriods})
+      body:JSON.stringify({value:_payload})
     });
     if(!pr.ok){
       var e1 = await pr.text();
@@ -3107,7 +3139,7 @@ async function _saveLockedPeriodsToCloud(){
       var ins = await fetch(SUPA_URL+'/rest/v1/settings', {
         method:'POST',
         headers: Object.assign({}, _supaHdr, {'Content-Type':'application/json','Prefer':'return=minimal'}),
-        body:JSON.stringify([{key:'lockedPeriods', value:lockedPeriods}])
+        body:JSON.stringify([{key:'lockedPeriods', value:_payload}])
       });
       if(!ins.ok){
         var e2 = await ins.text();
