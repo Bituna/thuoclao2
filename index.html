@@ -10366,7 +10366,7 @@ async function _cascadeOpeningStock(startPeriodKey){
         var ex = nextIdx[key];
         if(ex){
           // Dòng đã có ở kỳ tiếp: cập nhật open nếu lệch (kể cả đã khóa)
-          if((ex.open||0) !== fin){
+          var _zcAct=(ex.tinh||0)+(ex.ntk||0)+(ex.dc||0)+(ex.dc2||0)+(ex.dc3||0)+(ex.sd||0)+(ex.hh||0); if(fin===0 && _zcAct===0 && !ex.locked){ patches.push({unit:_uk(ex), drug:ex.drug, lot:ex.lot, exp:ex.exp||'', del:true}); anyChange=true; } else if((ex.open||0) !== fin){
             patches.push({unit:_uk(ex), drug:ex.drug, lot:ex.lot, exp:ex.exp||'', open:fin, create:false});
             anyChange = true;
           }
@@ -10385,7 +10385,7 @@ async function _cascadeOpeningStock(startPeriodKey){
 
         // Cập nhật RAM nếu đang giữ kỳ tiếp trong bvphData/bcData
         patches.forEach(function(pt){
-          var arr = (pt.unit==='bvph') ? bvphData : bcData;
+          var arr = (pt.unit === 'bvph') ? bvphData : bcData; if(pt.del){ for(var _zi=arr.length-1;_zi>=0;_zi--){ var _zx=arr[_zi]; var _zu=(_zx.unit===BVPH||_zx.unit==='bvph')?'bvph':_zx.unit; if(_zx.bcMonth===nextKey && _zu===pt.unit && _zx.drug===pt.drug && _zx.lot===pt.lot && (_zx.exp||'')===(pt.exp||'')){ arr.splice(_zi,1); } } return; }
           var found = false;
           arr.forEach(function(x){
             var xuk = (x.unit===BVPH||x.unit==='bvph')?'bvph':(x.unit||'');
@@ -10441,6 +10441,7 @@ async function _applyOpenPatches(periodKey, patches){
   var creates = [];
   for(var i=0; i<patches.length; i++){
     var pt = patches[i];
+    if(pt.del){ var _zcUrl=SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&unit=eq.'+encodeURIComponent(pt.unit)+'&drug=eq.'+encodeURIComponent(pt.drug)+'&lot=eq.'+encodeURIComponent(pt.lot)+'&exp=eq.'+encodeURIComponent(pt.exp||''); try{ await fetch(_zcUrl,{method:'DELETE',headers:hd}); }catch(e){} continue; }
     if(pt.create){
       creates.push({
         period:periodKey, unit:pt.unit, drug:pt.drug, lot:pt.lot, exp:pt.exp||'',
