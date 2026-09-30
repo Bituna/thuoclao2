@@ -5662,12 +5662,13 @@ function _aggProvince(bvphRows, bcRows){
     map[k].dc   += (r.dc||0);
   });
 
+  var _finK={}; bvphRows.concat(bcRows).forEach(function(rr){var kk=KEY(rr); _finK[kk]=(_finK[kk]||0)+calcRow(rr).final;});
   var byLot = {}, byDrug = {};
   Object.keys(map).forEach(function(k){
     var m   = map[k];
     var tin  = m.tw + m.ntk;          // nhập từ ngoài TP
     var tout = m.sd + m.dc3 + m.hh;   // xuất thật (sử dụng + tỉnh khác + hỏng), KHÔNG dc2
-    var fin  = m.open + tin - tout;
+    var fin = (_finK[k]!==undefined ? _finK[k] : (m.open + tin - tout));
     byLot[k] = {drug:m.drug, lot:m.lot, exp:m.exp, open:m.open, tin:tin, tout:tout, final:fin};
 
     var d = m.drug || '(không tên)';
@@ -14448,6 +14449,7 @@ function renderTP(){
 
   var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
 
+  var _finK={}; bvphData.filter(matchPeriod).concat(bcData.filter(matchPeriod)).forEach(function(rr){var kk=KEY(rr); _finK[kk]=(_finK[kk]||0)+calcRow(rr).final;});
   keys.forEach(function(k, _i){
     var m   = map[k];
     var _dn = m.drug;
@@ -14463,7 +14465,7 @@ function renderTP(){
     // Nhập ĐC nội bộ KHÔNG cộng vì là luân chuyển trong TP (tự triệt tiêu với xuất ĐC).
     var tin  = tw + ntk;
     var tout = sd + dc3 + hh;
-    var fin  = m.open + tin - tout;
+    var fin = (_finK[k]!==undefined ? _finK[k] : (m.open + tin - tout));
     var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
     var exp_ = isExpiredStr(m.exp);
     var expD = expToMMYYYY(m.exp);
