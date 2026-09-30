@@ -14505,8 +14505,8 @@ function renderTP(){
     // Nhập ĐC nội bộ KHÔNG cộng vì là luân chuyển trong TP (tự triệt tiêu với xuất ĐC).
     var tin  = tw + ntk;
     var tout = sd + dc3 + hh;
-    var fin = (_finK[k]!==undefined ? _finK[k] : (m.open + tin - tout));
-    var _itk=(_itMapIT[k]?_itMapIT[k].qty:0); fin=fin+_itk; var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
+    var fin = m.open + tin - tout;
+    var _itk=(_itMapIT[k]?_itMapIT[k].qty:0); var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
     var exp_ = isExpiredStr(m.exp);
     var expD = expToMMYYYY(m.exp);
 
@@ -14527,7 +14527,7 @@ function renderTP(){
       +(_isFirstOfDrug ? '<td class="left" rowspan="'+_drugCount[_dn]+'" style="vertical-align:middle;font-weight:600">'+_dn+'</td>' : '')
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
-      +'<td'+CC('open')+' style="cursor:pointer" data-cls="open-stock">'+fmtNum(m.open+(_itMapPrevIT[k]?_itMapPrevIT[k].qty:0))+'</td>'
+      +'<td'+CC('open')+' style="cursor:pointer" data-cls="open-stock">'+fmtNum(m.open)+'</td>'
       +'<td'+CC('tw')+'>'+fmtNum(tw)+'</td>'
       +'<td'+CC('ntk')+'>'+fmtNum(ntk)+'</td>'
       +'<td'+CC('tin')+' data-cls="calc-in"><strong>'+fmtNum(tin)+'</strong></td>'
@@ -14535,7 +14535,7 @@ function renderTP(){
       +'<td'+CC('dc3')+' style="color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
       +'<td'+CC('hh')+' data-tp-hh="1">'+fmtNum(hh)+'</td>'
       +'<td'+CC('tout')+' data-cls="calc-out"><strong>'+fmtNum(tout)+'</strong></td>'
-      +'<td'+CC('fin')+' data-cls="'+fcls+'"'+(_itk>0?' style="cursor:pointer;text-decoration:underline dotted #2563eb" title="Có hàng đang đi đường — bấm xem" onclick="_showInTransitDetail(\''+encodeURIComponent(k)+'\')"':'')+'>'+fmtNum(fin)+(_itk>0?' <span style="color:#2563eb">▸</span>':'')+'</td>'
+      +'<td'+CC('fin')+' data-cls="'+fcls+'" style="cursor:pointer">'+fmtNum(fin)+(_itk>0?' <span style="color:#2563eb" title="Có hàng đang đi đường">▸</span>':'')+'</td>'
 
       +'</tr>';
   });
@@ -14604,7 +14604,7 @@ function showTPDetail(idx, field){
   var body = '';
   if(mt.formula){
     // Ô tính toán → hiện công thức cấu thành, mỗi thành phần bấm được để xem tiếp
-    if(field!=='fin'){ body += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    body += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
     mt.formula.forEach(function(f, i){
       var v = d.vals[f[1]] || 0;
       body += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="showTPDetail('+idx+',\''+f[1]+'\')" title="Bấm để xem chi tiết '+f[0]+'">'
@@ -14614,29 +14614,29 @@ function showTPDetail(idx, field){
     });
     body += '<tr><td style="padding:10px 6px;font-weight:800;color:'+mt.col+'">= '+mt.label+'</td>'
       +'<td style="padding:10px 6px;text-align:right;font-weight:800;font-size:16px;color:'+mt.col+'">'+fmtNum(total)+'</td></tr>';
-    body += '</table>'; }
-    if(field!=='fin' && mt.note) body += '<div style="margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.5">ℹ '+mt.note+'</div>';
+    body += '</table>';
+    if(mt.note) body += '<div style="margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.5">ℹ '+mt.note+'</div>';
 
     // ── RIÊNG TỒN CUỐI: thêm bảng tồn cuối TỪNG ĐƠN VỊ để đối chiếu ──
     if(field === 'fin'){
-      var ut = _unitTable('fin', mt.col, true);
+      var ut = _unitTable('fin', mt.col, true);  // cho phép cả số âm (nhập lệch)
       var _itKey = d.drug+'|'+d.lot+'|'+(d.exp||'');
       var _itm = (window._itMapIT && window._itMapIT[_itKey]) || {qty:0, list:[]};
       var _itQ = _itm.qty || 0; var _itL = _itm.list || [];
-      body += '<table style="width:100%;border-collapse:collapse;font-size:13px">'        + '<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:8px 6px;color:#475569">Σ Tồn cuối trên sổ các đơn vị <span style="font-size:11px;color:#94a3b8">(chi tiết bên dưới)</span></td><td style="padding:8px 6px;text-align:right;font-weight:700;color:#1e293b">'+fmtNum(ut.sum)+'</td></tr>';
-      if(_itQ>0){ body += '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="var e=document.getElementById(\'itlist-'+idx+'\');if(e)e.style.display=(e.style.display===\'none\'?\'block\':\'none\')" title="Bấm để xem các phiếu điều chuyển chưa nhận"><td style="padding:8px 6px;color:#475569"><span style="color:#b7791f;font-weight:700;margin-right:6px">+</span>Hàng đang đi đường <span style="font-size:11px;color:#94a3b8">(đã xuất điều chuyển, bên nhận chưa xác nhận) ›</span></td><td style="padding:8px 6px;text-align:right;font-weight:700;color:#b7791f">'+fmtNum(_itQ)+'</td></tr>'; }
-      body += '<tr><td style="padding:10px 6px;font-weight:800;color:'+mt.col+'">= Tồn cuối toàn tỉnh</td><td style="padding:10px 6px;text-align:right;font-weight:800;font-size:16px;color:'+mt.col+'">'+fmtNum(total)+'</td></tr></table>';
-      if(_itQ>0){ var _itRows=''; _itL.forEach(function(t){ _itRows += '<div style="padding:6px 8px;border-bottom:1px dashed #fde68a;font-size:12px;color:#78350f"><b>'+escH(t.from_unit||'?')+'</b> <span style="color:#b7791f">→</span> <b>'+escH(t.to_unit||'?')+'</b> · <span style="font-weight:700">'+fmtNum(t.qty||0)+' viên</span><div style="font-size:11px;color:#a16207;margin-top:2px">Lô '+escH(t.lot||'')+(t.exp?' · HD '+expToMMYYYY(t.exp):'')+' · Xuất '+escH(t.transfer_date||t.period||'')+(t.receive_date?' · sẽ nhận '+escH(t.receive_date):' · chưa nhận')+'</div></div>'; }); body += '<div id="itlist-'+idx+'" style="display:none;margin-top:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden"><div style="padding:6px 8px;background:#fef3c7;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.4px">'+_itL.length+' phiếu điều chuyển chưa được đơn vị nhận xác nhận</div>'+_itRows+'</div>'; }  // cho phép cả số âm (nhập lệch)
       body += '<div style="margin-top:14px;padding-top:10px;border-top:2px dashed #e2e8f0">'
         +'<div style="font-size:11px;font-weight:800;color:'+mt.col+';text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Đối chiếu: Tồn cuối từng đơn vị</div>'
         + ut.html;
       if(ut.n > 0){
-        var diff = ut.sum - total; var _resid = diff + _itQ;
-        if(Math.abs(_resid) < 1){
-          if(_itQ>0){ body += '<div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f"><b style="color:#92400e">✓ ĐÃ KHỚP</b> — Σ tồn cuối đơn vị ('+fmtNum(ut.sum)+') + Hàng đang đi đường ('+fmtNum(_itQ)+') = Toàn tỉnh ('+fmtNum(total)+').<div style="margin-top:4px;font-weight:400">Chênh lệch '+fmtNum(_itQ)+' viên KHÔNG phải sai số — đó là số đang trên đường điều chuyển, bên nhận chưa xác nhận (bấm dòng “Hàng đang đi đường” ở trên để xem chi tiết).</div></div>'; }
-          else { body += '<div style="margin-top:8px;padding:8px 12px;background:#eafaf0;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:700;color:#1e7e44">✓ KHỚP — cộng tồn cuối các đơn vị = Tồn cuối toàn tỉnh ('+fmtNum(total)+')</div>'; }
+        var diff = total - ut.sum;
+        body += '<div style="margin-top:8px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#334155">Tồn cuối toàn tỉnh (Tồn đầu + Nhập − Xuất) = <b>'+fmtNum(total)+'</b> · Σ tồn cuối các đơn vị = <b>'+fmtNum(ut.sum)+'</b> · Lệch = <b style="color:'+(diff!==0?'#b45309':'#1e7e44')+'">'+fmtNum(diff)+'</b></div>';
+        if(diff === 0){
+          body += '<div style="margin-top:6px;padding:8px 12px;background:#eafaf0;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:700;color:#1e7e44">✓ KHỚP — Σ tồn cuối các đơn vị = Tồn cuối toàn tỉnh</div>';
         } else {
-          body += '<div style="margin-top:8px;padding:8px 12px;background:#fdecec;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;color:#c0392b">⚠ CÒN LỆCH '+fmtNum(Math.abs(_resid))+' viên chưa giải thích được'+(_itQ>0?' (sau khi đã trừ '+fmtNum(_itQ)+' viên đang đi đường)':'')+'.<br><span style="font-weight:400">Σ tồn cuối đơn vị = '+fmtNum(ut.sum)+', đang đi đường = '+fmtNum(_itQ)+', toàn tỉnh = '+fmtNum(total)+'. Kiểm tra lại phiếu Xuất điều chuyển / Nhập tỉnh của kỳ này.</span></div>';
+          var _itRows=''; _itL.forEach(function(t){ _itRows += '<div style="padding:6px 8px;border-bottom:1px dashed #fde68a;font-size:12px;color:#78350f"><b>'+escH(t.from_unit||'?')+'</b> <span style="color:#b7791f">→</span> <b>'+escH(t.to_unit||'?')+'</b> · <span style="font-weight:700">'+fmtNum(t.qty||0)+' viên</span><div style="font-size:11px;color:#a16207;margin-top:2px">Lô '+escH(t.lot||'')+(t.exp?' · HD '+expToMMYYYY(t.exp):'')+' · Xuất '+escH(t.transfer_date||t.period||'')+(t.receive_date?' · sẽ nhận '+escH(t.receive_date):' · chưa nhận')+'</div></div>'; });
+          body += '<div style="margin-top:6px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#78350f"><b style="color:#92400e">Vì sao lệch '+fmtNum(Math.abs(diff))+' viên?</b> Do các phiếu điều chuyển đã xuất nhưng đơn vị nhận CHƯĂ xác nhận (hàng đang đi đường) — số này vẫn thuộc tồn kho toàn tỉnh nhưng chưa cộng vào tồn cuối của đơn vị nhận:</div>';
+          if(_itL.length){ body += '<div style="margin-top:4px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden"><div style="padding:6px 8px;background:#fef3c7;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.4px">'+_itL.length+' phiếu điều chuyển chưa xác nhận — tổng '+fmtNum(_itQ)+' viên</div>'+_itRows+'</div>'; }
+          var _res = diff - _itQ;
+          if(Math.abs(_res) >= 1){ body += '<div style="margin-top:6px;padding:8px 12px;background:#fdecec;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#c0392b"><b>⚠ Còn lệch '+fmtNum(Math.abs(_res))+' viên chưa khớp</b> giữa sổ điều chuyển ('+fmtNum(_itQ)+' viên đang đi đường) và chênh lệch báo cáo ('+fmtNum(diff)+' viên). Cần kiểm tra lại phiếu Xuất điều chuyển / Nhập tỉnh của kỳ này.</div>'; }
         }
       }
       body += '</div>';
