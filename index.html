@@ -14489,7 +14489,7 @@ function renderTP(){
   var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
 
   var _finK={}; bvphData.filter(matchPeriod).concat(bcData.filter(matchPeriod)).forEach(function(rr){var kk=KEY(rr); _finK[kk]=(_finK[kk]||0)+calcRow(rr).final;});
-  window._finKIT=_finK; var _itMapIT=(typeof _currentPeriodKey==='function'?_inTransitMapIT(_currentPeriodKey()):{}); window._itMapIT=_itMapIT; if(typeof window._itXfers==='undefined'){ window._itXfers=[]; _loadInTransitXfers(); }
+  window._finKIT=_finK; var _itMapIT=(typeof _currentPeriodKey==='function'?_inTransitMapIT(_currentPeriodKey()):{}); window._itMapIT=_itMapIT; var _itMapPrevIT=(typeof _prevPeriodKey==='function'&&typeof _currentPeriodKey==='function'?_inTransitMapIT(_prevPeriodKey(_currentPeriodKey())):{}); window._itMapPrevIT=_itMapPrevIT; if(typeof window._itXfers==='undefined'){ window._itXfers=[]; _loadInTransitXfers(); }
   keys.forEach(function(k, _i){
     var m   = map[k];
     var _dn = m.drug;
@@ -14527,7 +14527,7 @@ function renderTP(){
       +(_isFirstOfDrug ? '<td class="left" rowspan="'+_drugCount[_dn]+'" style="vertical-align:middle;font-weight:600">'+_dn+'</td>' : '')
       +'<td>'+m.lot+'</td>'
       +'<td style="'+(exp_?'color:var(--danger)':'')+'">'+(exp_?'&#9888; ':'')+expD+'</td>'
-      +'<td'+CC('open')+' style="cursor:pointer" data-cls="open-stock">'+fmtNum(m.open)+'</td>'
+      +'<td'+CC('open')+' style="cursor:pointer" data-cls="open-stock">'+fmtNum(m.open+(_itMapPrevIT[k]?_itMapPrevIT[k].qty:0))+'</td>'
       +'<td'+CC('tw')+'>'+fmtNum(tw)+'</td>'
       +'<td'+CC('ntk')+'>'+fmtNum(ntk)+'</td>'
       +'<td'+CC('tin')+' data-cls="calc-in"><strong>'+fmtNum(tin)+'</strong></td>'
