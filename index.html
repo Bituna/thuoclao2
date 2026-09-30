@@ -1318,6 +1318,7 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
             onmouseout="this.style.transform='';this.style.filter=''">
             <span style="font-size:13px">🔒</span> Khóa / Mở
           </button>
+          <button id="btn-check-lech-all" onclick="kiemTraLechTonDauToanBo()" title="Đối chiếu tồn đầu/tồn cuối TẤT CẢ các kỳ (kể cả tồn âm và lô tự sinh)" class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 3px 10px rgba(37,99,235,.3)"><span style="font-size:13px">🔎</span> Kiểm tra TẤT CẢ kỳ</button>
           <button id="btn-check-lech" onclick="kiemTraLechTonDau()"
             title="Đối chiếu tồn đầu kỳ này với tồn cuối kỳ trước (đúng thuốc/lô/hạn/đơn vị) và sửa lệch"
             class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 3px 10px rgba(21,128,61,.3)"
@@ -10472,6 +10473,69 @@ async function _applyOpenPatches(periodKey, patches){
 // Khớp theo đúng (đơn vị + thuốc + lô + hạn). Báo cáo các dòng lệch và cho phép
 // đồng bộ lại (chỉ Admin). Dùng khi nghi ngờ số liệu rollover bị sai.
 // ════════════════════════════════════════════════════════════════════
+async function kiemTraLechTonDauToanBo(){
+  if(!_supaOnline){ toast('⚠ Cần kết nối cloud để kiểm tra.','var(--danger)'); return; }
+  toast('Đang tải toàn bộ dữ liệu và đối chiếu tất cả các kỳ...','#1a5276');
+  var all=[], off=0, PG=1000;
+  try{
+    while(true){
+      var u=SUPA_URL+'/rest/v1/reports?select=*&order=id.asc&limit='+PG+'&offset='+off;
+      var rs=await fetch(u,{headers:_supaHdr});
+      var js=await rs.json();
+      if(!Array.isArray(js)){ toast('❌ Không tải được dữ liệu.','var(--danger)'); return; }
+      all=all.concat(js);
+      if(js.length<PG) break;
+      off+=PG; if(off>60000) break;
+    }
+  }catch(e){ toast('❌ Lỗi tải: '+e.message,'var(--danger)'); return; }
+  var _uk=function(r){ return (r.unit===BVPH||r.unit==='bvph')?'bvph':(r.unit||''); };
+  var _key=function(r){ return _uk(r)+'||'+r.drug+'||'+r.lot+'||'+(r.exp||''); };
+  var _pm=function(p){ var a=String(p).split('-'); var y=+a[0], m=(+a[1])-1; if(m<1){m=12;y--;} return y+'-'+String(m).padStart(2,'0'); };
+  var byP={}; all.forEach(function(r){ (byP[r.period]=byP[r.period]||[]).push(r); });
+  var periods=Object.keys(byP).sort();
+  var amRows=[];
+  all.forEach(function(r){ if(!_uk(r)) return; var f=calcRow(r).final; if(f<0) amRows.push({period:r.period,unit:_uk(r),drug:r.drug,lot:r.lot,exp:r.exp,fin:f}); });
+  amRows.sort(function(a,b){ return a.period<b.period?-1:(a.period>b.period?1:0); });
+  var blocks=[], totalIssues=amRows.length;
+  periods.forEach(function(cur){
+    var pv=_pm(cur); if(!byP[pv]) return;
+    var prevFinal={}; byP[pv].forEach(function(r){ if(_uk(r)) prevFinal[_key(r)]=calcRow(r).final; });
+    var seen={}, lech=[], thua=[], thieu=[];
+    byP[cur].forEach(function(r){
+      if(!_uk(r)) return;
+      var key=_key(r); seen[key]=true;
+      var act=(r.tinh||0)+(r.ntk||0)+(r.dc||0)+(r.sd||0)+(r.dc2||0)+(r.dc3||0)+(r.hh||0);
+      var exp=prevFinal[key];
+      if(exp===undefined){ if((r.open||0)>0) thua.push({unit:_uk(r),drug:r.drug,lot:r.lot,exp:r.exp,open:(r.open||0),hasAct:act>0||r.locked}); }
+      else if((r.open||0)!==exp){ lech.push({unit:_uk(r),drug:r.drug,lot:r.lot,exp:r.exp,cur:(r.open||0),expected:exp,hasAct:act>0||r.locked}); }
+    });
+    Object.keys(prevFinal).forEach(function(key){ if(prevFinal[key]>0 && !seen[key]){ var p=key.split('||'); thieu.push({unit:p[0],drug:p[1],lot:p[2],exp:p[3],expected:prevFinal[key]}); } });
+    var n=lech.length+thua.length+thieu.length;
+    if(n>0){ totalIssues+=n; blocks.push({tran:pv+'→'+cur, lech:lech, thua:thua, thieu:thieu}); }
+  });
+  var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  var mmyy=(typeof expToMMYYYY==='function')?expToMMYYYY:function(x){return esc(x);};
+  var uname=function(u){ return (typeof _displayUnit==='function')?_displayUnit(u==='bvph'?BVPH:u):esc(u); };
+  if(totalIssues===0){ _showAuditResult('<div style="text-align:center;padding:20px;color:#16a34a;font-weight:600">✓ Toàn bộ '+periods.length+' kỳ khớp — không phát hiện lệch.</div>', null); return; }
+  var html='<div style="font-size:13px;color:#475569;margin-bottom:10px">Đối chiếu <b>tất cả '+periods.length+' kỳ</b> — phát hiện <b style="color:#dc2626">'+totalIssues+'</b> vấn đề.</div>';
+  function tbl(title,rows,cols,cellFn){
+    if(!rows.length) return '';
+    var h='<div style="font-weight:700;color:#b45309;margin:12px 0 6px">'+title+' ('+rows.length+')</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    h+='<tr style="background:#f1f5f9">'+cols.map(function(c){return '<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #e2e8f0">'+c+'</th>';}).join('')+'</tr>';
+    rows.forEach(function(r){ h+='<tr>'+cellFn(r).map(function(c){return '<td style="padding:5px 8px;border-bottom:1px solid #f1f5f9">'+c+'</td>';}).join('')+'</tr>'; });
+    h+='</table></div>'; return h;
+  }
+  if(amRows.length){ html+=tbl('🔴 Tồn cuối ÂM (lỗi gốc — trước đây bị ẩn)', amRows, ['Kỳ','Đơn vị','Thuốc','Lô','HD','Tồn cuối'], function(r){ return [esc(r.period), uname(r.unit), esc(r.drug), esc(r.lot), mmyy(r.exp), '<b style="color:#dc2626">'+r.fin+'</b>']; }); }
+  blocks.forEach(function(b){
+    html+='<div style="margin-top:14px;padding-top:8px;border-top:2px solid #e2e8f0;font-weight:800;color:#1a5276">Kỳ '+esc(b.tran)+'</div>';
+    html+=tbl('🔴 Lệch tồn đầu (≠ tồn cuối kỳ trước)', b.lech, ['Đơn vị','Thuốc','Lô','HD','Hiện tại','Đúng phải là','TT'], function(r){ return [uname(r.unit), esc(r.drug), esc(r.lot), mmyy(r.exp), '<b style="color:#dc2626">'+r.cur+'</b>', '<b style="color:#16a34a">'+r.expected+'</b>', r.hasAct?'đã nhập liệu':'trống']; });
+    html+=tbl('🟠 Nghi tự sinh (kỳ này có tồn đầu, kỳ trước không có)', b.thua, ['Đơn vị','Thuốc','Lô','HD','Tồn đầu','TT'], function(r){ return [uname(r.unit), esc(r.drug), esc(r.lot), mmyy(r.exp), '<b>'+r.open+'</b>', r.hasAct?'đã nhập liệu':'trống']; });
+    html+=tbl('🟡 Thiếu dòng (kỳ trước còn tồn, kỳ này chưa có)', b.thieu, ['Đơn vị','Thuốc','Lô','HD','Tồn đầu nên là'], function(r){ return [uname(r.unit), esc(r.drug), esc(r.lot), mmyy(r.exp), '<b>'+r.expected+'</b>']; });
+  });
+  _showAuditResult(html, null);
+}
+
 async function kiemTraLechTonDau(autoFix){
   if(!_supaOnline){ toast('⚠ Cần kết nối cloud để kiểm tra.','var(--danger)'); return; }
   var curKey = _currentPeriodKey();
@@ -10492,7 +10556,7 @@ async function kiemTraLechTonDau(autoFix){
   var prevFinal = {};
   prevRows.forEach(function(r){
     var k=_uk(r); if(!k) return;
-    prevFinal[_key(r)] = Math.max(0, calcRow(r).final);
+    prevFinal[_key(r)] = calcRow(r).final;
   });
 
   // Đối chiếu từng dòng tồn đầu kỳ này
