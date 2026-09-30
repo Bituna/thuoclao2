@@ -14368,6 +14368,43 @@ function fullRender(){
   }
 }
 
+function _pMonthIT(d){ if(!d) return ''; var s=String(d); return s.length>=7? s.slice(0,7): s; }
+function _loadInTransitXfers(){
+  if(typeof _supaOnline!=='undefined' && !_supaOnline){ window._itXfers=[]; return; }
+  fetch(SUPA_URL+'/rest/v1/transfers?select=from_unit,to_unit,drug,lot,exp,qty,period,transfer_date,receive_date,status&type=eq.dc2_to_dc&status=not.in.(cancelled,cancel_notif)&limit=5000',{headers:_supaHdr})
+    .then(function(r){return r.json();})
+    .then(function(j){ window._itXfers = Array.isArray(j)? j : []; if(typeof renderTP==='function') renderTP(); })
+    .catch(function(){ window._itXfers=[]; });
+}
+function _inTransitMapIT(periodKey){
+  var m={}; var xf=window._itXfers;
+  if(!periodKey || !Array.isArray(xf)) return m;
+  xf.forEach(function(t){
+    var issM=_pMonthIT(t.period||t.transfer_date);
+    if(!issM || issM>periodKey) return;
+    var recM=_pMonthIT(t.receive_date);
+    if(recM && recM<=periodKey) return;
+    var k=(t.drug||'')+'|'+(t.lot||'')+'|'+(t.exp||'');
+    if(!m[k]) m[k]={qty:0,list:[]};
+    m[k].qty += Number(t.qty)||0; m[k].list.push(t);
+  });
+  return m;
+}
+function _showInTransitDetail(encKey){
+  var k=decodeURIComponent(encKey);
+  var d=(window._itMapIT||{})[k]; if(!d) return;
+  var onbook=(window._finKIT||{})[k]||0;
+  var parts=k.split('|');
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');};
+  var uname=function(u){ try{ return (typeof _displayUnit==='function')?_displayUnit(u==='bvph'?(typeof BVPH!=='undefined'?BVPH:u):u):esc(u); }catch(e){ return esc(u); } };
+  var html='<div style="font-weight:800;color:#1a5276;margin-bottom:6px">'+esc(parts[0])+' — Lô '+esc(parts[1])+'</div>';
+  html+='<div style="font-size:13px;margin-bottom:8px">Tồn trên sổ các đơn vị: <b>'+fmtNum(onbook)+'</b><br>Hàng đang đi đường (đã xuất, chưa nhận): <b style="color:#2563eb">'+fmtNum(d.qty)+'</b><br>Tồn cuối toàn tỉnh: <b>'+fmtNum(onbook+d.qty)+'</b></div>';
+  html+='<div style="font-weight:700;color:#b45309;margin:8px 0 4px">Phiếu đang đi đường ('+d.list.length+')</div>';
+  html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th style="padding:4px 8px;text-align:left">Từ</th><th style="padding:4px 8px;text-align:left">Đến</th><th style="padding:4px 8px;text-align:right">SL</th><th style="padding:4px 8px;text-align:left">Ngày xuất</th></tr>';
+  d.list.forEach(function(t){ html+='<tr><td style="padding:4px 8px">'+uname(t.from_unit)+'</td><td style="padding:4px 8px">'+uname(t.to_unit)+'</td><td style="padding:4px 8px;text-align:right">'+fmtNum(Number(t.qty)||0)+'</td><td style="padding:4px 8px">'+esc(t.transfer_date||t.period)+'</td></tr>'; });
+  html+='</table></div>';
+  if(typeof _showAuditResult==='function') _showAuditResult(html,null); else alert('Đang đi đường: '+d.qty);
+}
 function renderTP(){
   var tbody = document.getElementById('tp-body');
   if(!tbody) return;
@@ -14452,6 +14489,7 @@ function renderTP(){
   var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
 
   var _finK={}; bvphData.filter(matchPeriod).concat(bcData.filter(matchPeriod)).forEach(function(rr){var kk=KEY(rr); _finK[kk]=(_finK[kk]||0)+calcRow(rr).final;});
+  window._finKIT=_finK; var _itMapIT=(typeof _currentPeriodKey==='function'?_inTransitMapIT(_currentPeriodKey()):{}); window._itMapIT=_itMapIT; if(typeof window._itXfers==='undefined'){ window._itXfers=[]; _loadInTransitXfers(); }
   keys.forEach(function(k, _i){
     var m   = map[k];
     var _dn = m.drug;
@@ -14468,7 +14506,7 @@ function renderTP(){
     var tin  = tw + ntk;
     var tout = sd + dc3 + hh;
     var fin = (_finK[k]!==undefined ? _finK[k] : (m.open + tin - tout));
-    var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
+    var _itk=(_itMapIT[k]?_itMapIT[k].qty:0); fin=fin+_itk; var fcls = fin < 0 ? 'final-neg' : (fin < threshold.low ? 'final-low' : 'final-ok');
     var exp_ = isExpiredStr(m.exp);
     var expD = expToMMYYYY(m.exp);
 
@@ -14497,7 +14535,7 @@ function renderTP(){
       +'<td'+CC('dc3')+' style="color:var(--muted)" data-tp-dc3="1">'+fmtNum(dc3)+'</td>'
       +'<td'+CC('hh')+' data-tp-hh="1">'+fmtNum(hh)+'</td>'
       +'<td'+CC('tout')+' data-cls="calc-out"><strong>'+fmtNum(tout)+'</strong></td>'
-      +'<td'+CC('fin')+' data-cls="'+fcls+'">'+fmtNum(fin)+'</td>'
+      +'<td'+CC('fin')+' data-cls="'+fcls+'"'+(_itk>0?' style="cursor:pointer;text-decoration:underline dotted #2563eb" title="Có hàng đang đi đường — bấm xem" onclick="_showInTransitDetail(\''+encodeURIComponent(k)+'\')"':'')+'>'+fmtNum(fin)+(_itk>0?' <span style="color:#2563eb">▸</span>':'')+'</td>'
 
       +'</tr>';
   });
