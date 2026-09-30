@@ -10339,6 +10339,7 @@ async function _cascadeOpeningStock(startPeriodKey){
     for(var step=0; step<SAFETY; step++){
       var nextKey = _nextPeriodKey(curKey);
       if(!nextKey) break;
+      var _now=new Date(); var _capM=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0'); if(nextKey > _capM) break;
 
       // Lấy tồn cuối kỳ hiện tại TƯƠI từ cloud (không dùng RAM có thể stale)
       var curRows = await _fetchPeriodFromCloud(curKey);
