@@ -13983,7 +13983,7 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
       'STT','Tên thuốc','Số lô','Hạn dùng','Tồn đầu',
       'Nhập TW','Nhập tỉnh khác','Tổng nhập',
       'Sử dụng (toàn TP)','Xuất tỉnh khác','Hỏng/HH','Tổng xuất',
-      'Tồn cuối'
+      'ĐC đi (chưa nhận)','Tồn cuối'
     ]);
 
     var sO=0,sTW=0,sDC=0,sTIN=0,sSD=0,sDC3=0,sHH=0,sTOUT=0,sFin=0;
@@ -13993,29 +13993,30 @@ function _doExportExcel(curMonth, curYear, unitShort, allMonths){
       var tw  = m.twBvph||0, dc = m.ntkBvph||0;
       var dc3 = m.bvphDC3||0, hh = m.bvphHH||0;
       var tin = tw+dc, tout = m.sdAll+dc3+hh;
-      var fin = m.open+tin-tout;
+      var finK=0; _fd.bvph.concat(_fd.bc).forEach(function(rr){ if((rr.drug+'|'+rr.lot+'|'+(rr.exp||''))===k) finK+=calcRow(rr).final; });
+      var dcdi=(m.open+tin-tout)-finK; var fin=finK;
       sO+=m.open; sTW+=tw; sDC+=dc; sTIN+=tin;
       sSD+=m.sdAll; sDC3+=dc3; sHH+=hh; sTOUT+=tout; sFin+=fin;
       aoa.push([
         idx+1, m.drug, m.lot, expFmt(m.exp), m.open,
         tw, dc, tin,
         m.sdAll, dc3, hh, tout,
-        fin
+        dcdi, fin
       ]);
     });
 
-    aoa.push(['TỔNG','','','', sO, sTW, sDC, sTIN, sSD, sDC3, sHH, sTOUT, sFin]);
+    aoa.push(['TỔNG','','','', sO, sTW, sDC, sTIN, sSD, sDC3, sHH, sTOUT, ((sO+sTIN-sTOUT)-sFin), sFin]);
 
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = [
       {wch:5},{wch:32},{wch:14},{wch:12},{wch:10},
       {wch:11},{wch:14},{wch:12},
-      {wch:16},{wch:14},{wch:11},{wch:12},{wch:10}
+      {wch:16},{wch:14},{wch:11},{wch:12},{wch:16},{wch:10}
     ];
-    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:13}},{s:{r:1,c:0},e:{r:1,c:13}}];
     _styleCell(ws,'A1',{font:{bold:true,sz:13},alignment:{horizontal:'center'}});
     _styleCell(ws,'A2',{font:{italic:true,color:{rgb:'555555'}},alignment:{horizontal:'center'}});
-    var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M'];
+    var hCols=['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
     hCols.forEach(function(c){ _styleCell(ws,c+'4',hdrStyle('6f1a1a')); });
     var lastRow=aoa.length;
     hCols.forEach(function(c){ _styleCell(ws,c+lastRow,{font:{bold:true},fill:{patternType:'solid',fgColor:{rgb:'F8D7DA'}}}); });
