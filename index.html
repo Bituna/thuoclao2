@@ -1318,13 +1318,13 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
             onmouseout="this.style.transform='';this.style.filter=''">
             <span style="font-size:13px">🔒</span> Khóa / Mở
           </button>
-          <button id="btn-check-lech-all" onclick="kiemTraLechTonDauToanBo()" title="Đối chiếu tồn đầu/tồn cuối TẤT CẢ các kỳ (kể cả tồn âm và lô tự sinh)" class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 3px 10px rgba(37,99,235,.3)"><span style="font-size:13px">🔎</span> Kiểm tra TẤT CẢ kỳ</button>
-          <button id="btn-check-lech" onclick="kiemTraLechTonDau()"
-            title="Đối chiếu tồn đầu kỳ này với tồn cuối kỳ trước (đúng thuốc/lô/hạn/đơn vị) và sửa lệch"
-            class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 3px 10px rgba(21,128,61,.3)"
+          <button id="btn-check-lech-all" onclick="kiemTraLechTonDauToanBo()" title="Đối chiếu tồn đầu/tồn cuối TẤT CẢ các kỳ và báo lệch (kể cả tồn âm, lô tự sinh, hàng đang đi đường)" class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 3px 10px rgba(21,128,61,.3)"><span style="font-size:13px">🔎</span> Kiểm tra lệch tồn</button>
+          <button id="btn-dongbo" onclick="dongBoBaoCao()"
+            title="Lấy tồn cuối kỳ trước ghi thành tồn đầu kỳ sau, đồng bộ lên cloud (chỉ sửa tồn đầu, giữ nguyên nhập/xuất)"
+            class="adm-btn adm-btn-main" style="background:linear-gradient(135deg,#0891b2,#0e7490);box-shadow:0 3px 10px rgba(8,145,178,.3)"
             onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.05)'"
             onmouseout="this.style.transform='';this.style.filter=''">
-            <span style="font-size:13px">🔍</span> Kiểm tra tồn đầu
+            <span style="font-size:13px">☁️</span> Đồng bộ báo cáo
           </button>
           <button id="btn-sync-tcl" onclick="adminSyncXuatTCL()"
             title="Tính lại Xuất Tổ CL của Kho chính (= tổng Nhập tỉnh của 22 đơn vị) và ghi lên Cloud cho kỳ đang chọn"
@@ -10476,6 +10476,24 @@ async function _applyOpenPatches(periodKey, patches){
 // Khớp theo đúng (đơn vị + thuốc + lô + hạn). Báo cáo các dòng lệch và cho phép
 // đồng bộ lại (chỉ Admin). Dùng khi nghi ngờ số liệu rollover bị sai.
 // ════════════════════════════════════════════════════════════════════
+async function dongBoBaoCao(){
+  if(!_supaOnline){ toast('⚠ Cần kết nối cloud để đồng bộ.','var(--danger)'); return; }
+  if(!confirm('ĐỒNG BỘ BÁO CÁO\n\nHệ thống sẽ lấy TỒN CUỐI của mỗi kỳ ghi thành TỒN ĐẦU của kỳ kế tiếp (đồng bộ lên cloud), để tồn đầu – tồn cuối giữa các kỳ luôn khớp.\n\n• Chỉ cập nhật TỒN ĐẦU; KHÔNG đụng tới số nhập/xuất.\n• Áp dụng cho tất cả các kỳ đã có dữ liệu.\n\nTiếp tục?')) return;
+  var btn=document.getElementById('btn-dongbo'); var old=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.style.opacity='.7'; btn.innerHTML='<span>⏳</span> Đang đồng bộ...'; }
+  try{
+    var u=SUPA_URL+'/rest/v1/reports?select=period&order=period.asc&limit=1';
+    var rs=await fetch(u,{headers:_supaHdr}); var js=await rs.json();
+    var start=(Array.isArray(js)&&js[0]&&js[0].period)?js[0].period:null;
+    if(!start){ toast('Không tìm thấy kỳ dữ liệu nào.','var(--danger)'); return; }
+    var total=await _cascadeOpeningStock(start);
+    if(typeof _currentPeriodKey==='function'){ var cur=_currentPeriodKey(); if(cur){ await loadFromSupabase(cur,true); } }
+    if(typeof fullRender==='function'){ fullRender(); }
+    _showAuditResult('<div style="padding:4px"><div style="font-size:15px;font-weight:800;color:#15803d;margin-bottom:8px">✓ Đã đồng bộ xong</div><div style="font-size:13px;color:#334155;line-height:1.6">Đã cập nhật <b>'+fmtNum(total)+'</b> dòng tồn đầu (từ kỳ '+start+' trở đi).<br>Tồn đầu mỗi kỳ giờ = tồn cuối kỳ liền trước. Số nhập/xuất được giữ nguyên.<br><br>Nên bấm <b>Kiểm tra lệch tồn</b> để xác nhận không còn lệch.</div></div>');
+  }catch(e){ toast('Lỗi khi đồng bộ: '+(e&&e.message?e.message:e),'var(--danger)'); }
+  finally{ if(btn){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML=old; } }
+}
+
 async function kiemTraLechTonDauToanBo(){
   if(!_supaOnline){ toast('⚠ Cần kết nối cloud để kiểm tra.','var(--danger)'); return; }
   toast('Đang tải toàn bộ dữ liệu và đối chiếu tất cả các kỳ...','#1a5276');
