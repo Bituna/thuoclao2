@@ -4289,9 +4289,13 @@ function fillLotSelect(selectId, drugName, expInputId){
     if(!seen[key]){ seen[key]=true; uniqueLots.push(r); }
   });
 
-  // Bỏ lô hết hạn khỏi danh sách gợi ý
+  // Bỏ lô đã hết hạn TRƯỚC kỳ báo cáo đang chọn (không so với ngày hôm nay,
+  // để vẫn nhập được báo cáo các tháng cũ cho lô nay đã hết hạn)
+  var _p = getSelectedPeriod();
+  var _ps = _p.type==='year' ? (_p.year+'-01') : _p.val;   // yyyy-mm
   var validLots = uniqueLots.filter(function(r){
-    return catalogStatus(r.exp).label !== 'Hết hạn';
+    if(!r.exp) return true;
+    return String(r.exp).slice(0,7) >= _ps;
   });
 
   sel.innerHTML='<option value="">-- Chọn lô --</option>';
