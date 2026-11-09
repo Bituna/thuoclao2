@@ -13337,10 +13337,11 @@ function _printStampHtml(st){
   if(st.draft){
     h+='<div style="position:fixed;top:38%;left:0;right:0;text-align:center;font-size:80pt;font-weight:800;color:rgba(192,0,0,.13);transform:rotate(-18deg);pointer-events:none;z-index:9">BẢN NHÁP</div>';
   }
-  h+='<div style="text-align:right;font-size:8pt;color:#555;margin-top:6px;font-style:normal">'
-    +(st.draft?'<b style="color:#c00000">BẢN NHÁP — chưa chốt đủ đơn vị, không dùng để nộp</b> · ':'')
-    +(st.v?('Phiên bản '+st.v+' · '):'')
-    +'In lúc '+when+' · Mã đối chiếu: <b>'+st.hash+'</b></div>';
+  h+='<div style="text-align:left;font-size:8pt;color:#555;margin-top:6px;font-style:normal">'
+    +(st.draft?'<b style="color:#c00000">BẢN NHÁP</b> · ':'')
+    +'Mã: <b>'+st.hash+'</b>'
+    +(st.v?(' · v'+st.v):'')
+    +' · '+when+'</div>';
   return h;
 }
 
