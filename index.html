@@ -1300,6 +1300,11 @@ div[id^="_"][id$="_modal"] > div, div[id="_cm_ov"] > div, div[id="_print_picker"
       <button id="btn-open-bc-banner" class="btn btn-xs admin-only" style="margin-left:auto;background:#e67e22;color:white;white-space:nowrap" onclick="openReport()">🔓 Mở lại để sửa</button>
     </div>
 
+    <div id="stale-print-banner" style="display:none;align-items:center;gap:10px;background:#fdecec;border:1.5px solid #c0392b;border-radius:8px;padding:10px 16px;margin:0 24px 14px;font-size:12px;font-weight:600;color:#a93226">
+      <span id="stale-print-msg" style="flex:1"></span>
+      <button class="btn btn-xs" style="background:#c0392b;color:white;white-space:nowrap" onclick="kiemTraBanInCu()">🖨 Xem các bản cần in lại</button>
+    </div>
+
     <!-- THANH CHỌN ĐƠN VỊ DÀNH CHO ADMIN (cố định khi cuộn) -->
     <div class="filter-bar admin-only-filter" style="margin-bottom:14px; display:none; background:#eef7ff; border-color:#b3d4f0; position:sticky; top:0; z-index:50; box-shadow:0 2px 8px rgba(26,82,118,.12)">
       <!-- Dòng 1: dropdown + nút -->
@@ -3467,6 +3472,8 @@ function showLockManager(){
     btnO.disabled=true; btnO.textContent='Đang lưu...';
     var ok = await _saveLockedPeriodsToCloud();
     _syncPeriodToCloud();
+    // Khóa xong → đổ tồn cuối kỳ này sang tồn đầu kỳ sau (cascade chỉ chạy với kỳ đã khóa)
+    if(ok && lockedCount>0){ try{ if(typeof _scheduleCascade==='function') _scheduleCascade(periodKey); }catch(eC){} }
     renderBVPH(); renderBC(); renderTQ();
     updateSaveBtnUI(); updateLockedUI();
     ov.remove();
@@ -10426,6 +10433,8 @@ async function _cascadeOpeningStock(startPeriodKey){
   var curViewKey = (typeof _currentPeriodKey==='function') ? _currentPeriodKey() : '';
 
   try{
+    // QUY TẮC 1: chỉ đổ tồn cuối → tồn đầu kỳ sau khi kỳ hiện tại của đơn vị ĐÃ KHÓA
+    var _lpCas = await _effectiveLocked();
     var curKey = startPeriodKey;
     for(var step=0; step<SAFETY; step++){
       var nextKey = _nextPeriodKey(curKey);
@@ -10444,7 +10453,7 @@ async function _cascadeOpeningStock(startPeriodKey){
 
       // Tồn cuối kỳ hiện tại theo từng dòng
       var closingMap = {};
-      curRows.forEach(function(r){ var k=_uk(r); if(!k) return; closingMap[_key(r)] = Math.max(0, calcRow(r).final); });
+      curRows.forEach(function(r){ var k=_uk(r); if(!k) return; if(!_isLockedIn(_lpCas, curKey, k)) return; closingMap[_key(r)] = Math.max(0, calcRow(r).final); });
 
       // Index dòng kỳ tiếp đang có
       var nextIdx = {};
@@ -10628,8 +10637,10 @@ async function kiemTraLechTonDauToanBo(){
   var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
   var mmyy=(typeof expToMMYYYY==='function')?expToMMYYYY:function(x){return esc(x);};
   var uname=function(u){ return (typeof _displayUnit==='function')?_displayUnit(u==='bvph'?BVPH:u):esc(u); };
-  if(totalIssues===0){ _showAuditResult('<div style="text-align:center;padding:20px;color:#16a34a;font-weight:600">✓ Toàn bộ '+periods.length+' kỳ khớp — không phát hiện lệch.</div>', null); return; }
-  var html='<div style="font-size:13px;color:#475569;margin-bottom:10px">Đối chiếu <b>tất cả '+periods.length+' kỳ</b> — phát hiện <b style="color:#dc2626">'+totalIssues+'</b> vấn đề.</div>';
+  var _stale = await _findStalePrints({mappedRows: all.map(_mapRow)});
+  var _staleHtml = _stalePrintsTableHtml(_stale||[]);
+  if(totalIssues===0){ _showAuditResult((_staleHtml?_staleHtml+'<hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">':'')+'<div style="text-align:center;padding:20px;color:#16a34a;font-weight:600">✓ Toàn bộ '+periods.length+' kỳ khớp tồn đầu/tồn cuối — không phát hiện lệch.</div>', null); return; }
+  var html=_staleHtml+'<div style="font-size:13px;color:#475569;margin-bottom:10px">Đối chiếu <b>tất cả '+periods.length+' kỳ</b> — phát hiện <b style="color:#dc2626">'+totalIssues+'</b> vấn đề.</div>';
   function tbl(title,rows,cols,cellFn){
     if(!rows.length) return '';
     var h='<div style="font-weight:700;color:#b45309;margin:12px 0 6px">'+title+' ('+rows.length+')</div>';
@@ -13092,7 +13103,35 @@ function _showPrintUnitPicker(periodKey){
     if(unit==='__tinh__'){
       var aggRows = _buildToanTinhRows(printBvphData, printBcData, printPeriod);
       if(!aggRows.length){ toast('Chưa có dữ liệu kỳ '+printPeriod+'.','var(--warning)'); return; }
+      // QUY TẮC 1: chỉ in bản chính thức khi MỌI đơn vị có số liệu kỳ này đã chốt
+      var _lpT = await _effectiveLocked();
+      var _uSeen = {}, _notLocked = [];
+      printBvphData.concat(printBcData).forEach(function(r){
+        if(r.bcMonth!==printPeriod) return;
+        var t=_lockTok(r.unit); if(!t || _uSeen[t]) return; _uSeen[t]=true;
+        if(!_isLockedIn(_lpT, printPeriod, r.unit)) _notLocked.push(t);
+      });
+      if(_notLocked.length){
+        var _nl = _notLocked.map(function(t){ return '• '+_displayUnit(t==='bvph'?BVPH:t); }).join('<br>');
+        _confirmModal('Chưa thể in bản chính thức',
+          'Tổng hợp '+_keyToLabel(printPeriod)+' chỉ in bản chính thức khi <b>tất cả đơn vị đã chốt</b>. Còn <b style="color:#c0392b">'+_notLocked.length+'</b> đơn vị chưa chốt:<br>'+_nl
+          +'<br><br>Có thể in <b>bản nháp</b> để xem (có chữ BẢN NHÁP, không dùng để nộp).',
+          function(){ _doPrint('Thành phố Hải Phòng', aggRows, printPeriod, hideTCL, {draft:true}); },
+          null, '🖨 In bản nháp');
+        return;
+      }
       _doPrint('Thành phố Hải Phòng', aggRows, printPeriod, hideTCL);
+      return;
+    }
+
+    // QUY TẮC 1: chốt theo thứ tự tháng — kỳ trước của đơn vị này phải chốt trước
+    var _uTok = (unit==='bvph'||unit===BVPH) ? 'bvph' : unit;
+    var _blk = await _prevPeriodBlocker(printPeriod, _uTok);
+    if(_blk){
+      _confirmModal('Chưa chốt '+_keyToLabel(_blk),
+        '<b>'+_displayUnit(_uTok==='bvph'?BVPH:_uTok)+'</b> chưa chốt (in) báo cáo <b>'+_keyToLabel(_blk)+'</b>.<br><br>'
+        +'Phải chốt theo thứ tự tháng: in/chốt '+_keyToLabel(_blk)+' trước, rồi mới in '+_keyToLabel(printPeriod)+'.',
+        function(){}, null, 'Đã hiểu');
       return;
     }
 
@@ -13147,6 +13186,8 @@ function _showPrintUnitPicker(periodKey){
             toast('⚠ Chưa lưu được trạng thái khóa lên cloud. Vui lòng kiểm tra mạng và khóa lại.','var(--danger)');
           }
           if (role !== 'admin') _sendLockNotification(printPeriod, currentUser.unit || BVPH);
+          // Kỳ vừa chốt → đổ tồn cuối sang tồn đầu kỳ sau
+          try{ if(typeof _scheduleCascade==='function') _scheduleCascade(printPeriod); }catch(eC){}
         }
         // Luôn cập nhật UI sau khi khóa, dù in kỳ hiện tại hay kỳ cũ
         if (isCurrentPeriod) {
@@ -13179,6 +13220,256 @@ function _showPrintUnitPicker(periodKey){
 //  - Sử dụng (sd) = SD của BVPH + 22 đơn vị
 //  - Xuất tỉnh khác (dc3), Hỏng/HH (hh) = của BVPH
 //  - Nhập ĐC nội bộ + Xuất ĐC nội bộ = KHÔNG tính (luân chuyển trong TP, tự triệt tiêu)
+// ============================================================
+// BẢN IN ↔ PHẦN MỀM
+//  (1) Chốt theo thứ tự tháng: kỳ sau chỉ in/chốt khi kỳ trước đã chốt;
+//      tồn cuối chỉ đổ sang tồn đầu kỳ sau khi kỳ trước đã khóa.
+//  (2) Mỗi lần in lưu "dấu in" (phiên bản + mã đối chiếu) vào settings.printLog.
+//      Số liệu thay đổi sau khi in (sửa tay, cascade, phiếu điều chuyển, đồng bộ...)
+//      → mã hiện tại ≠ mã đã in → cảnh báo "Bản in đã cũ – cần in lại".
+//  (3) Mã đối chiếu in ở chân trang để so bản giấy với phần mềm.
+// ============================================================
+var _curPrintStamp = null;
+
+function _lockTok(u){ return (u===BVPH||u==='bvph') ? 'bvph' : (u||''); }
+function _isLockedIn(lp, periodKey, unit){
+  lp = lp || {};
+  return !!lp[periodKey] || !!lp[periodKey+'_'+_lockTok(unit)];
+}
+async function _fetchCloudLocked(){
+  if(!_supaOnline) return null;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.lockedPeriods&select=value',{headers:_supaHdr,cache:'no-store'});
+    if(!r.ok) return null;
+    var v = await r.json();
+    return (v.length && v[0].value) ? v[0].value : {};
+  }catch(e){ return null; }
+}
+// Khóa hiệu lực = khóa trên cloud ∪ khóa trong RAM (RAM có thể vừa khóa, chưa kịp lên cloud)
+async function _effectiveLocked(){
+  var c = await _fetchCloudLocked();
+  return Object.assign({}, c||{}, lockedPeriods||{});
+}
+
+function _printScopeOf(unitName, rows){
+  if(rows && rows.length && rows[0].unit==='__tinh__') return 'tinh';
+  if(unitName==='Thành phố Hải Phòng' || unitName==='__tinh__') return 'tinh';
+  return _lockTok(unitName);
+}
+function _printScopeLabel(scope){
+  if(scope==='tinh') return 'Tổng hợp toàn thành phố';
+  return _displayUnit(scope==='bvph' ? BVPH : scope);
+}
+
+// Mã đối chiếu: băm các con số in ra (theo thuốc|lô|HD), bỏ dòng toàn 0.
+function _printHash(rows){
+  var F=['open','tinh','ntk','dc','sd','dc2','dc3','hh'];
+  var lines=[];
+  (rows||[]).forEach(function(r){
+    var nums=F.map(function(f){ return Number(r[f]||0); });
+    if(nums.every(function(n){ return n===0; })) return;
+    lines.push([String(r.drug||'').trim(), String(r.lot||'').trim(), String(r.exp||'').trim()].join('|')+'|'+nums.join(','));
+  });
+  lines.sort();
+  var s=lines.join('\n'), h=0x811c9dc5;
+  for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193); }
+  var hex=('00000000'+(h>>>0).toString(16).toUpperCase()).slice(-8);
+  return hex.slice(0,4)+'-'+hex.slice(4);
+}
+
+async function _loadPrintLog(){
+  if(!_supaOnline) return null;
+  try{
+    var r = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.printLog&select=value',{headers:_supaHdr,cache:'no-store'});
+    if(!r.ok) return null;
+    var v = await r.json();
+    return (v.length && v[0].value) ? v[0].value : {};
+  }catch(e){ return null; }
+}
+async function _savePrintLogEntry(key, entry){
+  var cur = await _loadPrintLog();
+  if(cur===null) return false;
+  cur[key] = entry;
+  try{
+    var pr = await fetch(SUPA_URL+'/rest/v1/settings?key=eq.printLog',{
+      method:'PATCH',
+      headers:Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=representation'}),
+      body:JSON.stringify({value:cur})
+    });
+    if(!pr.ok) return false;
+    var up = await pr.json();
+    if(!up.length){
+      var ins = await fetch(SUPA_URL+'/rest/v1/settings',{
+        method:'POST',
+        headers:Object.assign({},_supaHdr,{'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify([{key:'printLog', value:cur}])
+      });
+      if(!ins.ok) return false;
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+// Gọi ngay trước khi dựng trang in. In lại cùng nội dung → giữ số phiên bản.
+async function _preparePrintStamp(unitName, rows, periodKey, opts){
+  opts = opts || {};
+  var st = {scope:_printScopeOf(unitName, rows), hash:_printHash(rows), at:new Date(), v:null, draft:!!opts.draft};
+  _curPrintStamp = st;
+  if(st.draft || !_supaOnline) return st;
+  var log = await _loadPrintLog();
+  if(log===null) return st;
+  var key = periodKey+'|'+st.scope, old = log[key];
+  st.v = (old && old.hash===st.hash) ? (old.v||1) : ((old && old.v)||0)+1;
+  var by = currentUser ? (currentUser.name || currentUser.user || currentUser.role || '') : '';
+  var ok = await _savePrintLogEntry(key, {v:st.v, hash:st.hash, at:st.at.toISOString(), by:by});
+  if(!ok){ st.v = null; toast('⚠ Chưa lưu được dấu in lên cloud — bản in vẫn có mã đối chiếu.','var(--warning)'); }
+  else if(old && old.hash!==st.hash) toast('🖨 Đã ghi bản in phiên bản '+st.v+' — thay cho bản in cũ (v'+old.v+').','#1a5276');
+  setTimeout(function(){ try{ _scheduleStalePrintCheck(); }catch(e){} }, 500);
+  return st;
+}
+
+function _printStampHtml(st){
+  if(!st) return '';
+  var d=st.at instanceof Date ? st.at : new Date(st.at);
+  var p2=function(n){ return ('0'+n).slice(-2); };
+  var when=p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes());
+  var h='';
+  if(st.draft){
+    h+='<div style="position:fixed;top:38%;left:0;right:0;text-align:center;font-size:80pt;font-weight:800;color:rgba(192,0,0,.13);transform:rotate(-18deg);pointer-events:none;z-index:9">BẢN NHÁP</div>';
+  }
+  h+='<div style="text-align:right;font-size:8pt;color:#555;margin-top:6px;font-style:normal">'
+    +(st.draft?'<b style="color:#c00000">BẢN NHÁP — chưa chốt đủ đơn vị, không dùng để nộp</b> · ':'')
+    +(st.v?('Phiên bản '+st.v+' · '):'')
+    +'In lúc '+when+' · Mã đối chiếu: <b>'+st.hash+'</b></div>';
+  return h;
+}
+
+// Dòng của 1 phạm vi in, dựng từ dữ liệu cloud (đã _mapRow) của 1 kỳ
+function _rowsForPrintScope(scope, periodKey, mappedRows){
+  var rows=(mappedRows||[]).filter(function(r){ return r.bcMonth===periodKey; });
+  var bv=rows.filter(function(r){ return r.unit===BVPH; });
+  var bc=rows.filter(function(r){ return r.unit!==BVPH; });
+  if(scope==='tinh') return _buildToanTinhRows(bv, bc, periodKey);
+  if(scope==='bvph') return bv;
+  return bc.filter(function(r){ return r.unit===scope; });
+}
+
+// Tải đủ dòng 1 kỳ (phân trang, theo quyền) → đã _mapRow
+async function _fetchPeriodRowsPaged(periodKey){
+  var role = currentUser ? currentUser.role : 'admin';
+  var base = SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(periodKey)+'&order=id.asc';
+  if(role==='donvi') base += '&unit=eq.'+encodeURIComponent(currentUser.unit||'');
+  else if(role==='bvph') base += '&unit=eq.bvph';
+  var all=[], off=0, PG=1000;
+  while(true){
+    var r = await fetch(base+'&limit='+PG+'&offset='+off,{headers:_supaHdr,cache:'no-store'});
+    if(!r.ok) return null;
+    var js = await r.json();
+    if(!Array.isArray(js)) return null;
+    all = all.concat(js);
+    if(js.length<PG) break;
+    off += PG; if(off>50000) break;
+  }
+  return all.map(_mapRow);
+}
+
+// Tìm bản in đã cũ. opts.period: chỉ 1 kỳ; opts.mappedRows: dữ liệu sẵn có (đã _mapRow)
+async function _findStalePrints(opts){
+  opts = opts || {};
+  var log = await _loadPrintLog();
+  if(log===null) return null;
+  var role = currentUser ? currentUser.role : 'admin';
+  var myScope = (role==='bvph') ? 'bvph' : (role==='donvi' ? (currentUser.unit||'') : null);
+  var keys = Object.keys(log).filter(function(k){
+    var i=k.indexOf('|'); if(i<0) return false;
+    if(opts.period && k.slice(0,i)!==opts.period) return false;
+    if(myScope!==null && k.slice(i+1)!==myScope) return false;
+    return true;
+  });
+  if(!keys.length) return [];
+  var byP = {};
+  if(opts.mappedRows){
+    opts.mappedRows.forEach(function(r){ (byP[r.bcMonth]=byP[r.bcMonth]||[]).push(r); });
+  } else {
+    var periods = {};
+    keys.forEach(function(k){ periods[k.slice(0,k.indexOf('|'))]=true; });
+    var pl = Object.keys(periods);
+    for(var i=0;i<pl.length;i++){
+      var rows = await _fetchPeriodRowsPaged(pl[i]);
+      if(rows===null) return null;
+      byP[pl[i]] = rows;
+    }
+  }
+  var out=[];
+  keys.forEach(function(k){
+    var i=k.indexOf('|'), per=k.slice(0,i), sc=k.slice(i+1), e=log[k]||{};
+    var cur=_printHash(_rowsForPrintScope(sc, per, byP[per]||[]));
+    if(cur!==e.hash) out.push({period:per, scope:sc, v:e.v, at:e.at, oldHash:e.hash, newHash:cur});
+  });
+  out.sort(function(a,b){ return a.period<b.period?-1:(a.period>b.period?1:(a.scope<b.scope?-1:1)); });
+  return out;
+}
+
+function _stalePrintsTableHtml(list){
+  if(!list || !list.length) return '';
+  var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  var h='<div style="font-weight:800;color:#c0392b;margin:6px 0 6px">🖨 Bản in đã cũ — số liệu đổi sau khi in, cần IN LẠI ('+list.length+')</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h+='<tr style="background:#fdecec">'+['Kỳ','Báo cáo','Bản đã in','Mã trên giấy','Mã hiện tại'].map(function(c){ return '<th style="padding:5px 8px;text-align:left;border-bottom:1px solid #f5c6cb">'+c+'</th>'; }).join('')+'</tr>';
+  list.forEach(function(s){
+    var d=s.at?new Date(s.at):null;
+    var when=d?(('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()):'';
+    h+='<tr>'+[esc(_keyToLabel(s.period)), esc(_printScopeLabel(s.scope)), 'v'+esc(s.v)+(when?(' · '+when):''), '<code>'+esc(s.oldHash)+'</code>', '<code style="color:#c0392b">'+esc(s.newHash)+'</code>']
+      .map(function(c){ return '<td style="padding:5px 8px;border-bottom:1px solid #f8e1e1">'+c+'</td>'; }).join('')+'</tr>';
+  });
+  h+='</table></div>';
+  return h;
+}
+
+// ── Banner đỏ cho kỳ đang xem ──
+var _staleChkTimer=null, _staleChkSeq=0;
+function _scheduleStalePrintCheck(){
+  clearTimeout(_staleChkTimer);
+  _staleChkTimer=setTimeout(function(){ _runStalePrintCheck().catch(function(){}); }, 1500);
+}
+async function _runStalePrintCheck(){
+  var el=document.getElementById('stale-print-banner');
+  if(!el) return;
+  var per=(typeof _currentPeriodKey==='function') ? _currentPeriodKey() : '';
+  if(!currentUser || !_supaOnline || !per){ el.style.display='none'; return; }
+  var seq=++_staleChkSeq;
+  var list=await _findStalePrints({period:per});
+  if(seq!==_staleChkSeq) return;
+  if(!list || !list.length){ el.style.display='none'; return; }
+  var names=list.map(function(s){ return '<b>'+_printScopeLabel(s.scope)+'</b> (bản in v'+s.v+', mã '+s.oldHash+')'; }).join(', ');
+  var msg=document.getElementById('stale-print-msg');
+  if(msg) msg.innerHTML='⚠ Bản in '+_keyToLabel(per)+' ĐÃ CŨ — số liệu trên phần mềm đã thay đổi sau khi in: '+names+'. Cần in lại để bản giấy khớp phần mềm.';
+  el.style.display='flex';
+}
+
+async function kiemTraBanInCu(){
+  if(!_supaOnline){ toast('⚠ Cần kết nối cloud để kiểm tra.','var(--danger)'); return; }
+  toast('Đang đối chiếu các bản đã in với số liệu hiện tại...','#1a5276');
+  var list=await _findStalePrints({});
+  if(list===null){ toast('❌ Không tải được dữ liệu.','var(--danger)'); return; }
+  if(!list.length){ _showAuditResult('<div style="text-align:center;padding:20px;color:#16a34a;font-weight:600">✓ Mọi bản đã in đều khớp số liệu hiện tại trên phần mềm.</div>', null); return; }
+  _showAuditResult(_stalePrintsTableHtml(list), null);
+}
+
+// ── Quy tắc 1: kỳ trước của phạm vi này đã chốt chưa (chỉ bắt buộc nếu kỳ trước có dữ liệu) ──
+async function _prevPeriodBlocker(periodKey, unitTok){
+  var prev=_prevPeriodKey(periodKey);
+  if(!prev || !_supaOnline) return null;
+  var lp=await _effectiveLocked();
+  if(_isLockedIn(lp, prev, unitTok)) return null;
+  try{
+    var r=await fetch(SUPA_URL+'/rest/v1/reports?period=eq.'+encodeURIComponent(prev)+'&unit=eq.'+encodeURIComponent(unitTok)+'&select=id&limit=1',{headers:_supaHdr,cache:'no-store'});
+    if(!r.ok) return null;
+    var js=await r.json();
+    return (Array.isArray(js) && js.length) ? prev : null;
+  }catch(e){ return null; }
+}
+
 function _buildToanTinhRows(bvphArr, bcArr, periodKey){
   var KEY=function(r){ return r.drug+'|'+r.lot+'|'+(r.exp||''); };
   var map={};
@@ -13209,7 +13500,7 @@ function _buildToanTinhRows(bvphArr, bcArr, periodKey){
   });
 }
 
-function _doPrint(unitName, rows, periodKey, hideTCL){
+function _doPrint(unitName, rows, periodKey, hideTCL, opts){
   // Cho phép in báo cáo TRỐNG nếu đơn vị đã đánh dấu "Không có báo cáo" kỳ này
   var _nuKey = periodKey + '_' + (unitName===BVPH?'bvph':unitName);
   var _isNoUsage = !!noUsagePeriods[_nuKey] || !!noUsagePeriods[periodKey+'_'+unitName];
@@ -13220,12 +13511,16 @@ function _doPrint(unitName, rows, periodKey, hideTCL){
   var today=new Date();
   var deadline=new Date(year, month, 5);
   var isLate = today > deadline;
+  // Ghi dấu in (phiên bản + mã đối chiếu) rồi mới dựng trang in
+  var _go=function(printDate){
+    _preparePrintStamp(unitName, rows, periodKey, opts)
+      .catch(function(e){ console.warn('dấu in lỗi', e); })
+      .then(function(){ _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL); });
+  };
   if(isLate){
-    _confirmPrintDate(unitName, rows, periodKey, month, year, today, function(printDate){
-      _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL);
-    });
+    _confirmPrintDate(unitName, rows, periodKey, month, year, today, _go);
   } else {
-    _renderPrint(unitName, rows, periodKey, month, year, today, hideTCL);
+    _go(today);
   }
 }
 
@@ -13366,6 +13661,7 @@ function _renderPrint(unitName, rows, periodKey, month, year, printDate, hideTCL
 
 function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuStr,hideTCL){
   hideTCL = !!hideTCL;
+  var _st = _curPrintStamp; _curPrintStamp = null;
   var isToanTinh = (rows.length>0 && rows[0].unit==='__tinh__');
   var phName = '';
   if (typeof ACCOUNTS !== 'undefined') {
@@ -13605,7 +13901,7 @@ function _doRenderPrint(unitName,rows,periodKey,month,year,ngayKy,isBVPH,ghiChuS
        +'<div class="sc"><b>Bác sĩ phụ trách TCL</b><div class="sign-gap"></div></div>'
        +'<div class="sc"><b>Thủ trưởng đơn vị</b><i>( Ký tên, đóng dấu)</i><div class="sign-gap"></div></div>'
        +'</div>'
-    )+'</div>'
+    )+_printStampHtml(_st)+'</div>'
     +'</div></body></html>';
 
   // IN BẰNG IFRAME ẨN — không cần popup nên không bị trình duyệt chặn.
@@ -14465,6 +14761,7 @@ function fullRender(){
   }
   // renderBC() đã gọi sẵn renderTQ() + renderDrugTable() + renderTP() ở cuối → KHÔNG gọi lại (trước đây vẽ 2 lần mỗi bảng → nháy)
   renderBVPH(); renderBC(); updateLockedUI();
+  try{ _scheduleStalePrintCheck(); }catch(eS){}
   if(document.getElementById('page-thuoc') && document.getElementById('page-thuoc').classList.contains('active')){
     renderCatalog();
   }
